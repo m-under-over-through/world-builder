@@ -1,0 +1,26 @@
+{
+  "version": "0.1",
+  "cards": [
+    { "id": "tuesday-night", "set": "warmup", "text": "What is a typical Tuesday night?" },
+    { "id": "on-tv", "set": "warmup", "text": "What is on TV?" },
+    { "id": "embarrassing", "set": "warmup", "text": "What is embarrassing?" },
+    { "id": "cool", "set": "warmup", "text": "What is cool?" },
+    {
+      "id": "school-classes",
+      "set": "warmup",
+      "text": "What are the most important classes at school?"
+    },
+    { "id": "immigrants", "set": "checkpoint", "text": "Are there immigrants? What do they do?" },
+    { "id": "rich-poor", "set": "checkpoint", "text": "Who gets richer, or poorer? How?" },
+    { "id": "inhumane", "set": "checkpoint", "text": "What is considered inhumane?" },
+    {
+      "id": "something-breaks",
+      "set": "checkpoint",
+      "text": "What happens when something breaks?"
+    },
+    { "id": "abundant-scarce", "set": "checkpoint", "text": "What is abundant? What is scarce?" },
+    { "id": "institution", "set": "checkpoint", "text": "What is the most important institution?" },
+    { "id": "crime", "set": "checkpoint", "text": "What is a crime?" },
+    { "id": "bots", "set": "checkpoint", "text": "What are bots doing?" }
+  ]
+}

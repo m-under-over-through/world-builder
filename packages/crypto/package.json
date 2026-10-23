@@ -1,0 +1,15 @@
+{
+  "name": "@wb/crypto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sealing answers to a workshop's research key, and opening them with the private key. Used by the client and the export tool, never by the API.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0",
+    "@wb/contracts": "*",
+    "tweetnacl": "^1.0.3"
+  }
+}

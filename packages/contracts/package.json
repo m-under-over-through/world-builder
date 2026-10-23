@@ -1,0 +1,13 @@
+{
+  "name": "@wb/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The shared vocabulary: schemas for events, sessions, decks, workshops, the API, and the error codes. Owned by the integrator.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  }
+}

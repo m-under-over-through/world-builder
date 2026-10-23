@@ -1,0 +1,28 @@
+{
+  "name": "world-builder",
+  "private": true,
+  "type": "module",
+  "description": "Card-based reflection app for participatory future-building workshops. See README.md for the map.",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test && npm run format:check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "workshop:keygen": "node tools/workshop/keygen.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.0.0"
+  }
+}
