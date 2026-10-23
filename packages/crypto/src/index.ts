@@ -1,6 +1,7 @@
 import nacl from 'tweetnacl';
 import { blake2b } from '@noble/hashes/blake2b';
 import { sha256 } from '@noble/hashes/sha2';
+import { MAX_ANSWER_CHARS } from '@wb/contracts';
 
 /**
  * @wb/crypto: answers are sealed on the device to the workshop's public key and opened only on a
@@ -34,7 +35,11 @@ export interface KeyPair {
 }
 
 export type CryptoErrorCode =
-  'CRYPTO_BAD_PUBLIC_KEY' | 'CRYPTO_BAD_PRIVATE_KEY' | 'CRYPTO_BAD_ENVELOPE' | 'CRYPTO_OPEN_FAILED';
+  | 'CRYPTO_BAD_PUBLIC_KEY'
+  | 'CRYPTO_BAD_PRIVATE_KEY'
+  | 'CRYPTO_BAD_TEXT'
+  | 'CRYPTO_BAD_ENVELOPE'
+  | 'CRYPTO_OPEN_FAILED';
 
 export class CryptoError extends Error {
   // Declared as a plain field, not a constructor "parameter property": Node runs this file with
@@ -65,7 +70,16 @@ function fromBase64(text: string): Uint8Array | null {
   }
 }
 
-const utf8 = { encode: new TextEncoder(), decode: new TextDecoder('utf-8', { fatal: true }) };
+// fatal: bytes that are not UTF-8 throw instead of becoming U+FFFD.
+// ignoreBOM: a text that starts with U+FEFF keeps it; the default would silently drop it.
+const utf8 = {
+  encode: new TextEncoder(),
+  decode: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }),
+};
+
+// A UTF-16 surrogate without its partner. TextEncoder would turn it into U+FFFD and the answer
+// would change on the way through; better to refuse it (the UI must truncate by code points).
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
   const out = new Uint8Array(a.length + b.length);
@@ -109,6 +123,15 @@ export function fingerprint(publicKey: string): string {
 /** Seal an answer to the workshop's public key. Anyone can seal; only the private key can open. */
 export function sealAnswer(publicKey: string, text: string): string {
   const pk = decodeKey(publicKey, 'CRYPTO_BAD_PUBLIC_KEY');
+  if (text.length > MAX_ANSWER_CHARS) {
+    throw new CryptoError(
+      'CRYPTO_BAD_TEXT',
+      `answer is longer than ${MAX_ANSWER_CHARS} characters`,
+    );
+  }
+  if (LONE_SURROGATE.test(text)) {
+    throw new CryptoError('CRYPTO_BAD_TEXT', 'answer contains a broken character (lone surrogate)');
+  }
   const ephemeral = nacl.box.keyPair();
   const nonce = sealNonce(ephemeral.publicKey, pk);
   const boxed = nacl.box(utf8.encode.encode(text), nonce, pk, ephemeral.secretKey);
@@ -131,6 +154,12 @@ export function openAnswer(privateKey: string, envelope: string): string {
   const pk = nacl.box.keyPair.fromSecretKey(sk).publicKey;
   const ephemeralPublicKey = sealed.slice(0, KEY_BYTES);
   const boxed = sealed.slice(KEY_BYTES);
+  // A handful of X25519 public keys (all zeros among them) make the shared secret all zeros for
+  // every private key, so a box made with one would open under any key. libsodium refuses them;
+  // tweetnacl does not, so the check lives here. See docs/learn/05-what-a-review-finds.md.
+  if (nacl.scalarMult(sk, ephemeralPublicKey).every((b) => b === 0)) {
+    throw new CryptoError('CRYPTO_OPEN_FAILED', 'degenerate ephemeral key');
+  }
   const opened = nacl.box.open(boxed, sealNonce(ephemeralPublicKey, pk), ephemeralPublicKey, sk);
   if (!opened) throw new CryptoError('CRYPTO_OPEN_FAILED', 'wrong key or altered envelope');
   try {

@@ -14,17 +14,28 @@ export const MAX_ANSWER_CHARS = 4000;
 
 /**
  * The sealed answer, as stored and transmitted: "v1." followed by standard base64.
- * 4000 characters of text is at most 16,000 bytes of UTF-8; sealed it grows by 48 bytes;
- * base64 grows it by a third. 24,000 characters leaves room.
+ *
+ * Size: 4000 UTF-16 units of text is at most 12,000 bytes of UTF-8; sealed it grows by 48 bytes
+ * (32 of ephemeral key, 16 of tag); base64 grows it by a third. 24,000 characters leaves room.
+ * The smallest possible sealed box is 48 bytes, which is 64 base64 characters, so 67 with the prefix.
+ * The regex enforces whole base64 groups, so the server never stores an envelope the export tool
+ * cannot decode.
  */
 export const MAX_BODY_CHARS = 24000;
+export const MIN_BODY_CHARS = 67;
 export const sealedEnvelopeSchema = z
   .string()
+  .min(MIN_BODY_CHARS)
   .max(MAX_BODY_CHARS)
-  .regex(/^v1\.[A-Za-z0-9+/]+={0,2}$/, 'expected "v1." followed by base64');
+  .regex(
+    /^v1\.(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+    'expected "v1." followed by base64',
+  );
 
+// strictObject: a field this contract does not name is an error, not something to drop silently.
+// Version skew between client and server then shows up as SYNC_PAYLOAD_INVALID instead of lost data.
 export const eventSchema = z
-  .object({
+  .strictObject({
     id: uuidSchema,
     sessionId: uuidSchema,
     cardId: slugLikeSchema,

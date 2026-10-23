@@ -52,6 +52,8 @@ export const ERROR_CODES = {
   JOIN_WAVE_FULL: { status: 403, meaning: 'The wave has reached its cap.' },
   JOIN_INVITE_INVALID: { status: 404, meaning: 'The invite token is unknown.' },
   JOIN_INVITE_USED: { status: 403, meaning: 'The invite token was already used.' },
+  // Join is unauthenticated and this code reveals that a code exists, so join shares the same
+  // rate limit as the authenticated routes. At 10^16 codes that oracle is useless anyway.
   JOIN_CODE_TAKEN: {
     status: 409,
     meaning:
@@ -105,7 +107,11 @@ export const errorResponseSchema = z.object({
 });
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
-/** 16 random bytes in base64url: 22 characters, no padding. Appears in /<slug>/join/i/<token>. */
+/**
+ * 16 random bytes in base64url: 22 characters, no padding. Appears in /<slug>/join/i/<token>.
+ * The server compares tokens as strings, never after decoding to bytes: the last character carries
+ * only two real bits, so decoding would give every token sixteen spellings.
+ */
 export const inviteTokenSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]{22}$/, 'expected 22 base64url characters');
@@ -119,8 +125,10 @@ export const participantSummarySchema = z.object({
 });
 export type ParticipantSummary = z.infer<typeof participantSummarySchema>;
 
+// Request schemas are strict (see eventSchema). The API must also cap the request body in bytes
+// before parsing JSON; a schema can only bound what has already been parsed.
 export const joinRequestSchema = z
-  .object({
+  .strictObject({
     code: codeSchema,
     wave: slugLikeSchema.optional(),
     invite: inviteTokenSchema.optional(),
@@ -141,7 +149,7 @@ export const joinResponseSchema = z.object({
 export const SYNC_MAX_SESSIONS = 20;
 export const SYNC_MAX_EVENTS = 200;
 
-export const syncRequestSchema = z.object({
+export const syncRequestSchema = z.strictObject({
   sessions: z.array(sessionSchema).max(SYNC_MAX_SESSIONS),
   events: z.array(eventSchema).max(SYNC_MAX_EVENTS),
 });
@@ -172,19 +180,23 @@ export const invitesResponseSchema = z.object({
   invitesLeft: z.number().int().min(0),
 });
 
+/**
+ * Health is public (the monitor needs no secret), so it carries nothing about any one workshop
+ * beyond its status. Per-workshop participant and event counts belong to the operator's status
+ * command: for a class of three, "3 participants" is already a fact about people.
+ */
 export const healthResponseSchema = z.object({
   ok: z.boolean(),
   version: z.string(),
   dbReachable: z.boolean(),
   /** ISO timestamp written by the backup job, or null if it has never run. Stale means the backups stopped. */
   lastBackupAt: z.string().nullable(),
+  /** Across all workshops. Enough to notice that nothing is arriving. */
   eventsToday: z.number().int().min(0),
   workshops: z.array(
     z.object({
       slug: slugLikeSchema,
       status: z.enum(WORKSHOP_STATUSES),
-      participants: z.number().int().min(0),
-      eventsToday: z.number().int().min(0),
     }),
   ),
 });

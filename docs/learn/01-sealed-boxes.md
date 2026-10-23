@@ -50,7 +50,7 @@ A development key already exists (`.secrets/dev-rural-manufacturing.private-key`
 npm test -- packages/crypto
 ```
 
-Read `packages/crypto/test/seal.test.ts`. The tests are the claims above written down: round trip; the envelope is exactly 32 + 16 + message bytes; two seals of the same text differ; the wrong key fails; flipping one bit anywhere (ephemeral key, tag, message) fails; empty text, unicode and the 4,000-character maximum all work; fingerprints are stable.
+Read `packages/crypto/test/seal.test.ts`. The tests are the claims above written down: round trip; the envelope is exactly 32 + 16 + message bytes; the nonce matches a value computed independently in Python; two seals of the same text differ; the wrong key fails; flipping one bit anywhere (ephemeral key, tag, message) fails; a forged degenerate-key envelope fails; a leading byte-order mark survives; broken characters and over-long text are refused; empty text, unicode and the 4,000-unit maximum in the widest characters all work; fingerprints are stable.
 
 To see it with your own eyes, in `node` at the repository root:
 
@@ -68,6 +68,7 @@ c.openAnswer(c.generateKeyPair().privateKey, env)  // throws CRYPTO_OPEN_FAILED
 - **Lost private key.** Every answer for that workshop is unreadable forever. Hence vault plus two paper copies plus the drill.
 - **Wrong public key in `workshop.json`.** Answers seal fine and open with nothing you hold. The fingerprint on the trust page and the contract test on the workshop folder exist to catch a mismatch; the decrypt drill before launch is the real check.
 - **A changed envelope.** The tag check fails and `openAnswer` throws `CRYPTO_OPEN_FAILED`. Nothing half-decrypted ever comes out.
+- **A degenerate ephemeral key.** A few X25519 public keys produce an all-zero shared secret with every private key; a forged envelope using one would open under any key. libsodium refuses them and so does `openAnswer`, with a test that forges exactly that envelope. Learning note 05 has the story.
 - **A malicious client deploy** that ships a different public key. Mitigations: deploy only from CI, public source, version in the footer. This is the honest limit of any web app.
 
 ## What it does not do

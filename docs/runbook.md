@@ -96,6 +96,10 @@ Meaning: a public key that is not 32 bytes of valid base64. Cause: a bad paste i
 
 Meaning: a private key that is not 32 bytes of valid base64. Cause: a bad copy from the vault or paper into the export tool. Fix: copy again; compare the first and last characters with the other copy. Confirm: the decrypt drill passes.
 
+### CRYPTO_BAD_TEXT
+
+Meaning: `sealAnswer` refused the text before sealing: longer than 4,000 UTF-16 units, or containing a lone surrogate (half of an emoji, usually from truncating by string length instead of by code point). Cause: a client bug in the length limit or truncation. Check: the client enforces the limit by code points and disables save beyond it. Fix: client. Confirm: a 4,000-character answer with emoji at the end seals on staging.
+
 ### CRYPTO_BAD_ENVELOPE
 
 Meaning: an envelope without the `v1.` prefix, with invalid base64, or too short. Cause: data corruption or a hand-made request. Check: where the envelope came from. Fix: none; the event is rejected before storage if the contract is enforced.

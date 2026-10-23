@@ -5,6 +5,7 @@ import {
   inviteTokenSchema,
   joinRequestSchema,
   SYNC_MAX_EVENTS,
+  SYNC_MAX_SESSIONS,
   syncRequestSchema,
 } from '../src/index.ts';
 
@@ -53,5 +54,30 @@ describe('invite tokens', () => {
   it('are 22 base64url characters', () => {
     expect(inviteTokenSchema.safeParse('abcDEF123_-abcDEF123_-').success).toBe(true);
     expect(inviteTokenSchema.safeParse('abc+DEF/123=abcDEF123x').success).toBe(false);
+  });
+});
+
+describe('request schemas are strict', () => {
+  const code = '1234567890123456';
+
+  it('a join with an unnamed field is rejected', () => {
+    expect(joinRequestSchema.safeParse({ code, wave: 'wave-1', email: 'a@b.c' }).success).toBe(
+      false,
+    );
+  });
+
+  it('a join with wave set to null is rejected', () => {
+    expect(joinRequestSchema.safeParse({ code, wave: null }).success).toBe(false);
+  });
+
+  it('a sync with too many sessions is rejected', () => {
+    const tooMany = { sessions: new Array(SYNC_MAX_SESSIONS + 1).fill(null), events: [] };
+    expect(syncRequestSchema.safeParse(tooMany).success).toBe(false);
+  });
+
+  it('a sync with an unnamed top-level field is rejected', () => {
+    expect(syncRequestSchema.safeParse({ sessions: [], events: [], deviceId: 'x' }).success).toBe(
+      false,
+    );
   });
 });

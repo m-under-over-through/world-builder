@@ -43,6 +43,12 @@ Read these before touching anything, in this order:
 3. An entry in `docs/build-log.md` (date, what, why, how to verify, decisions made on the way, open questions). When the change introduces an idea the operator has not met in this project yet, add or extend a note in `docs/learn/` and link it from the log entry. The operator reads every entry; write for someone who understands systems at a high level and wants to see the actual procedure.
 4. A runbook entry for every new error code.
 
+## Notes for builders, from the first review
+
+- **API builder.** Cap the request body in bytes before parsing JSON; a schema can only bound what is already parsed. Persist only the parsed value, never the raw body. Join shares the rate limit of the authenticated routes. Compare invite tokens as strings, never decoded. Health publishes nothing per workshop beyond its status.
+- **UI builder.** Truncate answers by code points, not by string length; half an emoji is refused by `sealAnswer` with `CRYPTO_BAD_TEXT`. Call `sealAnswer` before writing to the outbox so nothing unsendable is ever stored.
+- **Everyone.** Create files that must not be overwritten with `flag: 'wx'`. Anchor paths on `import.meta.url`, not the current directory. Reject unknown command-line flags.
+
 ## Commands
 
 ```

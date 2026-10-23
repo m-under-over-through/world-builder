@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { daySchema, deckVersionSchema, uuidSchema } from './primitives.ts';
 
 /** One sitting with the cards. The seed makes the shuffle reproducible if the session is resumed. */
-export const sessionSchema = z.object({
+export const sessionSchema = z.strictObject({
   id: uuidSchema,
   /** 1 for the participant's first session, 2 for the second, and so on. */
   sessionNo: z.number().int().min(1),

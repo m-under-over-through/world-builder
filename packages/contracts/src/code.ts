@@ -49,7 +49,9 @@ const webCryptoRandom: RandomBytes = (count) => {
 export function generateCode(random: RandomBytes = webCryptoRandom): Code {
   let out = '';
   while (out.length < CODE_DIGITS) {
-    for (const byte of random(32)) {
+    const bytes = random(32);
+    if (bytes.length === 0) throw new Error('random source returned no bytes');
+    for (const byte of bytes) {
       if (byte >= 250) continue;
       out += String(byte % 10);
       if (out.length === CODE_DIGITS) break;

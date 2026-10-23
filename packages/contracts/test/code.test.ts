@@ -53,3 +53,14 @@ describe('anonymous code', () => {
     }
   });
 });
+
+describe('anonymous code, broken random sources', () => {
+  it('throws instead of spinning forever when the random source returns nothing', () => {
+    expect(() => generateCode(() => new Uint8Array(0))).toThrow('no bytes');
+  });
+
+  it('copes with a source that returns fewer bytes than asked', () => {
+    const random = () => Uint8Array.from([4, 2]);
+    expect(generateCode(random)).toBe('42'.repeat(8));
+  });
+});
