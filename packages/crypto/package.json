@@ -11,5 +11,8 @@
     "@noble/hashes": "^1.8.0",
     "@wb/contracts": "*",
     "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "libsodium-wrappers": "^0.8.4"
   }
 }

@@ -106,7 +106,7 @@ The sealed-box construction matches libsodium's recipe step by step. The nonce d
 
 ### Still open
 
-- A known-answer test of a whole sealed box against real libsodium (PyNaCl or the Rust crate). Not possible on this machine today. Add to the decrypt drill.
+- None from the review. The libsodium cross-check that was open here was added later the same day; see the next entry.
 
 ### How to verify by hand
 
@@ -115,3 +115,31 @@ npm run check
 ```
 
 Expected: 57 tests passing across 7 files, including the key tool's own tests, which spawn it against a temporary directory.
+
+---
+
+## 2026-10-23, Friday, afternoon. Cross-check against libsodium
+
+### What happened
+
+Marco asked why libsodium-wrappers 0.7.16 had failed to load. The investigation (recorded in the first entry under findings) showed the fix had shipped in 0.8.0 and that 0.8.4 loads cleanly in Node. He approved adding 0.8.4 as a development-only dependency of `@wb/crypto` so our envelopes can be checked against the reference implementation.
+
+### What exists now
+
+`packages/crypto/test/libsodium-interop.test.ts`, six tests:
+
+- libsodium opens what we seal; we open what libsodium seals.
+- A key pair made by libsodium works with our functions in both directions, which proves the key format is the same raw 32 bytes.
+- Our BLAKE2b-24 nonce equals libsodium's `crypto_generichash(24, ...)` over the same input.
+- Both sides refuse the forged envelope with an all-zero ephemeral key.
+- The sealed layout is the same size: 32 + 16 + message.
+
+The app and the export tool never load libsodium; it is in `devDependencies` only. One finding on the way: libsodium's `crypto_generichash` takes the key as an explicit argument, `null` for unkeyed, which the type definitions enforce.
+
+### How to verify by hand
+
+```
+npm run check
+```
+
+Expected: 63 tests passing across 8 files.

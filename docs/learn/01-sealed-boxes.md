@@ -25,7 +25,7 @@ The recipient reads the ephemeral public key off the front, recomputes the nonce
 
 ## The procedure in this repository
 
-Code: `packages/crypto/src/index.ts`, about a hundred lines, most of them comments. The four steps above are four lines in `sealAnswer`, so you can read the recipe directly rather than trust a library's single function. The primitives come from two small audited libraries: `tweetnacl` for `box` and key pairs, `@noble/hashes` for BLAKE2b and SHA-256. The bytes produced are identical to libsodium's `crypto_box_seal`, so an envelope could be opened with libsodium in Python or Rust if that were ever needed.
+Code: `packages/crypto/src/index.ts`, about a hundred lines, most of them comments. The four steps above are four lines in `sealAnswer`, so you can read the recipe directly rather than trust a library's single function. The primitives come from two small audited libraries: `tweetnacl` for `box` and key pairs, `@noble/hashes` for BLAKE2b and SHA-256. The bytes produced are identical to libsodium's `crypto_box_seal`: a test file opens our envelopes with libsodium and libsodium's with ours, so an envelope could be opened with libsodium in Python or Rust if that were ever needed.
 
 - `generateKeyPair()` returns both keys as standard base64 strings (32 bytes each, 44 characters).
 - `fingerprint(publicKey)` hashes the public key with SHA-256 and returns the first 8 bytes as `ab12-cd34-ef56-7890`. A reader can compare the fingerprint on the trust page with the one computed from the key in the repository.

@@ -46,7 +46,7 @@ Zod objects drop unknown fields by default. That is friendly for public APIs, wh
 
 The reviewer verified the sealed box against libsodium's recipe: nonce order, box argument order, the 16-byte tag in front of the ciphertext, the 48-byte minimum, deriving the public key from the private one. The BLAKE2b nonce was checked against Python's independent implementation on a fixed input, and that value is now a known-answer test in the suite. Rejection sampling was measured over 320,000 digits: every digit between 9.9 and 10.1 percent. Zod 4 integer bounds reject `2^53` and `1e300`. The key tool never prints the private key, and errors carry a path, not content.
 
-What was not shown: the whole sealed box against real libsodium, because no libsodium exists on this machine. It is correct by construction and by the component checks above; a cross-check with PyNaCl is on the list for the decrypt drill.
+What was not shown that day: the whole sealed box against real libsodium, because the usable release had not been identified yet. It was added the same afternoon as `packages/crypto/test/libsodium-interop.test.ts`, with libsodium-wrappers 0.8.4 as a development-only dependency: libsodium opens what we seal, we open what it seals, the nonces agree, and both sides refuse the forged degenerate-key envelope.
 
 ## The habit
 
