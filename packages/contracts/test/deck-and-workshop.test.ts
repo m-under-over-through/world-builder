@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { deckSchema, workshopConfigSchema } from '../src/index.ts';
+import { deckSchema, stagingKeysSchema, workshopConfigSchema } from '../src/index.ts';
 
 const validWorkshop = {
   slug: 'example',
@@ -86,6 +86,14 @@ describe('the first workshop folder', () => {
     const result = deckSchema.safeParse(read('deck.json'));
     expect(result.error?.issues ?? []).toEqual([]);
     expect(result.success).toBe(true);
+  });
+
+  it('has a staging key file that validates and differs from the production key', () => {
+    const staging = stagingKeysSchema.safeParse(read('workshop.staging.json'));
+    expect(staging.error?.issues ?? []).toEqual([]);
+    const production = workshopConfigSchema.parse(read('workshop.json'));
+    expect(staging.data?.publicKey).not.toBe(production.publicKey);
+    expect(staging.data?.keyFingerprint).not.toBe(production.keyFingerprint);
   });
 
   it('has a valid workshop.json', () => {

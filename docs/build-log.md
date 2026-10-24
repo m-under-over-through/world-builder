@@ -170,3 +170,13 @@ Not yet done, deliberately: branch protection on `main` (require a pull request 
 Later the same morning: the nine commits carried Marco's business email from this machine's global git configuration. Nothing in the project needs it, and on a public repository anyone can read it, so the history of both repositories was rewritten to the account's GitHub noreply address (dates and content unchanged) and force-pushed, which is safe while nobody else has cloned. This repository's local git configuration now uses the noreply address; the global configuration is untouched. Marco turns on "keep my email private" and "block command line pushes that expose my email" on GitHub, so a future slip would be refused at push. Rule of thumb recorded: rewriting history is cheap on day one and disruptive once branches and pull requests exist.
 
 In progress on Marco's side: the vault and the recovery codes (step 2). Next: the production key (step 3).
+
+---
+
+## 2026-10-24, Saturday, late morning. Production key for rural-manufacturing
+
+Step 3. Marco ran the key tool himself after setting up the vault. The private key file was never read into a transcript: a short script derived the public key from it, printed only the public key and fingerprint, and sealed and opened a probe string to prove the pair works. File modes checked: 600 inside a 700 folder.
+
+- Production public key, now in `workshops/rural-manufacturing/workshop.json`: fingerprint `07aa-8913-bfb4-1cd7`. This is what the trust page prints.
+- The development key moved to `workshop.staging.json` (fingerprint `de7f-523e-d6db-ad50`): staging builds seal to it, so drills on staging open with the development private key and the production private key never leaves the vault. A schema and a contract test cover the new file and assert the two keys differ.
+- Next on Marco's side: private key into the vault under the workshop's name with the fingerprint in the notes, two printed copies in two sealed envelopes, then delete the file. The emergency contact in the vault covers "if I am unreachable".

@@ -45,5 +45,16 @@ export const workshopConfigSchema = z
   });
 export type WorkshopConfig = z.infer<typeof workshopConfigSchema>;
 
+/**
+ * workshops/<slug>/workshop.staging.json: the public key staging builds seal to, so drills on
+ * staging open with the development private key and the production key never leaves the vault.
+ * Same shape as the two key fields of workshop.json.
+ */
+export const stagingKeysSchema = z.strictObject({
+  publicKey: publicKeySchema,
+  keyFingerprint: keyFingerprintSchema,
+});
+export type StagingKeys = z.infer<typeof stagingKeysSchema>;
+
 export const WORKSHOP_STATUSES = ['draft', 'open', 'closed', 'exported', 'deleted'] as const;
 export type WorkshopStatus = (typeof WORKSHOP_STATUSES)[number];
