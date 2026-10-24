@@ -9,6 +9,13 @@ import { daySchema, deckVersionSchema, slugLikeSchema, uuidSchema } from './prim
 export const EVENT_KINDS = ['shown', 'answered', 'dismissed', 'deferred', 'revisited'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
+/**
+ * The device keeps events the server has accepted for this many days, and on open re-sends any
+ * whose id is missing from GET /me. Sync is idempotent, so this is harmless; it is also the recovery
+ * path after a database restore on a free tier with a short restore window (ADR 0011).
+ */
+export const EVENT_RETENTION_DAYS = 14;
+
 /** Plain-text answers are capped before encryption. */
 export const MAX_ANSWER_CHARS = 4000;
 

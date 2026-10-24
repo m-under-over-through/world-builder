@@ -44,6 +44,7 @@ All routes live under `/<slug>/`. Storage on the device is namespaced by slug.
 ## Offline and failure behaviour
 
 - No network: everything works; events wait in the outbox; the card shows "Saved on this device". The join itself can be queued.
+- After a server restore: the device keeps accepted events for fourteen days; on open it compares them with `GET /me` and re-sends any the server lacks, silently.
 - `AUTH_CODE_UNKNOWN` on a stored code (the participant was deleted, or the workshop was reset): clear the stored code and show Welcome with an explanation.
 - `WORKSHOP_CLOSED`: a closing screen with the trust page link; no new events are created.
 - `CLIENT_STORAGE_UNAVAILABLE`: the app still runs for one session, warns that the code cannot be kept, and shows it at the end.

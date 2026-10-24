@@ -1,6 +1,6 @@
 # World Builder: architecture and risk plan
 
-Draft 0.4, 23 October 2026. Written during the planning sprint, revised after review, and updated with the decisions taken the same day. Section 16 records them.
+Draft 0.5, 24 October 2026. Written during the planning sprint, revised after review, and updated with the decisions taken the same day. Section 16 records them.
 
 ## 1. Summary of recommendations
 
@@ -9,7 +9,7 @@ Draft 0.4, 23 October 2026. Written during the planning sprint, revised after re
 3. Keep typing as the input. Let the phone keyboard's dictation handle voice. The app never records audio.
 4. Encrypt each answer on the device with the research team's public key. The server, the hosting vendors and the backups only ever hold ciphertext, so a stolen database is worthless. The cost is that the private key becomes the one thing you must never lose. This plan treats key custody as a launch gate.
 5. Sharing: one "wave" link per newsletter send, open for a limited window with a cap, plus a small number of personal invite links per participant. This gives control without ever recording who invited whom.
-6. Redundancy at this scale means: the client works without the server; the data exists in four places (device, primary database with point-in-time recovery, two backup buckets at two vendors); no single person, laptop or account can take the project down.
+6. Redundancy at this scale means: the client works without the server; the data exists in four places (the device, which also keeps its synced envelopes for two weeks; the database; a Backblaze bucket; a GitHub artifact at a second vendor); no single person, laptop or account can take the project down.
 7. Make the privacy claims verifiable rather than stated: public source code, a strict Content Security Policy that physically prevents the page from talking to anything but your own domain, a live privacy panel that shows the participant their anonymous code, zero cookies and the one host the app talks to, a "see my data / delete my data" button, and a trust page with the exact data inventory.
 8. You operate alone. The infrastructure sits under your own organization account with printed recovery codes and an emergency contact in the password vault. The partner holds nothing and receives a spreadsheet at the end. Hand-off is a planned export and deletion, not an account transfer.
 9. Scale is not a concern: around five thousand short texts in total. All the effort goes into reliability and trust.
@@ -41,24 +41,24 @@ Draft 0.4, 23 October 2026. Written during the planning sprint, revised after re
 
 - Two-person team, no on-call rota. Everything must be boring to operate.
 - No native app this round. Web only.
-- Managed services over self-hosted. Modest budget.
+- Managed services over self-hosted, on their free tiers. This is an experiment and must cost nothing to keep alive (ADR 0011).
 
 **Scale estimate**
 
-80 participants, 4 sessions each, about 15 cards per session: roughly 5,000 answer events plus dismissals. A few megabytes of data. Peak concurrency in the tens, right after a newsletter send. Hosting should cost well under 50 USD a month. Nothing here needs to scale; everything needs to be reliable.
+80 participants, 4 sessions each, about 15 cards per session: roughly 5,000 answer events plus dismissals. A few megabytes of data. Peak concurrency in the tens, right after a newsletter send. Hosting costs nothing on the free tiers in use. Nothing here needs to scale; everything needs to be reliable.
 
 ## 3. The failures you named, and what the design does about each
 
-| Failure                                | Design response                                                                                                                                                                                                                                                                                                                              | How you prove it before launch                                                                                                                                          |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| We lose data                           | Device-first storage with an outbox. Idempotent sync. Managed Postgres with point-in-time recovery. Nightly encrypted dumps to two buckets at two vendors.                                                                                                                                                                                   | Restore a bucket dump into a scratch database and compare row counts. Kill the API during a test session, answer a few cards, bring it back, confirm everything synced. |
-| The URL does not work                  | A subdomain of under-over-through.co, whose registration the business already depends on; registrar, expiry and auto-renew recorded in the runbook. DNS stays at Netlify, one CNAME record. Static client on a global CDN. Service worker serves the app even when the CDN is unreachable. Newsletter click-tracking disabled for this link. | Uptime monitor on the client URL and the API health endpoint from day one. Test send of the newsletter to both of you. Open the installed app in airplane mode.         |
-| Someone injects and steals the answers | Answers encrypted on the device to the research key; the server holds ciphertext only. Anonymous codes stored as salted hashes. Parameterized queries. Strict CSP. No admin UI on the public app. Rate limits and invite gating.                                                                                                             | Headers scan (Mozilla Observatory), OWASP ZAP baseline scan, manual check that code A cannot read or delete participant B's data, invite replay and over-use tests.     |
-| An email address or a name leaks       | No emails anywhere in the system. No per-recipient tokens in the newsletter. No IP addresses or user agents written to any store you control. Vendor logs off or minimal. Pre-handoff scrub of names typed into answers.                                                                                                                     | Read the schema. Read the hosting log settings. Read a sample export. Confirm the newsletter uses the generic wave link.                                                |
-| A server stops working                 | Client works offline and syncs later. Stateless API that redeploys in minutes. Previous client builds kept for one-click rollback. Alerts to both phones.                                                                                                                                                                                    | Pause the API for an hour during the pilot and watch the sync metric recover. Trigger a real alert and confirm both of you get it.                                      |
-| My machine breaks                      | Nothing lives only on a laptop: code in the UOT GitHub account, secrets in a password vault, backups in buckets, private key and account recovery codes on paper in two places.                                                                                                                                                              | The "laptop is gone" drill: from a borrowed machine, using only the vault and the paper copies, deploy a change and restore a backup.                                   |
-| Everything is up but no data arrives   | Daily "answers synced in the last 24 hours" metric with an alert during active weeks. The app shows "Saved on this device" and "Synced" so participants can also see it.                                                                                                                                                                     | Break the sync endpoint deliberately in staging and confirm the alert fires.                                                                                            |
-| The free tier pauses the database      | Smallest paid tier for the database. Billing alerts. A card that does not expire mid-project.                                                                                                                                                                                                                                                | Check the vendor's inactivity policy once and write the renewal dates into the runbook.                                                                                 |
+| Failure                                | Design response                                                                                                                                                                                                                                                                                                                                 | How you prove it before launch                                                                                                                                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| We lose data                           | Device-first storage with an outbox. Idempotent sync. The device keeps its synced envelopes for two weeks and re-sends any the server lacks, so a restored database refills itself from the phones. Managed Postgres with a six-hour restore window. Nightly encrypted dumps to a Backblaze bucket and to a GitHub artifact at a second vendor. | Restore a dump into a scratch database and compare row counts. Kill the API during a test session, answer a few cards, bring it back, confirm everything synced. Restore last night's dump to staging and watch a test phone refill the gap. |
+| The URL does not work                  | A subdomain of under-over-through.co, whose registration the business already depends on; registrar, expiry and auto-renew recorded in the runbook. DNS stays at Netlify, one CNAME record. Static client on a global CDN. Service worker serves the app even when the CDN is unreachable. Newsletter click-tracking disabled for this link.    | Uptime monitor on the client URL and the API health endpoint from day one. Test send of the newsletter to both of you. Open the installed app in airplane mode.                                                                              |
+| Someone injects and steals the answers | Answers encrypted on the device to the research key; the server holds ciphertext only. Anonymous codes stored as salted hashes. Parameterized queries. Strict CSP. No admin UI on the public app. Rate limits and invite gating.                                                                                                                | Headers scan (Mozilla Observatory), OWASP ZAP baseline scan, manual check that code A cannot read or delete participant B's data, invite replay and over-use tests.                                                                          |
+| An email address or a name leaks       | No emails anywhere in the system. No per-recipient tokens in the newsletter. No IP addresses or user agents written to any store you control. Vendor logs off or minimal. Pre-handoff scrub of names typed into answers.                                                                                                                        | Read the schema. Read the hosting log settings. Read a sample export. Confirm the newsletter uses the generic wave link.                                                                                                                     |
+| A server stops working                 | Client works offline and syncs later. Stateless API that redeploys in minutes. Previous client builds kept for one-click rollback. Alerts to both phones.                                                                                                                                                                                       | Pause the API for an hour during the pilot and watch the sync metric recover. Trigger a real alert and confirm both of you get it.                                                                                                           |
+| My machine breaks                      | Nothing lives only on a laptop: code in the UOT GitHub account, secrets in a password vault, backups in buckets, private key and account recovery codes on paper in two places.                                                                                                                                                                 | The "laptop is gone" drill: from a borrowed machine, using only the vault and the paper copies, deploy a change and restore a backup.                                                                                                        |
+| Everything is up but no data arrives   | Daily "answers synced in the last 24 hours" metric with an alert during active weeks. The app shows "Saved on this device" and "Synced" so participants can also see it.                                                                                                                                                                        | Break the sync endpoint deliberately in staging and confirm the alert fires.                                                                                                                                                                 |
+| A free tier surprises us               | Neon's free tier sleeps compute when idle (a second of wake-up, not a pause) and does not delete projects; its monthly limits are far above this load. Netlify pauses a site over its monthly allowance: usage alerts are on, and one month of the paid plan unpauses it within minutes.                                                        | Note the limits and the levers in the runbook; check both usage pages weekly in the first month.                                                                                                                                             |
 
 The last two rows are the ones that actually bite small projects. Keep them.
 
@@ -100,11 +100,11 @@ The last two rows are the ones that actually bite small projects. Keep them.
   +------------------------------+----------------------------+
                                  v
   +-----------------------------------------------------------+
-  |  Managed Postgres, US region, point-in-time recovery      |
+  |  Managed Postgres (Neon free tier), US East               |
   +-------------+-----------------------------+---------------+
                 | nightly encrypted dump      |
                 v                             v
-        Bucket A, vendor 1            Bucket B, vendor 2
+     Backblaze B2 bucket          GitHub artifact (ops repo)
 
   At project end: export tool on your machine, holding
   the private key: decrypt, scrub, package, deliver, then delete.
@@ -114,7 +114,7 @@ The last two rows are the ones that actually bite small projects. Keep them.
 
 1. First visit. The client generates the anonymous code, then calls `join` with the wave id or the invite token. The server creates a participant and stores the hash of the code.
 2. A session. The deck engine builds the queue for this session. Every action is an event stored locally: shown, answered, dismissed, deferred, revisited. Answer text is encrypted on the spot and queued in the outbox; once synced, no readable copy remains on the device. What is written is written.
-3. Sync. On every open the app pulls the participant's state from the server (sessions, cards already answered, invites left) so a second device starts where the first left off. Whenever the app is open and online, the outbox posts events in small batches. Every event has a client-generated id, so the server upserts and a retry can never duplicate. The client marks events synced and shows the status.
+3. Sync. On every open the app pulls the participant's state from the server (sessions, cards already answered, invites left) so a second device starts where the first left off. Whenever the app is open and online, the outbox posts events in small batches. Every event has a client-generated id, so the server upserts and a retry can never duplicate. The client marks events synced and shows the status. It keeps accepted events for fourteen days and, if the server reports fewer than it holds, re-sends the missing ones; sync is idempotent, so this is harmless, and it is how a restored database refills itself.
 4. Coming back. The code is found in storage and the participant continues. On another device, or after storage was cleared, they type their code. Without it they join again as a new participant.
 5. The end. Joins are closed, a final backup is taken, and the export tool produces the dataset for the partner.
 
@@ -299,23 +299,23 @@ Honest limit: a web app cannot fully defend against a malicious client deploy th
 
 ## 11. Hosting, redundancy, backups, accounts
 
-**What redundancy means at this size.** Not multiple regions or clusters. It means: the client keeps working when the server is gone; the data exists in four places; nothing can lapse quietly; and two people can do everything.
+**What redundancy means at this size.** Not multiple regions or clusters, and not paid tiers. It means: the client keeps working when the server is gone; the data exists in four places; nothing can lapse quietly; and the free tiers' limits are known, watched, and have an emergency lever each.
 
-**Client.** Static files on a global CDN (Cloudflare Pages or equivalent) under your own domain. HTTPS and HSTS. The service worker precaches the app shell and the deck, so a visited or installed app opens with no network and when the CDN is down.
+**Client.** Static files on Netlify under the subdomain, deployed from the GitHub repository with a preview per branch. HTTPS and HSTS. The service worker precaches the app shell and the deck, so a visited or installed app opens with no network and when the host is down.
 
-**API.** One small stateless service, a Cloudflare Pages Function (a Worker under the Pages project, on the same hostname as the client), or a tiny Node service on Fly.io or Render if you prefer a conventional server. Health endpoint. Redeploys from CI in minutes.
+**API.** One small stateless Hono app, served as a Netlify Function on the same hostname as the client (a web-standard fetch handler calling `app.fetch`), or as a tiny Node service anywhere if you ever move. Health endpoint. Redeploys from a push in minutes. Secrets are Netlify environment variables scoped to functions, with separate values for the staging branch deploy.
 
-**Database.** Managed Postgres in a US region, smallest paid tier, point-in-time recovery enabled (Neon or Supabase both do this). Not reachable from the public internet except by the API's credential.
+**Database.** Neon Postgres, free tier, US East (Ohio), the region of Netlify's functions. Compute sleeps when idle and wakes in about a second. A `staging` branch is staging's database. Six-hour restore window; the dumps and the device re-sync are the real recovery path. Not reachable except with the API's credential.
 
-**Backups.** A nightly job (a GitHub Actions schedule is enough) produces two kinds of dump, encrypts each with `age` to a backup key, and uploads them to two buckets at two different vendors, for example Cloudflare R2 and Backblaze B2. One whole-database dump for disaster recovery, kept 14 days. One per-workshop export for each workshop, kept for the life of that workshop and deleted with it, so one workshop's deletion date never depends on another's. A monthly restore drill into a scratch database with an automated row-count comparison.
+**Backups.** A nightly GitHub Actions job in the private ops repository produces two kinds of dump, encrypts each with `age` to a backup key, uploads them to a Backblaze B2 bucket with Object Lock, and keeps the same files as a workflow artifact for 30 days. One whole-database dump for disaster recovery, kept 14 days. One per-workshop export for each workshop, kept for the life of that workshop and deleted with it, so one workshop's deletion date never depends on another's. The job pings a Better Stack heartbeat on success. A monthly restore drill into a scratch database with an automated row-count comparison.
 
 **Monitoring.** External uptime checks on the client URL and the health endpoint, alerting both of you by email and phone (Better Stack or UptimeRobot, free tiers are fine). A daily synced-answers count with an alert on zero during active weeks.
 
 **Deploys.** Main branch deploys automatically after tests pass. Preview deploys for every change. Database migrations are additive only during the project: never rename or drop a column while data is live.
 
-**Accounts and ownership.** Every account (Cloudflare, database vendor, backup buckets, GitHub, monitoring, password vault) is under the UOT identity with two-factor authentication, not a personal account. Printed recovery codes for each are stored with the key envelopes. You are the only owner for now; the printed recovery codes and the vault's emergency contact stand in for a second owner. Alerts reach you on two channels, email and phone. Secrets live in the vault and in the vendors' secret stores, never in the repository or on a laptop. Billing on a card that does not expire during the project, with billing alerts on. The domain is under-over-through.co, already yours; its registrar, expiry date and auto-renew setting are in the runbook, and the app's subdomain is one CNAME record at Netlify DNS.
+**Accounts and ownership.** Every account (Netlify, Neon, Backblaze, GitHub, Better Stack, Bitwarden) is under the UOT identity with two-factor authentication, not a personal account. Printed recovery codes for each are stored with the key envelopes. You are the only owner for now; the printed recovery codes and the vault's emergency contact stand in for a second owner. Alerts reach you on two channels, email and phone. Secrets live in the vault and in the vendors' secret stores, never in the repository or on a laptop. Billing on a card that does not expire during the project, with billing alerts on. The domain is under-over-through.co, already yours; its registrar, expiry date and auto-renew setting are in the runbook, and the app's subdomain is one CNAME record at Netlify DNS.
 
-**Vendors.** Five suppliers, two of them already yours: DNS at Netlify and mail at Google Workspace (existing), client and API and first backup bucket at Cloudflare, database at Neon or Supabase, second backup bucket at Backblaze, code and CI at GitHub. Each is replaceable in a day because the client is static files, the API is one small codebase and the data is a Postgres dump.
+**Vendors.** Five suppliers, three of them already yours: Netlify for DNS, client and API; GitHub for code, CI and the second backup copy; Google Workspace for mail; Neon for the database; Backblaze for the first backup copy; Better Stack for alerts. All on free tiers. Each is replaceable in a day because the client is static files, the API is one small codebase and the data is a Postgres dump.
 
 ## 12. Security controls
 
@@ -441,13 +441,13 @@ Still open with the partner: the wave cap if their list is larger than 150, and 
 One TypeScript repository:
 
 - `apps/web`: Vite with Svelte or React (whichever you are faster in), `vite-plugin-pwa` for the service worker, Dexie for IndexedDB.
-- `apps/api`: Hono on Cloudflare Pages Functions, Drizzle ORM with migrations. The same code runs on Node if you ever move.
+- `apps/api`: Hono as a Netlify Function, Drizzle ORM over Neon's serverless HTTP driver, with migrations. The same code runs on Node if you ever move.
 - `packages/deck`: the cards JSON and the deck engine, shared by the app and the tests.
 - `packages/crypto`: thin wrapper over `libsodium-wrappers` for sealed boxes, shared by the app and the export tool.
 - `tools/export`: the command-line export, decrypt, scrub and package tool.
 - `tools/backup`: the nightly dump job, run by GitHub Actions.
-- Database: Neon or Supabase Postgres, smallest paid plan, US region.
-- CDN, DNS, Workers, first backup bucket: Cloudflare. Second bucket: Backblaze B2.
+- Database: Neon Postgres, free tier, US East (Ohio), with a `staging` branch.
+- DNS, static hosting, functions: Netlify. Backup copies: Backblaze B2 and a GitHub Actions artifact.
 - Monitoring: Better Stack or UptimeRobot.
 
 If you would rather have a single backend vendor, Supabase (Postgres plus Edge Functions) also fits, with the client still on Pages.
@@ -455,6 +455,7 @@ If you would rather have a single backend vendor, Supabase (Postgres plus Edge F
 ## 18. What to revisit if it grows
 
 - Workshops run by other people: a web form that creates a workshop instead of a folder in the repository, with its own key handling.
+- A paid service again: Netlify's paid plan removes the pause risk, Neon's Launch plan brings a seven-day restore window. Settings, not rewrites.
 - An admin web UI with passkeys instead of command-line tools.
 - A native wrapper (Capacitor) around the same web app for store distribution.
 - Participants seeing curated excerpts of others' answers, after a scrub.

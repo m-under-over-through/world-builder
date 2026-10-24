@@ -180,3 +180,11 @@ Step 3. Marco ran the key tool himself after setting up the vault. The private k
 - Production public key, now in `workshops/rural-manufacturing/workshop.json`: fingerprint `07aa-8913-bfb4-1cd7`. This is what the trust page prints.
 - The development key moved to `workshop.staging.json` (fingerprint `de7f-523e-d6db-ad50`): staging builds seal to it, so drills on staging open with the development private key and the production private key never leaves the vault. A schema and a contract test cover the new file and assert the two keys differ.
 - Done the same morning: private key into the vault as a secure note with a hidden custom field and the fingerprint in the notes, two printed copies in two sealed envelopes, then the file deleted. Before deletion the clipboard was compared against the key without displaying either; it did not hold it. Only the development key file remains on disk. Custody for `rural-manufacturing` is complete; the decrypt drill runs once the first sealed answer exists on staging.
+
+---
+
+## 2026-10-24, Saturday, midday. Zero-cost hosting (ADR 0011)
+
+The first partner's budget is small and the next use is a class; the project is an experiment. Marco asked for a setup that costs nothing without giving up security. Since every privacy and security property is in the code, the change is to hosting only: Netlify (already his, already the domain's DNS host) serves the client and the API as a Netlify Function on the same hostname; Neon's free tier in US East, with a `staging` branch; nightly dumps from GitHub Actions to a Backblaze bucket with Object Lock and to a workflow artifact; Better Stack free with a backup heartbeat. Cloudflare drops out. Monthly cost: zero.
+
+What the free tiers take away and what covers it: a six-hour restore window (nightly dumps, and the device now keeps accepted events for fourteen days and re-sends any the server lacks, which is `EVENT_RETENTION_DAYS` in the contracts); a usage allowance that can pause the site (Netlify alerts, one paid month as the lever); thinner logs (the health endpoint and the error codes carry the signal). Documents rewritten: services 0.3, the account walkthrough, the hosting sections of the architecture plan, the runbook's service entries, builder notes. Account signups pause on Cloudflare; Neon, Backblaze and Better Stack proceed.

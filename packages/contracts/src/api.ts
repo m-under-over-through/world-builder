@@ -24,7 +24,7 @@ export const ROUTES = {
   join: { method: 'POST', path: '/api/:slug/join' },
   /** Stores sessions and events; safe to retry. */
   sync: { method: 'POST', path: '/api/:slug/sync' },
-  /** Everything the server holds about this code. Also how a second device continues. */
+  /** Everything the server holds about this code. Also how a second device continues, and the list the device compares its retained events against to re-send what the server lacks. */
   me: { method: 'GET', path: '/api/:slug/me' },
   /** Creates invite tokens, up to the workshop's allowance. */
   invites: { method: 'POST', path: '/api/:slug/invites' },

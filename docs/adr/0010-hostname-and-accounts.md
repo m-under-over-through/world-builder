@@ -1,6 +1,6 @@
 # 0010. A subdomain of under-over-through.co, DNS at Netlify, the existing UOT GitHub account
 
-Date: 2026-10-23. Status: accepted. Name chosen on 24 October 2026: `worldbuilder`.
+Date: 2026-10-23. Status: accepted. Name chosen on 24 October 2026: `worldbuilder`. Amended the same day by ADR 0011: the client and the API are on Netlify, not Cloudflare, and the CNAME points at the Netlify site; the hostname and account decisions below stand.
 
 ## Context
 

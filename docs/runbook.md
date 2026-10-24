@@ -114,7 +114,19 @@ _To be written as each service is set up, from the services list: what it does, 
 
 ### Domain: under-over-through.co
 
-The app lives on a subdomain of it. Registrar: Tucows Domains (OpenSRS), the registry behind Netlify's and Hover's domain registration; confirm which account holds it. Created 30 July 2015. Expiry: 29 July 2027, which covers the project's deletion date of 5 February 2027. Auto-renew: _confirm on, and note the card it charges_. DNS host: Netlify (NS1 network). The app's record: one CNAME, `worldbuilder` to the Cloudflare Pages project. What breaks without it: everything, including the business's mail. Check: `dig +short CNAME worldbuilder.under-over-through.co` returns the Pages hostname. Never edit any other record in that zone for this project.
+The app lives on a subdomain of it. Registrar: Tucows Domains (OpenSRS), the registry behind Netlify's and Hover's domain registration; confirm which account holds it. Created 30 July 2015. Expiry: 29 July 2027, which covers the project's deletion date of 5 February 2027. Auto-renew: _confirm on, and note the card it charges_. DNS host: Netlify (NS1 network). The app's record: one CNAME, `worldbuilder` to the Netlify site. What breaks without it: everything, including the business's mail. Check: `dig +short CNAME worldbuilder.under-over-through.co` returns the Netlify site's hostname. Never edit any other record in that zone for this project.
+
+### Netlify site: worldbuilder
+
+_Provisional._ Hosts the client and the API function. Where the login is: the same Netlify account. Limits on the free plan: 100 GB bandwidth, 300 build minutes, 125,000 function calls a month; usage alerts on. What breaks without it: the hostname serves nothing; installed apps keep working offline. If paused for exceeding the allowance: upgrade the team to the paid plan for one month, which unpauses within minutes. Move off it: static files and one function redeploy on Cloudflare Pages in an hour.
+
+### Neon: world-builder
+
+_Provisional._ The database, free tier, US East (Ohio), branches `main` (production) and `staging`. Limits: 100 compute hours and 0.5 GB a month; six-hour restore window. Compute sleeps when idle and wakes in about a second, which is normal. If limits are reached: switch to the Launch plan, usage-based with no minimum. Recovery beyond six hours: restore last night's dump, then let the devices re-send what the server lacks.
+
+### Backups: Backblaze bucket and GitHub artifact
+
+_Provisional._ Nightly job in the ops repository. Copy A in the Backblaze bucket `world-builder-backups` (Object Lock on); copy B as the workflow's artifact, 30 days. The job pings the Better Stack heartbeat; no ping for 26 hours is an alert. Check: the health endpoint's `lastBackupAt` is under a day old.
 
 ### DNS: Netlify DNS
 

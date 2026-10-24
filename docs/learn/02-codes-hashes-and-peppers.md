@@ -10,7 +10,7 @@ The planning document got this wrong ("salted hash, the way passwords are stored
 
 ## The something else: a keyed hash with a pepper
 
-The server computes `HMAC-SHA256(pepper, slug + ":" + code)` and stores that. HMAC is a hash that takes a key. The **pepper** is that key: a 32-byte secret that lives in the Worker's secret store, never in the database and never in the repository.
+The server computes `HMAC-SHA256(pepper, slug + ":" + code)` and stores that. HMAC is a hash that takes a key. The **pepper** is that key: a 32-byte secret that lives in the function host's secret environment (Netlify's environment variables for functions), never in the database and never in the repository.
 
 What this gives:
 
@@ -22,7 +22,7 @@ What this gives:
 
 - 16 digits is 10^16 possibilities, about 2^53. "53 bits of randomness."
 - Online guessing: the API rate-limits unknown codes. At, say, 10 attempts a minute, finding one real code among 150 would take millions of years. The rate limit is the real defence online, which is why `AUTH_CODE_UNKNOWN` is limited hard.
-- Offline guessing with the database _and_ the pepper: HMAC-SHA256 is fast, a GPU does billions a second, so 2^53 is days of work for a serious attacker. That attacker would already have breached both the database and the Worker's secrets. Even then, with answers sealed to another key, the prize is the ability to add or delete events under someone's code. That is the honest risk and the plan accepts it.
+- Offline guessing with the database _and_ the pepper: HMAC-SHA256 is fast, a GPU does billions a second, so 2^53 is days of work for a serious attacker. That attacker would already have breached both the database and the function host's secrets. Even then, with answers sealed to another key, the prize is the ability to add or delete events under someone's code. That is the honest risk and the plan accepts it.
 - Why not make the code longer? 20 digits would be 66 bits but a chore to type. 16 is the trade-off, same as Mullvad.
 
 ## Rejection sampling, or why `byte % 10` is wrong
@@ -33,7 +33,7 @@ The device makes the code from random bytes. A byte is 0..255. If you took `byte
 
 - Generation: `generateCode()` in `@wb/contracts`, on the device, from `crypto.getRandomValues`.
 - Transport: `Authorization: Code 1234567890123456`. A header, never a URL, because URLs are logged, cached and screenshotted.
-- Storage: the API (to be built) computes the HMAC with the pepper and stores it in `participants.code_hash`. The pepper is set once per deployment as a Worker secret and backed up in the vault like a key.
+- Storage: the API (to be built) computes the HMAC with the pepper and stores it in `participants.code_hash`. The pepper is set once per deployment as a Netlify environment secret and backed up in the vault like a key.
 - Continuing on a new device: `GET /api/<slug>/me` with the typed code. Unknown code: `401 AUTH_CODE_UNKNOWN` and the welcome screen.
 
 ## Check it yourself

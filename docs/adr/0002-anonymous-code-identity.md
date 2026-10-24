@@ -9,7 +9,7 @@ There are no accounts and no emails. A participant must be able to come back, on
 ## Decision
 
 - The code is 16 random digits, generated on the device with rejection sampling so every digit is equally likely. That is about 53 bits of randomness. Displayed as four groups of four.
-- The server stores `HMAC-SHA256(pepper, workshopSlug + ":" + code)`, where the pepper is a server secret kept in the Worker's secret store, never in the database. Lookup is by this value. The pepper makes a copied database useless for finding or forging codes.
+- The server stores `HMAC-SHA256(pepper, workshopSlug + ":" + code)`, where the pepper is a server secret kept in the function host's secret environment (Netlify's environment variables, ADR 0011), never in the database. Lookup is by this value. The pepper makes a copied database useless for finding or forging codes.
 - Requests with an unknown code are rate-limited hard so online guessing is not practical.
 - The code is sent in the `Authorization: Code <digits>` header, never in a URL.
 

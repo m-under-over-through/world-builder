@@ -57,13 +57,13 @@ The schedule works because the app keeps evolving after launch. Participants ret
 
 - Intro: three screens plus consent, a demo card, and the first-card dictation hint as short text per platform.
 - Card flow: warm-ups then checkpoints, dismiss sends the card to the end of the queue, a second dismiss defers it to the next session automatically. No separate Later pile screen yet.
-- Typed answers, local store, outbox, sync, visible sync status.
+- Typed answers, local store, outbox, sync, visible sync status. The device keeps accepted events for fourteen days and re-sends any the server lacks, the restore safety net for the free database tier.
 - Anonymous code shown at the end of session one, continue-with-code on the welcome screen, install prompt after the code.
 - Encryption on the device to the research key. Export tool that decrypts to CSV on your machine.
 - Wave link with window and cap, and the per-wave link-opened counter. No personal invites yet.
 - Privacy panel: code, cookies, hosts contacted, what we store, delete me, last sync, version, last error code.
 - Trust page, terms, privacy policy, consent text.
-- Health endpoint with last-backup time, monitor, nightly backups to two buckets, one restore drill passed, one decrypt drill passed, key custody done.
+- Health endpoint with last-backup time, monitor, nightly backups to Backblaze and to a GitHub artifact, with a heartbeat, one restore drill passed, one decrypt drill passed, key custody done.
 - Strict headers, rate limits, authorization tests, headers scan, ZAP baseline.
 - Runbook with every error code that exists, a glossary, a map README.
 - The workshop entity from day one: every table and route scoped to a workshop, one key per workshop, per-workshop backups. One workshop configured at launch.
@@ -86,7 +86,7 @@ Taken on 23 October and recorded in the architecture plan, section 16. Two items
 
 ### Week 1, 26 to 30 October: foundations and skeleton together
 
-- **Fri 23, today.** Decisions taken; send the partner the decision record for review. Pick the subdomain name and add its CNAME in Netlify DNS. Open the Cloudflare, Neon, Backblaze, monitor and vault accounts. Create both repositories under the UOT GitHub account and push.
+- **Fri 23, today.** Decisions taken; send the partner the decision record for review. Pick the subdomain name and add its CNAME in Netlify DNS. Open the Neon, Backblaze and Better Stack accounts, all free (revised 24 October, ADR 0011: no Cloudflare). Create both repositories under the UOT GitHub account and push. The Netlify site is created on Tuesday from the repository, when there is something to deploy.
 - **Mon 26.** Contracts written with you: types, API, events, deck schema, the workshop folder format, screen map. The agent instructions file and the glossary. Key pair generated for the first workshop and the custody ritual done.
 - **Tue 27 to Thu 29.** The integrator builds the skeleton end to end on staging. In parallel, on separate files: an API builder writes the schema, migrations and contract tests; a deck builder writes the deck engine with tests and loads the thirteen questions from your notebook sketch as the placeholder deck; an ops builder sets up the backup job, the health endpoint and the monitor.
 - **Fri 30.** First restore drill. Turn on branch protection for `main` (pull request and passing CI required for every change; decided 24 October to wait for the skeleton). Skeleton walkthrough with you. You try it on your own iPhone and on a laptop, including the clear-storage and continue-with-code path. Content request to the partner: final card wording by Thursday 5 November.
