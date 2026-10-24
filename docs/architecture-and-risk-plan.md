@@ -128,7 +128,9 @@ A workshop is a folder in the repository, for example `workshops/rural-manufactu
 - `deck.json`: its cards.
 - `copy.md`: intro screens, consent text, trust page variables.
 
-Spinning up the next one: copy the folder, edit the three files, run the `workshop new` command, which generates the key pair, prints the private key once for your vault and writes the public key into the folder, then commit. CI deploys it and the workshop is live at `/<slug>/`, with its wave link at `/<slug>/join/wave-1`. Under an hour, no code changes. Closing, exporting and deleting are the same command with a different verb.
+Spinning up the next one: copy the folder, edit the three files, run the `workshop new` command, which generates the key pair, prints the private key once for your vault and writes the public key into the folder, then commit. CI deploys it and the workshop is live at `/<slug>/`, with its wave link at `/<slug>/join/wave-1`. Under an hour, no code changes.
+
+In full, for the first workshop: `https://worldbuilder.under-over-through.co/rural-manufacturing/`, with the newsletter link `https://worldbuilder.under-over-through.co/rural-manufacturing/join/wave-1`. The class at the end of November would be `https://worldbuilder.under-over-through.co/worldbuilding-class/`. The workshop is a path segment, not a query parameter such as `?w=rural-manufacturing`, for four reasons: a path gives each workshop its own install scope and home-screen icon (a web app's scope can be a path, never a query); it namespaces storage on the device; it is the same prefix the API uses (`/api/<slug>/`); and it reads as an address in a newsletter rather than as tracking. Query strings also get stripped by some mail tools and link shorteners. Closing, exporting and deleting are the same command with a different verb.
 
 What scoping means inside the system:
 

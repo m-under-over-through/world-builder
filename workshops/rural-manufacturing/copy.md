@@ -46,5 +46,6 @@ Add this to your home screen for next time. [per-platform steps]
 - storage region: United States
 - collection closes: 6 December 2026
 - deletion: 5 February 2027
-- contact: privacy@[domain]
+- hostname: worldbuilder.under-over-through.co
+- contact: privacy@under-over-through.co
 - key fingerprint: from workshop.json

@@ -1,6 +1,6 @@
 # 0010. A subdomain of under-over-through.co, DNS at Netlify, the existing UOT GitHub account
 
-Date: 2026-10-23. Status: accepted (exact subdomain name to follow).
+Date: 2026-10-23. Status: accepted. Name chosen on 24 October 2026: `worldbuilder`.
 
 ## Context
 
@@ -8,7 +8,7 @@ The plan assumed a new, neutral domain and a new GitHub organization. Marco aske
 
 ## Decision
 
-- The app lives at `<name>.under-over-through.co`, with the workshop in the path as before. The name has no underscore, because certificate authorities refuse to issue for such names.
+- The app lives at `worldbuilder.under-over-through.co`, with the workshop in the path as before. The name has no underscore, because certificate authorities refuse to issue for such names.
 - DNS stays at Netlify. One CNAME record points the subdomain at the Cloudflare Pages project. Nothing else in the zone changes.
 - The client is served by Cloudflare Pages and the API by Pages Functions, which are Workers under the Pages project, on the same hostname. The Workers paid plan is kept for logs and limits.
 - The `privacy@` contact is a Google Workspace alias.
