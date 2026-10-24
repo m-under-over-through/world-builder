@@ -155,3 +155,16 @@ Marco read the documents, ran the check, and asked whether a subdomain of under-
 ## 2026-10-24, Saturday. The hostname is worldbuilder
 
 Marco chose `worldbuilder`, so the app lives at `worldbuilder.under-over-through.co` and the first workshop at `/rural-manufacturing/` under it. He also asked whether one subdomain with an argument in the URL could serve several workshops. It can and already does: the workshop is the first path segment, which is better than a query parameter for install scope, storage, the API prefix and readability; the architecture plan, section 5.1, now shows the full URLs and the reasons. Placeholders replaced in the services list, ADR 0010, the runbook entry and the workshop copy file. No code changed.
+
+---
+
+## 2026-10-24, Saturday morning. Repositories created and pushed
+
+Step 1 of Marco's list. Pre-push safety pass: no secret-looking file tracked, the development private key never appears anywhere in history. Then:
+
+- `https://github.com/m-under-over-through/world-builder`, public, the app. Seven commits pushed; `origin` set. The CI workflow ran on GitHub's runner on the first push and passed in 19 seconds: install, typecheck, 63 tests, formatting.
+- `https://github.com/m-under-over-through/world-builder-ops`, private, with a README that says what belongs there and why it is separate.
+
+Not yet done, deliberately: branch protection on `main` (require a pull request and a passing CI run), which the development plan calls for from Phase 1 onwards. It is one setting; it means every change from now on, including the integrator's, arrives as a pull request Marco reads.
+
+In progress on Marco's side: the vault and the recovery codes (step 2). Next: the production key (step 3).
