@@ -114,7 +114,7 @@ _To be written as each service is set up, from the services list: what it does, 
 
 ### Domain: under-over-through.co
 
-The app lives on a subdomain of it. Registrar: _to fill_. Expiry date: _to fill_. Auto-renew: _confirm on_. DNS host: Netlify (NS1 network). The app's record: one CNAME, `worldbuilder` to the Cloudflare Pages project. What breaks without it: everything, including the business's mail. Check: `dig +short CNAME worldbuilder.under-over-through.co` returns the Pages hostname. Never edit any other record in that zone for this project.
+The app lives on a subdomain of it. Registrar: Tucows Domains (OpenSRS), the registry behind Netlify's and Hover's domain registration; confirm which account holds it. Created 30 July 2015. Expiry: 29 July 2027, which covers the project's deletion date of 5 February 2027. Auto-renew: _confirm on, and note the card it charges_. DNS host: Netlify (NS1 network). The app's record: one CNAME, `worldbuilder` to the Cloudflare Pages project. What breaks without it: everything, including the business's mail. Check: `dig +short CNAME worldbuilder.under-over-through.co` returns the Pages hostname. Never edit any other record in that zone for this project.
 
 ### DNS: Netlify DNS
 
