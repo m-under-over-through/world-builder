@@ -15,6 +15,7 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 | `docs/screen-map.md`                  | Every screen and state of the client                                                       | integrator            |
 | `docs/adr/`                           | Decision records, one per decision, numbered                                               | integrator            |
 | `docs/learn/`                         | Explainers for the ideas in this codebase, written for the operator                        | integrator            |
+| `docs/account-setup.md`               | The order and settings for opening the vendor accounts, with checkboxes                    | Marco                 |
 | `docs/build-log.md`                   | What was done, when, why, how to verify. Read this first when returning                    | everyone              |
 | `docs/runbook.md`                     | One entry per error code and per service: meaning, cause, fix, check                       | ops                   |
 | `CLAUDE.md`                           | Instructions for agents                                                                    | integrator            |
