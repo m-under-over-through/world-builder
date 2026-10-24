@@ -62,7 +62,7 @@ Expected: typecheck silent, 37 tests passing across 6 files, formatting clean. T
 
 1. Read, in this order: `README.md`, `docs/learn/01` and `02`, ADR 0002 and 0003, then skim `packages/crypto/src/index.ts` with the learning note beside it. About forty minutes.
 2. Run `npm run check` yourself and read one test file end to end.
-3. Pick the neutral domain name and register it (five years, auto-renew, lock). Open the accounts in `docs/services.md`. Create the GitHub organization and the two repositories, then push this one.
+3. Pick the subdomain name (no underscore) and add its CNAME at Netlify DNS. Open the accounts in `docs/services.md`. Create the two repositories under the UOT GitHub account, then push this one. (Revised later the same day: ADR 0010.)
 4. Generate the production key for `rural-manufacturing` with `node tools/workshop/keygen.ts rural-manufacturing` (no `--dev`), paste the public key and fingerprint into `workshop.json`, store the private key in the vault, print two copies, delete the file. The development key stays for staging.
 5. Set the pepper: 32 random bytes, stored as a Worker secret and in the vault, when the API exists next week.
 6. Replace `[partner name]` in `workshop.json` and `copy.md`.
@@ -143,3 +143,9 @@ npm run check
 ```
 
 Expected: 63 tests passing across 8 files.
+
+---
+
+## 2026-10-23, Friday, late afternoon. Hostname and accounts decided
+
+Marco read the documents, ran the check, and asked whether a subdomain of under-over-through.co and his existing UOT GitHub account would do instead of a new domain and a new organization. Checked: the domain's DNS is at Netlify, mail is Google Workspace, the main site sets no cookies and loads no third-party scripts. Decided: yes to both, recorded as ADR 0010. The exact subdomain name is still to come; it must not contain an underscore, because certificate authorities refuse such names. Changes: the services list is rewritten (draft 0.2); the API moves from "Workers" to "Pages Functions" in the architecture plan, decision records and README, which is the same runtime on the same hostname as the client; the runbook gains entries for the domain and for Netlify DNS with the registrar and expiry fields to fill. No code changed.

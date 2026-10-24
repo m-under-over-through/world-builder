@@ -86,7 +86,7 @@ Taken on 23 October and recorded in the architecture plan, section 16. Two items
 
 ### Week 1, 26 to 30 October: foundations and skeleton together
 
-- **Fri 23, today.** Decisions taken; send the partner the decision record for review. Register the domain. Open the Cloudflare, Neon, Backblaze, monitor and vault accounts. Create the GitHub organization and both repositories.
+- **Fri 23, today.** Decisions taken; send the partner the decision record for review. Pick the subdomain name and add its CNAME in Netlify DNS. Open the Cloudflare, Neon, Backblaze, monitor and vault accounts. Create both repositories under the UOT GitHub account and push.
 - **Mon 26.** Contracts written with you: types, API, events, deck schema, the workshop folder format, screen map. The agent instructions file and the glossary. Key pair generated for the first workshop and the custody ritual done.
 - **Tue 27 to Thu 29.** The integrator builds the skeleton end to end on staging. In parallel, on separate files: an API builder writes the schema, migrations and contract tests; a deck builder writes the deck engine with tests and loads the thirteen questions from your notebook sketch as the placeholder deck; an ops builder sets up the backup job, the health endpoint and the monitor.
 - **Fri 30.** First restore drill. Skeleton walkthrough with you. You try it on your own iPhone and on a laptop, including the clear-storage and continue-with-code path. Content request to the partner: final card wording by Thursday 5 November.

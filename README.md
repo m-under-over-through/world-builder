@@ -22,7 +22,7 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 | `packages/crypto`                     | Sealing answers to a workshop key and opening them with the private key                    | integrator            |
 | `packages/deck`                       | The deck engine: which card next (not yet)                                                 | deck builder          |
 | `apps/web`                            | The client, a static installable web app (not yet)                                         | UI builder            |
-| `apps/api`                            | The API on Cloudflare Workers (not yet)                                                    | API builder           |
+| `apps/api`                            | The API on Cloudflare Pages Functions (not yet)                                            | API builder           |
 | `tools/workshop`                      | Key generation and, later, `workshop new`, `close`, `export`, `delete`                     | ops                   |
 | `workshops/<slug>/`                   | A workshop: `workshop.json`, `deck.json`, `copy.md`                                        | Marco and the partner |
 

@@ -13,7 +13,7 @@ The same experience will run for other groups, starting with a worldbuilding cla
 - One key pair per workshop, so each dataset is exported, handed over and deleted on its own, and a cross-workshop bug would expose text sealed to a different key.
 - Backups are a short-lived whole-database dump plus a per-workshop export deleted with the workshop.
 - Routes are prefixed by slug: the client at `/<slug>/`, the API at `/api/<slug>/`. Device storage is namespaced by slug. Each workshop has its own install manifest.
-- The domain is neutral, not tied to any partner.
+- The hostname is the organizer's own, not a partner's, so the next workshop lives on the same one (ADR 0010).
 
 ## Consequences
 

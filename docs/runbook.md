@@ -111,3 +111,11 @@ Meaning: the tag check failed: wrong key or altered envelope. Cause in the expor
 ## Services
 
 _To be written as each service is set up, from the services list: what it does, where the login is, what breaks without it, how to move off it._
+
+### Domain: under-over-through.co
+
+The app lives on a subdomain of it. Registrar: _to fill_. Expiry date: _to fill_. Auto-renew: _confirm on_. DNS host: Netlify (NS1 network). The app's record: one CNAME, `<name>` to the Cloudflare Pages project. What breaks without it: everything, including the business's mail. Check: `dig +short CNAME <name>.under-over-through.co` returns the Pages hostname. Never edit any other record in that zone for this project.
+
+### DNS: Netlify DNS
+
+Where the login is: the Netlify account that hosts the main site. What breaks without it: the hostname stops resolving; participants with the installed app keep working offline until it is back. Move off it: recreate the zone's records at any DNS host and change the nameservers at the registrar; the app's own record is one line.

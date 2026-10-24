@@ -13,3 +13,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0007   | No readable answer is kept on the device after sync                                   |
 | 0008   | The client and the API share one origin: `/<slug>/` and `/api/<slug>/`                |
 | 0009   | TypeScript throughout, npm workspaces, Zod contracts, Vitest, no build step for tools |
+| 0010   | A subdomain of under-over-through.co, DNS at Netlify, the existing UOT GitHub account |
