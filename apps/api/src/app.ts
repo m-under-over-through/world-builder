@@ -135,7 +135,11 @@ export function createApp(deps: AppDeps) {
     await next();
   });
 
-  const isOpen = (w: Workshop) => w.status === 'open' && todayDay(now()) <= w.closesDay;
+  /** Accepting answers: status open, and today inside the open window. */
+  const isOpen = (w: Workshop) => {
+    const today = todayDay(now());
+    return w.status === 'open' && today >= w.opensDay && today <= w.closesDay;
+  };
 
   /** Authenticated routes: the code header, the hash, the lookup, the per-code limit. */
   const authenticated = async (c: Context<{ Variables: Vars }>, next: () => Promise<void>) => {

@@ -36,6 +36,19 @@ beforeAll(async () => {
   );
   await setWorkshopStatus(db, 'closed-one', 'open');
   await ensureWave(db, closed.id, 'wave-1', 'first');
+  const future = await syncWorkshop(
+    db,
+    {
+      ...workshopConfig,
+      slug: 'not-yet',
+      opensDay: '2026-12-01',
+      closesDay: '2026-12-20',
+      deleteDay: '2027-02-01',
+    },
+    deck,
+  );
+  await setWorkshopStatus(db, 'not-yet', 'open');
+  await ensureWave(db, future.id, 'wave-1', 'first');
   app = createApp({ db, pepper: TEST_PEPPER, version: 'test', now });
 });
 
@@ -83,6 +96,7 @@ describe('health', () => {
     });
     expect(body.workshops).toEqual([
       { slug: 'closed-one', status: 'open' },
+      { slug: 'not-yet', status: 'open' },
       { slug, status: 'open' },
     ]);
     expect(JSON.stringify(body)).not.toContain('participants');
@@ -107,6 +121,15 @@ describe('workshop scoping and lifecycle', () => {
     expect((await res.json()).error).toBe('WORKSHOP_CLOSED');
     const opened = await app.request('/api/closed-one/waves/wave-1/opened', { method: 'POST' });
     expect((await opened.json()).error).toBe('WORKSHOP_CLOSED');
+  });
+
+  it('a workshop before its open day refuses joins the same way', async () => {
+    const res = await app.request(
+      '/api/not-yet/join',
+      json({ code: generateCode(), wave: 'wave-1' }),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('WORKSHOP_CLOSED');
   });
 });
 

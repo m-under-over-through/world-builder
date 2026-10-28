@@ -1,10 +1,11 @@
 # Netlify site configuration (ADR 0011). The client is static files under apps/web/public; the API
 # is a Netlify Function on the same hostname (netlify/functions/api.mts). The publish folder
-# is built by Vite. Security headers and redirects live in apps/web/public and are copied into dist/.
+# is built by Vite. The build first applies migrations and loads the workshop folders into the
+# context's database (DATABASE_URL), so no connection string ever touches a laptop. Security headers and redirects live in apps/web/public and are copied into dist/.
 
 [build]
   publish = "apps/web/dist"
-  command = "npm run build --workspace=apps/web"
+  command = "node tools/ops/migrate.ts && node tools/workshop/sync.ts && npm run build --workspace=apps/web"
 
 [build.environment]
   NODE_VERSION = "24"
