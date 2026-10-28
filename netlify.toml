@@ -1,0 +1,10 @@
+# Netlify site configuration (ADR 0011). The client is static files under apps/web/public; the API
+# arrives as a Netlify Function on the same hostname. Until the client is built, the publish folder
+# holds a placeholder page. Security headers live in apps/web/public/_headers.
+
+[build]
+  publish = "apps/web/public"
+  command = "echo 'placeholder: nothing to build yet'"
+
+[build.environment]
+  NODE_VERSION = "24"
