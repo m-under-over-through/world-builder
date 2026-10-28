@@ -62,8 +62,8 @@ pbcopy < .secrets/staging.pepper        # now on the clipboard
 
 - [ ] In Netlify: **Projects**, `worldbuilder-uot`, left column **Project configuration**, then **Environment variables**. Press **Add a variable**, then **Add a single variable**.
 - [ ] **Key:** `WB_PEPPER`.
-- [ ] **Scopes:** Specific scopes, tick **Builds** and **Functions**. If the form shows no scopes, All scopes is fine too.
 - [ ] Tick **Contains secret values**. Netlify then hides the value after saving, redacts it from build logs, and fails any build whose output contains it. All three are wanted.
+- [ ] **Scopes:** nothing to do. With the secret flag on, the free plan locks the scopes to Builds, Functions and Runtime and leaves out Post processing; Builds and Functions are the two the code needs. The "Upgrade to unlock" button is for narrowing them further, which is not needed.
 - [ ] **Values:** choose **Different value for each deploy context**. Add the value for **Deploy Previews** and again for **Branch deploys** (paste both times). Leave **Production** without a value; it gets its own pepper in hardening week. Leave Local development empty.
 - [ ] **Create variable**.
 - [ ] Paste the same value into Bitwarden as a secure note "World Builder: staging pepper", then `rm .secrets/staging.pepper` and copy any harmless text so the clipboard no longer holds it.
