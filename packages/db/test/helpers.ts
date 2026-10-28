@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { deckSchema, workshopConfigSchema } from '@wb/contracts';
-import { connect, ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '../src/index.ts';
+import { ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '../src/index.ts';
+import { connect } from '../src/connect.ts';
 
 /** A fresh in-memory Postgres with the migrations applied. One per test keeps tests independent. */
 export async function freshDb(): Promise<Db> {

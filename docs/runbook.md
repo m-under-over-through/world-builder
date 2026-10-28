@@ -128,6 +128,10 @@ The app lives on a subdomain of it. Registrar: Tucows Domains (OpenSRS), the reg
 
 _Provisional._ Hosts the client and the API function. Where the login is: the same Netlify account. Limits on the free plan: 100 GB bandwidth, 300 build minutes, 125,000 function calls a month; usage alerts on. What breaks without it: the hostname serves nothing; installed apps keep working offline. If paused for exceeding the allowance: upgrade the team to the paid plan for one month, which unpauses within minutes. Move off it: static files and one function redeploy on Cloudflare Pages in an hour.
 
+### Netlify function answers 502 on every `/api/*` path
+
+Symptom: the health monitor alerts; every API path answers 502 with a JSON body whose `errorMessage` starts with `Cannot find module` (or another error thrown before the first request); the client shows `CLIENT_SYNC_FAILED` and keeps answers in the outbox, so nothing is lost. Cause: the deployed function file needs something that is not in it. Since 28 October 2026 the build makes that file itself (`tools/ops/bundle-api.ts`, learning note 07), so this means the build step was skipped or changed. Check: the deploy log in Netlify (Deploys, the deploy, the log) has a line `bundle-api: wrote ... (NNN KB, version ...)`; `npm test` passes `apps/api/test/bundle.test.ts` locally. Fix: in Netlify, Deploys, open the last good deploy and press \"Publish deploy\" to roll back in a minute; then fix the build and push. Participants' phones keep their outbox for `EVENT_RETENTION_DAYS` and re-send on the next open.
+
 ### Neon: world-builder
 
 _Provisional._ The database, free tier, US East (Ohio), branches `main` (production) and `staging`. Limits: 100 compute hours and 0.5 GB a month; six-hour restore window. Compute sleeps when idle and wakes in about a second, which is normal. If limits are reached: switch to the Launch plan, usage-based with no minimum. Recovery beyond six hours: restore last night's dump, then let the devices re-send what the server lacks.

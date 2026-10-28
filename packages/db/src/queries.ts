@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, isNotNull, max, sql } from 'drizzle-orm';
 import type { Event, Session } from '@wb/contracts';
-import type { Db } from './connect.ts';
+import type { Db } from './types.ts';
 import {
   backupRuns,
   events,

@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { and, eq } from 'drizzle-orm';
 import { slugLikeSchema } from '../../packages/contracts/src/index.ts';
 import { openAnswer } from '../../packages/crypto/src/index.ts';
-import { connect, events, participants, sessions, workshops } from '../../packages/db/src/index.ts';
+import { connect } from '../../packages/db/src/connect.ts';
+import { events, participants, sessions, workshops } from '../../packages/db/src/index.ts';
 
 const USAGE = 'usage: node tools/workshop/export.ts <slug> --key <private-key-file> [--db <url>]';
 function fail(message: string, code: number): never {

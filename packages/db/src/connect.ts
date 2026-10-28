@@ -1,21 +1,22 @@
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import { neon } from '@neondatabase/serverless';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 import { migrate as migrateNeon } from 'drizzle-orm/neon-http/migrator';
-import { neon } from '@neondatabase/serverless';
 import { fileURLToPath } from 'node:url';
+import { connectNeon } from './neon.ts';
 import * as schema from './schema.ts';
+import type { Db } from './types.ts';
 
 /**
- * One schema, two drivers (ADR 0012). The shape of DATABASE_URL picks the driver:
- *   pglite://memory          an in-process Postgres, fresh each time; tests and the local server
- *   pglite:///absolute/path  the same, persisted in a folder on disk
+ * The connector for tools, tests and the local server, which may use either driver (ADR 0012).
+ * The shape of the URL picks it:
+ *   pglite://memory          an in-process Postgres, fresh each time; tests
+ *   pglite:///absolute/path  the same, persisted in a folder on disk; the local server
  *   postgres://...           Neon over HTTP; staging and production
  *
- * `Db` is the common Postgres type both drivers extend, so every query is written once.
- * PGlite is imported lazily so the deployed function never bundles a test database.
+ * This file is deliberately not exported from the package root. The deployed function imports
+ * connectNeon from neon.ts, and its bundle must never carry PGlite, a whole Postgres compiled to
+ * WebAssembly (see docs/learn/07-bundling-the-function.md). Import this file as `@wb/db/connect`.
  */
-export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
-
 const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
 
 export async function connect(databaseUrl: string): Promise<Db> {
@@ -32,12 +33,12 @@ export async function connect(databaseUrl: string): Promise<Db> {
     return db as unknown as Db;
   }
   if (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://')) {
-    return drizzleNeon(neon(databaseUrl), { schema }) as unknown as Db;
+    return connectNeon(databaseUrl);
   }
   throw new Error('DATABASE_URL must start with pglite:// or postgres://');
 }
 
-/** Apply pending migrations to a Neon database. Run by the operator or the deploy, never by a request. */
+/** Apply pending migrations to a Neon database. Run by the deploy or the operator, never by a request. */
 export async function migrateNeonDatabase(databaseUrl: string): Promise<void> {
   const db = drizzleNeon(neon(databaseUrl), { schema });
   await migrateNeon(db, { migrationsFolder });

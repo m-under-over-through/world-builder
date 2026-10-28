@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { WorkshopConfig, Deck } from '@wb/contracts';
-import type { Db } from './connect.ts';
+import type { Db } from './types.ts';
 import { waves, workshops } from './schema.ts';
 
 /**

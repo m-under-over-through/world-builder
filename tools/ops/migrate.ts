@@ -4,7 +4,7 @@
 //
 //   node tools/ops/migrate.ts
 
-import { migrateNeonDatabase } from '../../packages/db/src/index.ts';
+import { migrateNeonDatabase } from '../../packages/db/src/connect.ts';
 
 const url = process.env.DATABASE_URL;
 if (!url) {

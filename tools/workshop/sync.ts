@@ -12,8 +12,8 @@ import {
   stagingKeysSchema,
   workshopConfigSchema,
 } from '../../packages/contracts/src/index.ts';
+import { connect } from '../../packages/db/src/connect.ts';
 import {
-  connect,
   ensureWave,
   findWorkshop,
   setWorkshopStatus,

@@ -25,9 +25,9 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 | `packages/deck`                       | The deck engine: seeded shuffle, dismiss and defer (not yet; the skeleton picks cards in file order)                                            | deck builder          |
 | `apps/web`                            | The client: Svelte and Vite, Dexie store, outbox and sync, the privacy panel. Skeleton flow today; intro, Later pile, install and hints to come | UI builder            |
 | `apps/api`                            | The API: Hono app with every route, keyed hash, byte caps, rate buckets; `dev.ts` runs it locally                                               | API builder           |
-| `netlify/functions`                   | The one function that hands `/api/*` to the Hono app                                                                                            | integrator            |
+| `netlify/functions`                   | The source of the one function that hands `/api/*` to the Hono app; the build bundles it into `netlify/functions-build/` (ignored by git)       | integrator            |
 | `tools/workshop`                      | `keygen`, `sync` (folders into the database at deploy), `export` (decrypt to CSV on your machine); later `new`, `close`, `delete`               | ops                   |
-| `tools/ops`                           | `migrate` (at deploy) and `pepper`                                                                                                              | ops                   |
+| `tools/ops`                           | `migrate` and `bundle-api` (at deploy) and `pepper`                                                                                             | ops                   |
 | `workshops/<slug>/`                   | A workshop: `workshop.json`, `deck.json`, `copy.md`                                                                                             | Marco and the partner |
 
 ## Where an answer goes

@@ -244,3 +244,41 @@ node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manuf
 - The deck engine with seeded shuffle and defer rules: week two, deck builder.
 - The backup job, the Better Stack heartbeat, drills: Thursday and Friday.
 - Branch protection on `main`: Friday, after this lands.
+
+## 2026-10-28, Wednesday evening. Staging secrets set; the first deploy failed at the function; the function is now bundled
+
+### What
+
+- Marco set `WB_PEPPER` and `DATABASE_URL` in Netlify for the Deploy Previews and Branch deploys contexts, both marked secret. `docs/account-setup.md` gained section 5 with the click path, field by field, including what the free plan does with the scopes once the secret flag is on. One pepper was generated, set, and then lost before it reached the vault; Netlify never shows a secret again, so it was replaced with a fresh one (nothing had been stored under it) and the vault came first the second time.
+- The `staging` branch was created from `skeleton` and deployed. The build ran (migration, workshop sync, client), but every `/api/*` path answered 502 with `Cannot find module '/var/task/node_modules/@wb/contracts/src/index.ts' imported from /var/task/netlify/functions/api.mjs`. Netlify's packager had turned the function into JavaScript but left the workspace packages outside the file, and its copy of them carried manifests without the TypeScript source behind the links.
+- The fix: the build now makes the function file itself. `tools/ops/bundle-api.ts` bundles `netlify/functions/api.mts` with esbuild into `netlify/functions-build/api.mjs`, one file with no imports left to resolve, and refuses to finish if any import other than a Node module would remain outside. `netlify.toml` runs it as the third build step and names that folder as the functions directory. The deploy's commit is baked into the file, so `/api/health` now reports the exact commit that is running.
+- `@wb/db` was split so the function's import graph never contains PGlite: the package root exports the schema, the queries and `connectNeon`; the dispatcher that also knows PGlite, and the migrator, moved to `@wb/db/connect`, used by tools, tests and the local server. `Db` lives in `packages/db/src/types.ts`.
+- The health route had a flaw the bundle test exposed: it checked the rate limit before its own database guard, so an unreachable database would have produced a 500 `SERVER_ERROR` instead of the 503 the monitor expects. The limiter now sits inside the guard.
+- Tests: `apps/api/test/bundle.test.ts` walks the import graph from the function entry (reaches the app, the contracts, the Neon connector; never PGlite, the tools-only connector, or `@wb/crypto`), then builds the real bundle into a temporary folder, checks its text, and runs it in a plain Node process with a database host that cannot exist, expecting 503, `ok: false`, `dbReachable: false` and the baked-in version. `app.test.ts` gained "health when the database is unreachable". 110 tests.
+- esbuild is a declared development dependency now (ADR 0012); it was already installed through drizzle-kit and Vite. ADR 0011 has an amendment. Learning note 07 explains imports, links, and bundling. The runbook has an entry for "function answers 502 on every path", with the one-minute rollback. The ops runbook (private) records the variable names, contexts and vault item names, and the staging compute.
+
+### Why
+
+A deployed function runs from a zip on a server with no repository and no `npm install`. Whatever it imports has to be in the zip, already JavaScript. Leaving that to a packager's heuristics put the first failure at the first request, in production-like conditions, with the cause three layers away. Making the artefact ourselves puts the failure at build time, with the import's name, and leaves one readable file as what runs.
+
+### How to verify
+
+```
+npm run check                                              # 110 tests, incl. the graph and bundle tests
+node tools/ops/bundle-api.ts --commit $(git rev-parse HEAD)   # writes netlify/functions-build/api.mjs, prints size and version
+grep -c "^import" netlify/functions-build/api.mjs          # 0: nothing left to resolve
+```
+
+Then the staging deploy: the Netlify deploy log has the line `bundle-api: wrote ... (NNN KB, version <commit>)`, and `curl https://staging--worldbuilder-uot.netlify.app/api/health` answers 200 with `"ok":true`, `"dbReachable":true`, the commit as `version`, and the workshop `rural-manufacturing` as `open`. Learning note 07 has the by-hand run of the bundle with a database that cannot exist.
+
+### Decisions made on the way
+
+- **Our own bundling step, not `node_bundler = "esbuild"` in `netlify.toml`.** That setting would make Netlify's packager inline packages too, but it would also follow the literal dynamic import of PGlite into the artefact, and which packager Netlify picks for a TypeScript function is a heuristic that has changed before. One tool we run, with a check and a test, is legible; a setting whose behaviour we infer from a failure is not.
+- **Not minified.** Bytes do not matter at 1.2 MB on a function; a readable artefact does.
+- **The Neon connector at the package root, the dispatcher at a sub-path**, rather than hiding the PGlite import from the bundler with a non-literal specifier. The split states the rule in the package's shape and a test enforces it.
+- **The limiter inside health's guard**: a health check must describe the outage, not become part of it.
+
+### Open
+
+- The bundle is 1.2 MB, a third of it Zod's translations of its own error messages. Harmless; worth a look if cold starts ever matter.
+- Staging verification at the time of writing: pending the redeploy; the result is logged below when it lands.

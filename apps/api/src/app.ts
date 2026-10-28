@@ -106,14 +106,17 @@ export function createApp(deps: AppDeps) {
   });
 
   app.get('/api/health', async (c) => {
-    if (await limited('health', 'global', LIMITS.health)) return fail(c, 'RATE_LIMITED');
     let dbReachable = true;
     let report: Awaited<ReturnType<typeof healthReport>> = {
       lastBackupAt: null,
       eventsToday: 0,
       workshops: [],
     };
+    // The limiter needs the database too, so it sits inside the same guard: a database that
+    // cannot be reached must answer 503 with ok false (what the monitor and the runbook expect),
+    // never a 500 from the limiter failing first.
     try {
+      if (await limited('health', 'global', LIMITS.health)) return fail(c, 'RATE_LIMITED');
       report = await healthReport(deps.db, todayDay(now()));
     } catch {
       dbReachable = false;

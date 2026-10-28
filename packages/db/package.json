@@ -5,7 +5,8 @@
   "type": "module",
   "description": "The database: Drizzle schema, migrations, and the queries the API and the tools use. Every table with participant data carries a workshop id.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./connect": "./src/connect.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate"

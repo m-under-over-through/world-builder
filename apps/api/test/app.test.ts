@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { deckSchema, generateCode, SYNC_MAX_EVENTS, workshopConfigSchema } from '@wb/contracts';
-import { connect, ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '@wb/db';
+import { ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '@wb/db';
+import { connect } from '@wb/db/connect';
 import { createApp, type App } from '../src/app.ts';
 
 /**
@@ -331,5 +332,22 @@ describe('rate limits without addresses', () => {
       ).status;
     }
     expect(last).toBe(429);
+  });
+});
+
+describe('health when the database is unreachable', () => {
+  it('answers 503 with ok false, not a server error, even though the limiter needs the database', async () => {
+    const unreachable = new Proxy(
+      {},
+      {
+        get: () => () => {
+          throw new Error('database unreachable');
+        },
+      },
+    ) as unknown as Db;
+    const downApp = createApp({ db: unreachable, pepper: TEST_PEPPER, version: 'test', now });
+    const res = await downApp.request('/api/health');
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ ok: false, dbReachable: false, version: 'test' });
   });
 });

@@ -8,7 +8,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 import { deckSchema, workshopConfigSchema } from '@wb/contracts';
-import { connect, ensureWave, setWorkshopStatus, syncWorkshop } from '@wb/db';
+import { ensureWave, setWorkshopStatus, syncWorkshop } from '@wb/db';
+import { connect } from '@wb/db/connect';
 import { createApp } from './src/app.ts';
 
 const root = new URL('../../', import.meta.url);
