@@ -49,6 +49,34 @@ What it is for: knowing before participants do, and knowing when the backup stop
 - [ ] **Leave for Tuesday and Thursday:** the monitors (client URL, health endpoint checking for `"ok":true`) and the backup heartbeat.
 - [ ] Record: the login and the team name.
 
+## 5. Netlify, the staging secrets, ten minutes (28 October)
+
+What it is for: the staging deploy needs two values that must never enter the repository. They are environment variables on the Netlify project, read by the build (migration, workshop sync) and by the function (database, keyed hash of codes). A deploy context is Netlify's word for "which kind of deploy": Production is the `main` branch, Branch deploys is the `staging` branch, Deploy Previews are pull requests. Each context can hold its own value of the same variable, so staging and production never share a database or a pepper.
+
+Make the pepper first, on this laptop:
+
+```
+node tools/ops/pepper.ts staging        # writes .secrets/staging.pepper, shows nothing
+pbcopy < .secrets/staging.pepper        # now on the clipboard
+```
+
+- [ ] In Netlify: **Projects**, `worldbuilder-uot`, left column **Project configuration**, then **Environment variables**. Press **Add a variable**, then **Add a single variable**.
+- [ ] **Key:** `WB_PEPPER`.
+- [ ] **Scopes:** Specific scopes, tick **Builds** and **Functions**. If the form shows no scopes, All scopes is fine too.
+- [ ] Tick **Contains secret values**. Netlify then hides the value after saving, redacts it from build logs, and fails any build whose output contains it. All three are wanted.
+- [ ] **Values:** choose **Different value for each deploy context**. Add the value for **Deploy Previews** and again for **Branch deploys** (paste both times). Leave **Production** without a value; it gets its own pepper in hardening week. Leave Local development empty.
+- [ ] **Create variable**.
+- [ ] Paste the same value into Bitwarden as a secure note "World Builder: staging pepper", then `rm .secrets/staging.pepper` and copy any harmless text so the clipboard no longer holds it.
+
+Then the connection string:
+
+- [ ] In Neon: project `world-builder`, pick the branch `staging` in the branch selector at the top, press **Connect**. In "Connect to your branch" keep database `neondb` and role `neondb_owner`; the **Connection pooling** toggle can stay as it is, both forms work with the HTTP driver. Copy the full string; it starts with `postgresql://` and contains the password.
+- [ ] In Netlify, the same form again: key `DATABASE_URL`, same scopes, **Contains secret values** ticked, different value per context, the string under **Deploy Previews** and **Branch deploys**, nothing under Production.
+- [ ] Into Bitwarden as "World Builder: Neon staging connection string".
+- [ ] Say so in the session. The `staging` branch is then created from the skeleton, and its first build log shows the migration and the workshop sync running against Neon, then `https://staging--worldbuilder-uot.netlify.app/api/health` reports the database.
+
+Two things worth knowing. A new or changed variable reaches only deploys made after the change, so set both before the branch exists. And because the repository is public, Netlify's default policy keeps secret variables away from deploy previews of pull requests that come from forks; the build is written to do nothing with the database when the values are missing, so such a preview still builds, it only has no API.
+
 ## After the three
 
 Send the non-secret identifiers (Neon project id and region, bucket name and endpoint, team name) for the ops repository's runbook pages. Send nothing that opens anything. Then the partner's name for the workshop file, and the domain's auto-renew and holding account for the runbook.
