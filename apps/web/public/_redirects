@@ -1,0 +1,3 @@
+# The API function answers /api/*; everything else is the single-page client.
+/api/*  /.netlify/functions/api  200
+/*      /index.html              200
