@@ -42,7 +42,7 @@ Add this to your home screen for next time. [per-platform steps]
 ## Trust page variables
 
 - organizer: Under Over Through x Mechanism
-- data owner: Under Over Through, in partnership with Mechanism (a pro bono experiment run under UOT)
+- data owners: Under Over Through and Mechanism, jointly
 - storage region: United States
 - collection closes: 6 December 2026
 - deletion: 5 February 2027
