@@ -13,7 +13,7 @@ Three free accounts to open: Neon, Backblaze, Better Stack. Cloudflare is no lon
 ## 1. Netlify, five minutes, already yours
 
 - [ ] Confirm two-factor is on for the account that holds the DNS; print its backup codes if you never have.
-- [ ] Team settings, Notifications: turn on usage alerts for bandwidth, build minutes and function calls. These are the early warning for the free plan's pause.
+- [ ] Usage warnings need no setting: Netlify emails the team owner automatically at 50, 75 and 100 percent of the build-minute allowance. Make sure the team owner's address is one you read. There is no alert for bandwidth on the free plan, so the usage page (Billing, Account usage insights) is part of the weekly check.
 - [ ] **Leave for Tuesday:** the site itself, created from the `world-builder` GitHub repository when there is something to deploy, and the CNAME for `worldbuilder` once the site has a name.
 
 ## 2. Neon, ten minutes

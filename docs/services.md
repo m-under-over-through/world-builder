@@ -6,7 +6,7 @@ Draft 0.3, 24 October 2026. Companion to the architecture and risk plan. Revised
 
 ## 1. What you already have, and how it is used
 
-**under-over-through.co and Netlify.** The app lives at `worldbuilder.under-over-through.co`, with the workshop in the path. Netlify already hosts the domain's DNS and the main site; it now also hosts the app: static files for the client, Netlify Functions for the API on the same hostname, and the subdomain is one record in the same dashboard. The free plan's limits (100 GB of bandwidth, 300 build minutes, 125,000 function calls a month) are far above this load; its one real risk is that a site over its allowance is paused until the next month or an upgrade, so Netlify's usage alerts are turned on and the upgrade path is rehearsed once. The main site sets no cookies and loads no third-party scripts, so the subdomain inherits nothing that contradicts the trust page.
+**under-over-through.co and Netlify.** The app lives at `worldbuilder.under-over-through.co`, with the workshop in the path. Netlify already hosts the domain's DNS and the main site; it now also hosts the app: static files for the client, Netlify Functions for the API on the same hostname, and the subdomain is one record in the same dashboard. The free plan's limits (100 GB of bandwidth, 300 build minutes, 125,000 function calls a month) are far above this load; its one real risk is that a site over its allowance is paused until the next month or an upgrade, so the usage page is part of the weekly check (Netlify emails the owner about build minutes automatically; there is no bandwidth alert on the free plan) and the upgrade path is rehearsed once. The main site sets no cookies and loads no third-party scripts, so the subdomain inherits nothing that contradicts the trust page.
 
 **Google Workspace.** The `privacy@under-over-through.co` contact address is an alias or group there.
 
@@ -48,6 +48,6 @@ Running cost: zero a month beyond the vault's ten dollars a year. New accounts t
 
 - Every account under the UOT identity or a role address, never a personal login.
 - Two-factor on everywhere, with an authenticator app, not SMS. Recovery codes printed and stored with the key envelopes.
-- Netlify's usage notifications on; Backblaze's spending cap set; Neon's usage page checked weekly for the first month.
+- Netlify's and Neon's usage pages checked weekly for the first month; Backblaze's spending cap set.
 - The domain's auto-renew and holding account confirmed in the runbook.
 - A page in the runbook per service: what it does, where the login is, what breaks without it, how to move off it.
