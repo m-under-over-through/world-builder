@@ -1,0 +1,18 @@
+{
+  "name": "@wb/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The API: a Hono app served as a Netlify Function on the same hostname as the client. Never imports @wb/crypto.",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "dependencies": {
+    "@wb/contracts": "*",
+    "@wb/db": "*",
+    "hono": "^4.13.14"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^2.1.5"
+  }
+}

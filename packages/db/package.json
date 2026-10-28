@@ -1,0 +1,22 @@
+{
+  "name": "@wb/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The database: Drizzle schema, migrations, and the queries the API and the tools use. Every table with participant data carries a workshop id.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "@wb/contracts": "*",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.13",
+    "drizzle-kit": "^0.31.11"
+  }
+}
