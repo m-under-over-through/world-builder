@@ -5,7 +5,7 @@ Every heading below is a screen or a block the app renders. Keep each under the 
 
 ## Intro 1 (under 60 words)
 
-[Partner name] and Under Over Through are imagining what local manufacturing in rural America could become. Not a survey, not a forecast: a slow, personal exercise in picturing a different world, one small question at a time.
+Under Over Through and Mechanism are imagining what local manufacturing in rural America could become. Not a survey, not a forecast: a slow, personal exercise in picturing a different world, one small question at a time.
 
 ## Intro 2 (under 60 words)
 
@@ -13,7 +13,7 @@ You will see one card at a time with a simple question about that future. Answer
 
 ## Intro 3, consent (under 80 words)
 
-Your answers are anonymous. We do not ask for your name or email, we set no cookies, and your answers are encrypted on your device before they are sent. They will be used by [partner name] to imagine the future of local manufacturing and may be quoted, without any way to trace them to you. Tap "I understand" to begin.
+Your answers are anonymous. We do not ask for your name or email, we set no cookies, and your answers are encrypted on your device before they are sent. They will be used by Under Over Through and Mechanism to imagine the future of local manufacturing and may be quoted, without any way to trace them to you. Tap "I understand" to begin.
 
 ## Demo card (under 40 words)
 
@@ -41,8 +41,8 @@ Add this to your home screen for next time. [per-platform steps]
 
 ## Trust page variables
 
-- organizer: [partner name] and Under Over Through
-- data owner: [partner name]
+- organizer: Under Over Through x Mechanism
+- data owner: Under Over Through, in partnership with Mechanism (a pro bono experiment run under UOT)
 - storage region: United States
 - collection closes: 6 December 2026
 - deletion: 5 February 2027
