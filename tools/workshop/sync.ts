@@ -9,7 +9,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   deckSchema,
-  stagingKeysSchema,
+  workshopStagingSchema,
   workshopConfigSchema,
 } from '../../packages/contracts/src/index.ts';
 import { connect } from '../../packages/db/src/connect.ts';
@@ -43,19 +43,21 @@ for (const folder of folders) {
   const stagingFile = `${dir}workshop.staging.json`;
   const staging =
     env !== 'production' && existsSync(stagingFile)
-      ? stagingKeysSchema.parse(JSON.parse(readFileSync(stagingFile, 'utf8')))
+      ? workshopStagingSchema.parse(JSON.parse(readFileSync(stagingFile, 'utf8')))
       : null;
   const keys = staging ?? config;
+  const opensDay = staging?.opensDay ?? config.opensDay;
   const { id } = await syncWorkshop(db, config, deck, {
     publicKey: keys.publicKey,
     keyFingerprint: keys.keyFingerprint,
+    opensDay,
   });
   const row = await findWorkshop(db, config.slug);
   if (row && (row.status === 'draft' || row.status === 'open'))
     await setWorkshopStatus(db, config.slug, 'open');
   await ensureWave(db, id, 'wave-1', 'newsletter 1');
   console.log(
-    `sync: ${config.slug} (${env}, key ${keys.keyFingerprint}) ${row?.status ?? 'new'} -> ${row && row.status !== 'draft' && row.status !== 'open' ? row.status : 'open'}`,
+    `sync: ${config.slug} (${env}, key ${keys.keyFingerprint}, opens ${opensDay}) ${row?.status ?? 'new'} -> ${row && row.status !== 'draft' && row.status !== 'open' ? row.status : 'open'}`,
   );
 }
 process.exit(0);

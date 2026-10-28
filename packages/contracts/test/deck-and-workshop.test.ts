@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { deckSchema, stagingKeysSchema, workshopConfigSchema } from '../src/index.ts';
+import { deckSchema, workshopStagingSchema, workshopConfigSchema } from '../src/index.ts';
 
 const validWorkshop = {
   slug: 'example',
@@ -89,7 +89,7 @@ describe('the first workshop folder', () => {
   });
 
   it('has a staging key file that validates and differs from the production key', () => {
-    const staging = stagingKeysSchema.safeParse(read('workshop.staging.json'));
+    const staging = workshopStagingSchema.safeParse(read('workshop.staging.json'));
     expect(staging.error?.issues ?? []).toEqual([]);
     const production = workshopConfigSchema.parse(read('workshop.json'));
     expect(staging.data?.publicKey).not.toBe(production.publicKey);
@@ -100,5 +100,21 @@ describe('the first workshop folder', () => {
     const result = workshopConfigSchema.safeParse(read('workshop.json'));
     expect(result.error?.issues ?? []).toEqual([]);
     expect(result.success).toBe(true);
+  });
+});
+
+describe('the staging file', () => {
+  const keys = {
+    publicKey: 'JRErsTcEsSnGWGeyuuzrCw3QM1T9ByErrNseBql7Vl4=',
+    keyFingerprint: 'de7f-523e-d6db-ad50',
+  };
+  it('may bring the opening day forward, and nothing else', () => {
+    expect(workshopStagingSchema.safeParse(keys).success).toBe(true);
+    expect(workshopStagingSchema.safeParse({ ...keys, opensDay: '2026-10-28' }).success).toBe(true);
+    expect(workshopStagingSchema.safeParse({ ...keys, opensDay: 'tomorrow' }).success).toBe(false);
+    expect(workshopStagingSchema.safeParse({ ...keys, closesDay: '2026-12-06' }).success).toBe(
+      false,
+    );
+    expect(workshopStagingSchema.safeParse({ ...keys, cap: 5 }).success).toBe(false);
   });
 });

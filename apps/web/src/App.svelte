@@ -58,6 +58,14 @@
   let cookies = $state(0);
 
   const card = $derived(cards[index]);
+  const notYetOpen = $derived(workshop !== undefined && localDay() < workshop.opensDay);
+  /** "16 November 2026" in the phone's language; noon avoids the day shifting at a timezone edge. */
+  const longDay = (day: string) =>
+    new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
   const remaining = $derived(MAX_ANSWER_CHARS - codePoints(answer));
 
   onMount(async () => {
@@ -94,7 +102,7 @@
     if (!store || !workshop) return;
     me = await reconcile(store, workshop.config.slug, code);
     sync = await syncNow(store, workshop.config.slug, code);
-    if (localDay() > workshop.config.closesDay) {
+    if (localDay() > workshop.config.closesDay || localDay() < workshop.opensDay) {
       screen = 'closed';
       return;
     }
@@ -135,7 +143,8 @@
       : { code: fresh, wave: arrival.wave ?? 'wave-1' };
     const res = await api(`/${workshop.config.slug}/join`, { body });
     if (!res.ok) {
-      error = res.error;
+      if (res.error === 'WORKSHOP_CLOSED') screen = 'closed';
+      else error = res.error;
       return;
     }
     code = fresh;
@@ -154,8 +163,10 @@
     }
     const res = await api(`/${workshop.config.slug}/me`, { code: typed });
     if (!res.ok) {
-      error =
-        res.error === 'AUTH_CODE_UNKNOWN' ? 'That code is not ours. Check the digits.' : res.error;
+      if (res.error === 'WORKSHOP_CLOSED') screen = 'closed';
+      else if (res.error === 'AUTH_CODE_UNKNOWN')
+        error = 'That code is not ours. Check the digits.';
+      else error = res.error;
       return;
     }
     code = typed;
@@ -340,8 +351,13 @@
         moment when you are online.{:else}Everything is synced.{/if}
     </p>
   {:else if screen === 'closed'}
-    <h1>This workshop has closed.</h1>
-    <p>Thank you. The answers are being read now.</p>
+    {#if notYetOpen && workshop}
+      <h1>Not open yet.</h1>
+      <p>This opens on {longDay(workshop.opensDay)}. Keep the link and come back then.</p>
+    {:else}
+      <h1>This workshop has closed.</h1>
+      <p>Thank you. The answers are being read now.</p>
+    {/if}
   {:else if screen === 'panel'}
     <h1>Your privacy</h1>
     <dl>

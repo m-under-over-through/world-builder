@@ -281,4 +281,5 @@ Then the staging deploy: the Netlify deploy log has the line `bundle-api: wrote 
 ### Open
 
 - The bundle is 1.2 MB, a third of it Zod's translations of its own error messages. Harmless; worth a look if cold starts ever matter.
-- Staging verification at the time of writing: pending the redeploy; the result is logged below when it lands.
+- The first join on staging answered `WORKSHOP_CLOSED`, correctly: the workshop opens on 16 November and the API refuses joins outside the window. To try staging before then, `workshop.staging.json` may now name an earlier `opensDay` (strict schema, ADR 0004 amendment); the sync tool stores it for staging and the folder's day for production, the client uses the same day to word its screen, and a participant who arrives before the opening day sees "Not open yet. This opens on 16 November 2026." instead of a bare error code. Tests in contracts and db.
+- Staging verified after the redeploy, about 45 seconds after the push: `https://staging--worldbuilder-uot.netlify.app/api/health` answered 200 with `ok: true`, `version: fbec63f` (the pushed commit), `dbReachable: true`, no backup yet, and `rural-manufacturing` as `open`. The API answers with HSTS and no cookie; the client page carries the self-only Content Security Policy.

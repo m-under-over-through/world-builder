@@ -1,6 +1,6 @@
 import {
   deckSchema,
-  stagingKeysSchema,
+  workshopStagingSchema,
   workshopConfigSchema,
   type Deck,
   type WorkshopConfig,
@@ -34,6 +34,8 @@ export interface Workshop {
   deck: Deck;
   publicKey: string;
   keyFingerprint: string;
+  /** The day this deploy context opens: the folder's day, or the earlier one workshop.staging.json names outside production. */
+  opensDay: string;
 }
 
 const bySlug = new Map<string, Workshop>();
@@ -42,13 +44,14 @@ for (const [path, raw] of Object.entries(configs)) {
   const config = workshopConfigSchema.parse(raw);
   const deck = deckSchema.parse(decks[path.replace('workshop.json', 'deck.json')]);
   const stagingRaw = stagings[path.replace('workshop.json', 'workshop.staging.json')];
-  const staging = stagingRaw ? stagingKeysSchema.parse(stagingRaw) : null;
+  const staging = stagingRaw ? workshopStagingSchema.parse(stagingRaw) : null;
   const keys = ENV === 'production' || !staging ? config : staging;
   bySlug.set(slug, {
     config,
     deck,
     publicKey: keys.publicKey,
     keyFingerprint: keys.keyFingerprint,
+    opensDay: (ENV !== 'production' && staging?.opensDay) || config.opensDay,
   });
 }
 

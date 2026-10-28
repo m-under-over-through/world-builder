@@ -12,7 +12,7 @@ export async function syncWorkshop(
   db: Db,
   config: WorkshopConfig,
   deck: Deck,
-  options: { publicKey?: string; keyFingerprint?: string } = {},
+  options: { publicKey?: string; keyFingerprint?: string; opensDay?: string } = {},
 ): Promise<{ id: string }> {
   const values = {
     slug: config.slug,
@@ -24,7 +24,8 @@ export async function syncWorkshop(
     checkpointsPerSession: config.checkpointsPerSession,
     invitesPerParticipant: config.invitesPerParticipant,
     cap: config.cap,
-    opensDay: config.opensDay,
+    // Staging may open early (workshop.staging.json); production always uses the folder's day.
+    opensDay: options.opensDay ?? config.opensDay,
     closesDay: config.closesDay,
     deleteDay: config.deleteDay,
   };
