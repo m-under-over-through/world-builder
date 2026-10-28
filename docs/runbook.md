@@ -12,6 +12,14 @@ Entries marked _provisional_ describe code that is not yet written; they are the
 
 ## Server error codes
 
+### REQUEST_INVALID
+
+Meaning: the body of a join or invites call is not JSON or fails the contract. Cause: a client and server built from different contract versions, or a hand-made request. Check: the validation issues in the log line name the field, never the content. Fix: redeploy the client with the matching contracts. Confirm: the call succeeds from the app.
+
+### REQUEST_TOO_LARGE
+
+Meaning: the body exceeds `MAX_REQUEST_BYTES` (one megabyte). Cause: a client that did not split a large outbox. Fix: client batching by bytes as well as by count. Confirm: the outbox drains.
+
 ### WORKSHOP_UNKNOWN
 
 _Provisional._ Meaning: the slug in the URL matches no workshop. Cause: a typo in a link, or a workshop folder not deployed. Check: `workshops/<slug>/` exists on `main` and the last deploy succeeded. Fix: redeploy, or correct the link. Confirm: `GET /api/<slug>/health`-style request for that slug returns a known workshop in the health listing.

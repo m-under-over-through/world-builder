@@ -15,4 +15,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0009   | TypeScript throughout, npm workspaces, Zod contracts, Vitest, no build step for tools     |
 | 0010   | A subdomain of under-over-through.co, DNS at Netlify, the existing UOT GitHub account     |
 | 0011   | Zero-cost hosting: Netlify for client and API, Neon free, Backblaze plus GitHub artifacts |
-| 0012 | Libraries for the walking skeleton, and rate limiting without addresses |
+| 0012   | Libraries for the walking skeleton, and rate limiting without addresses                   |
