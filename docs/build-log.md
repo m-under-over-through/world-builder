@@ -372,9 +372,9 @@ Once the five values are set (section 6 of `docs/account-setup.md`): `gh workflo
 
 - Found why staging lost its database at about 16:00 UTC: Neon's Create branch dialog ticks **Auto-delete: After 1 day** by default, and the `staging` branch of 28 October was created with that default in place. Neon deleted the branch, compute and all, a day later. From Netlify the vanished compute answered `password authentication failed for user 'neondb_owner'`, which is why the afternoon's diagnosis pointed at the password. Marco saw the default in the dialog, and the Branches page listed `production` alone.
 - Ruled out before that: no secret in either repository, no workflow or script that talks to Neon's control plane, no Neon tool or key on the laptop. Neon's "new organization" email of 14:36 UTC is a lifecycle mail sent a day after the welcome mail of 14:34 UTC on 28 October; it changed nothing.
-- Marco recreated `staging` (`br-muddy-pine-b58g7t0f`, parent `production`, Auto-delete set to never), put the new string in the vault and in Netlify's `DATABASE_URL` under Deploy Previews and Branch deploys, and triggered a staging deploy. Nothing was lost: staging held test data only, and the first deploy recreates the tables and reloads the workshop.
+- Marco recreated `staging` (`br-muddy-pine-b58g7t0f`, parent `production`, Auto-delete set to never) and put the new string in the vault and in Netlify's `DATABASE_URL` under Deploy Previews and Branch deploys. Nothing was lost: staging held test data only, and the first deploy recreates the tables and reloads the workshop. The previews proved the Deploy Previews value at once: pull request 4's rebuilt preview answered `dbReachable: true` with the workshop loaded. The stable staging address stayed on the old deploy, because Netlify's Trigger deploy button builds the production branch, not `staging`; staging was rebuilt by fast-forwarding `staging` to `main` (1b74e9e), the documented way to refresh it.
 - Docs corrected. `docs/account-setup.md` section 2 says to set Auto-delete to never. The runbook's Neon entry and the ops page `runbook/neon.md` give the real cause, the check (is the branch listed; Monitoring, System operations) and the fix, and the ops page carries the new branch id. `runbook/restore-drill.md` says to leave the one-day timer on the drill branch, where it is the right behaviour. Note 08 has the lesson under "What can go wrong".
-- Pull request 4 got an empty commit (20bf6f1) so Netlify builds its preview again; pull request 3's preview rebuilds with this entry.
+- Pull request 4 got an empty commit (20bf6f1) so Netlify builds its preview again; pull request 3's preview rebuilt with this entry. Both previews build against the new branch and answer `dbReachable: true`.
 
 ### Why
 
@@ -390,6 +390,7 @@ A database branch with a timer is a new idea in this project: Neon treats a new 
 
 - **Auto-delete off for `staging`, on for `restore-drill`.** The drill branch is meant to vanish, and the timer is a second guarantee that it does. Staging and production are not.
 - **An empty commit to retry a preview.** Netlify's Retry button lives in its console; a commit whose message says why is the same action, kept in the record.
+- **Staging rebuilt by fast-forward, not from the Netlify console.** The morning entry already names fast-forwarding `staging` to `main` as the way to refresh the stable address; Netlify's Trigger deploy builds the production branch and cannot rebuild a branch deploy. Both runbook pages now say so.
 
 ### Open
 
