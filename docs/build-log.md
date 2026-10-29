@@ -395,3 +395,39 @@ A database branch with a timer is a new idea in this project: Neon treats a new 
 ### Open
 
 - The compute id of the new `staging` branch, for `runbook/neon.md`: the `ep-` name on the branch's Computes tab, also the first label of the connection string's host.
+
+---
+
+## 2026-10-29, Thursday night. The first backup ran against staging; two fixes on the way; the backup key replaced
+
+### What
+
+- Marco completed section 6 of `docs/account-setup.md`: the backup key, the Backblaze writer key and the two bucket rules, Neon's direct string, the Better Stack heartbeat and monitor. Four secrets and one variable now exist in the ops repository.
+- The first key pair was voided before use: the whole key file, secret line included, was pasted into the session, and a session transcript is not a vault. A new pair was generated with a command that shows only the public half (`age-keygen -o`), its public key set as `AGE_PUBLIC_KEY`, and the old file left for Marco to delete. Nothing had been sealed with the old pair.
+- Three runs of `backup.yml` against staging, started by hand:
+  1. Run 40963230115 failed in the dump: `pg_dump: error: aborting because of server version mismatch`, server 18.6, pg_dump 16.15. The install step had fetched client 18, but the runner's own PostgreSQL 16 answered through Ubuntu's `pg_wrapper`. Fix: the install step puts `/usr/lib/postgresql/18/bin` first on the path for the later steps and fails at once if the pg_dump there is not an 18.
+  2. Run 40963527753 dumped and sealed both files, then Backblaze refused the upload: `Content-MD5 OR x-amz-checksum- HTTP header is required for Put Object requests with Object Lock parameters`. With the newer checksum types turned off, `aws s3 cp` sent neither. Fix: each file goes up with `aws s3api put-object --content-md5`, and the test's aws stand-in checks the MD5 against the body (`ok: 13 checks passed`).
+  3. Run 40963927650, from the fix branch, went through: `dumping the database`, `sealed staging-database-20261029T221151Z.sql.gz.age, 2497 bytes`, `sealed staging-workshop-rural-manufacturing-20261029T221151Z.tar.gz.age, 0 events`, `uploading to world-builder-backups`, `recording the run`, `heartbeat sent`, `done: 2 sealed files`. Artifact `backup-staging-40963927650`, 3822 bytes, kept until 12 November. Staging's health now says `lastBackupAt: 2026-10-29 22:12:02`.
+- Both fixes are ops pull request 2 (branch `pg-dump-18-on-path`, 9e1d1a0), with the runbook's two "what can go wrong" bullets rewritten to say what happened; note 08's bullets say the same.
+
+### Why
+
+The stubbed test proves the script's logic, not the runner or the vendors: the runner's path and Backblaze's Object Lock rule only show on a real run. Both failures stopped before anything was written, and the fix branch could be run with `--ref` before merging, so `main` never carried a job that was known to be broken.
+
+### How to verify
+
+- `https://staging--worldbuilder-uot.netlify.app/api/health` shows today's `lastBackupAt`.
+- Actions in the ops repository: run 40963927650 green, with the seven log lines above; its artifact listed for 14 days.
+- Backblaze, Browse Files, `world-builder-backups`: `staging/database/2026-10-29/` and `staging/workshops/rural-manufacturing/2026-10-29/` hold one `.age` file each.
+- Better Stack: the heartbeat is up, after two failure pings from the first two runs.
+
+### Decisions made on the way
+
+- **MD5 in the request, not the newer checksums back on.** Backblaze's answer names both as acceptable; the MD5 is one line with `openssl`, works with the newer checksum types still off, and the service verifies the body against it.
+- **Fix branch runs before the merge.** `gh workflow run --ref <branch>` runs the job from a branch with the repository's secrets, so a fix is proved on a real run before it reaches `main`. The schedule keeps running `main`, so ops pull request 2 should merge before the first night.
+
+### Open
+
+- Ops pull request 2 to merge before the nightly schedule, or the night's run fails the same way and the heartbeat alerts.
+- Marco: delete `.secrets/backup.age.key` once the vault note and the two prints exist; confirm the Backblaze folders and the heartbeat; the compute id for `runbook/neon.md`.
+- Friday: the restore drill from this backup, with the drill scripts of ops pull request 1; the decrypt drill from paper.

@@ -60,8 +60,8 @@ Three refusals carry the safety. The target variable is `RESTORE_URL`, never `DA
 
 ## What can go wrong
 
-- **`pg_dump: error: server version mismatch`.** The runner's default client is older than Neon's server. The install step takes the client from the PostgreSQL project's own package repository; when Neon moves to a newer major, raise the number there.
-- **The upload fails with a checksum error.** Newer AWS command lines add integrity checksums Backblaze does not accept; two environment variables in the workflow turn them off.
+- **`pg_dump: error: server version mismatch`.** The runner's own PostgreSQL 16 answered `pg_dump`, not the 18 the install step had fetched from the PostgreSQL project's repository: Ubuntu's `pg_wrapper`, which sits behind `/usr/bin/pg_dump`, picks the version of the runner's configured cluster. The workflow now puts version 18's own directory first on the path and checks the major before dumping. This is how the first run failed, on 29 October 2026. When Neon moves to a newer major, raise the number in both places.
+- **The upload fails with a checksum error.** Newer AWS command lines add integrity checksums Backblaze does not accept; two environment variables in the workflow turn them off. A bucket with Object Lock then refuses a file that arrives with no checksum at all, so the script sends each file with its MD5 in the request. The first run, 29 October 2026, was refused this way.
 - **The lock and the lifecycle rule disagree.** A lifecycle rule cannot delete a locked file; it waits. Keep the lock at or below the lifecycle's hiding day, or files linger.
 - **The private key is lost.** Every backup becomes unreadable at once. Vault plus two printed copies; the Friday decrypt drill proves the copy in the vault works.
 - **The heartbeat alerts while runs are green.** The heartbeat URL is empty for that target (the log says `skipped`), or its period is shorter than a day.
