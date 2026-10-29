@@ -40,14 +40,23 @@ curl -s https://staging--worldbuilder-uot.netlify.app/api/health   # "lastBackup
 
 Then open the run under Actions: the log of "Back up" reads `dumping the database`, `sealed ...`, `uploading to world-builder-backups`, `recording the run`, `heartbeat sent`, `done: N sealed files`. Backblaze, Browse Files, shows today's folder. Better Stack shows the heartbeat up.
 
-The decrypt check, with the key file from the vault in a file you delete afterwards:
+The decrypt check, with the key from the vault in a file you delete afterwards (`chmod 600`; the script refuses a key file that others can read, and the key is never an argument):
 
 ```
-age -d -i backup.age.key -o database.sql.gz staging-database-<stamp>.sql.gz.age
-gunzip database.sql.gz && grep -c '^CREATE TABLE' database.sql && grep -m1 'v1\.' database.sql
+AGE_IDENTITY_FILE=backup.age.key scripts/unseal.sh staging-database-<stamp>.sql.gz.age
+opened staging-database-<stamp>.sql.gz, <n> bytes
+a database dump: 9 tables, <n> sealed answers
 ```
 
-The first count is the number of tables; the second line is a sealed answer, `v1.` followed by base64, which is all the backup ever holds of an answer. Only the workshop's private key opens it (note 01), and that key is not in this picture at all.
+Nine tables: our eight and Drizzle's migrations table. A sealed answer is a row whose body is `v1.` followed by base64, which is all the backup ever holds of an answer. Only the workshop's private key opens it (note 01), and that key is not in this picture at all.
+
+## Restoring: the drill
+
+A backup nobody has restored is a hope. The ops repository's `scripts/restore.sh` is the restore drill: it opens a dump (through `unseal.sh`), checks that the target holds no tables, loads the plain SQL with `psql`, and prints one count per table, next to the same counts on the source when `SOURCE_URL` is given. The procedure, with the expected observations and the click path for a scratch branch and database in Neon, is `runbook/restore-drill.md` there; the first run is Friday 30 October.
+
+Three refusals carry the safety. The target variable is `RESTORE_URL`, never `DATABASE_URL`, so a line copied from the job cannot point a restore at a live database. A database that already holds tables is refused unless `REPLACE=yes`, which the drill page allows only for a database made for the drill. A pooled connection string and a dump without our tables are refused before anything is loaded. The last line of a run, `events with a sealed body: n; with any other body: 0`, is the privacy check: a restore puts back envelopes, never answers.
+
+`scripts/test-restore.sh` runs both scripts with stand-ins for `age` and `psql` (gzip and tar are real) and checks the opened files, the report lines, the order of the statements, the counts and every refusal: 12 checks, on a laptop with nothing installed and in the ops repository's CI.
 
 ## What can go wrong
 
@@ -60,4 +69,4 @@ The first count is the number of tables; the second line is a sealed answer, `v1
 
 ## What it does not do
 
-It does not test a restore; Friday's drill does, into a scratch branch, with a row count compared against the source. It does not back up the Netlify configuration or the secrets; the vault is their backup. It does not make answers readable: a backup holds ciphertext, and only the workshop's private key opens an answer, on the operator's machine. It does not run on a laptop against a real database; the stand-in test runs there, the real run only ever in Actions, which is where the connection string is.
+The job does not test a restore; the drill above does, by hand, into a scratch database, with the counts compared against the source. It does not back up the Netlify configuration or the secrets; the vault is their backup. It does not make answers readable: a backup holds ciphertext, and only the workshop's private key opens an answer, on the operator's machine. It does not run on a laptop against a real database; the stand-in test runs there, the real run only ever in Actions, which is where the connection string is.

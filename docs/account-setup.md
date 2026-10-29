@@ -81,7 +81,7 @@ Two things worth knowing. A new or changed variable reaches only deploys made af
 
 What it is for: the nightly backup job in the ops repository (`world-builder-ops`, `runbook/backups.md`) needs five values it must never find in a file. One is public and becomes a repository variable; four are secrets and become Actions secrets of that repository. Each goes into Bitwarden first. Names and vault item names are in the ops runbook page; this is the click path.
 
-The backup key first, on this laptop. `age` is the file-encryption tool the job uses (same idea as the sealed boxes, learning note 01, for whole files); you also need it on Friday for the decrypt drill.
+The backup key first, on this laptop. `age` is the file-encryption tool the job uses (same idea as the sealed boxes, learning note 01, for whole files); you also need it on Friday for the decrypt drill, together with `psql` 18 for the restore drill (`brew install libpq`; the dump begins with a line only a recent psql reads).
 
 ```
 brew install age
