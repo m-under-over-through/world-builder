@@ -321,3 +321,46 @@ The last line prints the log line `SERVER_NOT_CONFIGURED DATABASE_URL is not set
 
 - Thursday's monitor in Better Stack goes on staging's health endpoint until production has its secrets; on production it would alert for a known reason, and `SERVER_NOT_CONFIGURED` is now the body it would see.
 - Next, per the plan: the backup job in the ops repository, the Backblaze application key, the monitor. Friday: restore and decrypt drills, branch protection on `main`, the walkthrough.
+
+## 2026-10-29, Thursday, late afternoon. The wave link survives sharing; an open is counted once per device
+
+### What
+
+- **The wave link stays in the address bar.** The client no longer replaces `/<slug>/join/<wave>` with `/<slug>/` after it loads. A wave is not a secret (it is in a newsletter), so a copied address, the share sheet and Safari's tabs from other devices all still carry a link that joins. Only an invite link is still replaced, because its token works once and must not linger or travel.
+- **An open is counted once per device.** The client asks the API to count the open only the first time this device arrives through this wave. The guard is the `arrival` the device's store already kept (the wave or invite of the first link opened): when the stored arrival is this wave, the open is not posted again. A reload, a later visit, or a returning participant following the newsletter link again adds nothing; a cleared browser, a "delete me", a second device, or a different wave counts as new. The wave's `opened_count` therefore means "devices that opened the link". Still no cookie and no address; still approximate.
+- Where: `apps/web/src/lib/route.ts` gets the stored arrival's shape, `parseArrival` (reads the stored text back, and anything that is not what we wrote as no arrival) and `countsAsOpen` (the rule, one line, named so it can be tested and pointed at); `apps/web/src/App.svelte`, `onMount`, uses them. The comment on `waves.openedCount` in the schema, the funnel paragraph in the architecture plan (6.3), the screen map's two landing rows, the runbook's confirm line for `JOIN_WAVE_UNKNOWN`, and ADR 0006 (an amendment; the accepted text stays) now say what the number means.
+- The API is untouched: the route, the rate budget and the query are the same; what changed is when the client calls it. No new error code. 122 tests (3 new, in `apps/web/test/deck-and-route.test.ts`).
+
+### Why
+
+Marco's first phone test of staging, this afternoon: he opened the wave link on the Mac without starting, then opened the same tab on the iPhone through Safari's tabs from other devices. Safari carried the cleaned address, which has no wave; the phone had no stored arrival and no code, so the welcome screen could only say "open the link you were sent". The rewrite existed so a reload would not count a second open and so an invite token never lingers. Counting per device keeps the first purpose without the rewrite; the second purpose only ever applied to invites.
+
+### How to verify
+
+```
+npm run check                                   # 122 tests
+npx vitest run apps/web/test/deck-and-route.test.ts   # the rule and the stored arrival
+```
+
+On the pull request's deploy preview (its API runs against the staging database):
+
+1. Open `/rural-manufacturing/join/wave-1` in a fresh browser without starting. The address bar keeps the link. The browser's network tab shows one `POST /api/rural-manufacturing/waves/wave-1/opened`. Reload: no second post.
+2. Copy the address from the address bar and open it on a phone, or in a private window. It shows "New here" and can join, and that device posts its own open.
+3. On a device that has a code, open the wave link again: it lands on the next card, with no post.
+4. An invite link still works once, and the address becomes `/rural-manufacturing/` as before.
+
+The wave's `opened_count` is in the `waves` table, visible through the export tool or a query against staging. `/api/health`'s `eventsToday` counts events (answers and the like), not opens, so it does not move with this.
+
+### Decisions made on the way
+
+- **The guard is memory the device already had, not a new cookie or a new stored value.** The store already kept the arrival so the welcome screen knows which wave to join through; the same record answers "has this device opened this wave before". Nothing new is written to the device.
+- **The rule is one line and still a named, tested function.** `countsAsOpen` is where the next person looks when the number surprises them; the test says in words what counts and what does not.
+- **The stored arrival is read defensively.** `parseArrival` returns no arrival for damaged or foreign text instead of throwing inside `onMount`, which would have left the screen on "Loading…".
+- **A device that arrived through an invite and later opens a wave link counts as an open for that wave**, and its arrival becomes the wave. Rare, and the number is approximate by design.
+- **A failed post is not retried.** If the API is unreachable or the wave's budget is spent at that moment, the arrival is stored anyway and the open is lost. The counter is a rough funnel, and a retry queue for it would be more machinery than the number is worth.
+- **ADR 0006 is amended, not rewritten**, in the style of the amendment to ADR 0011. The comment on `ROUTES.waveOpened` in `packages/contracts/src/api.ts` ("Called by the join page when it loads") is the integrator's to change; proposed in the pull request: "Called by the join page the first time a device opens this wave."
+
+### Open
+
+- Marco's second observation from the phone test, the wording of the code's screens, is a separate decision and is not touched here.
+- This entry and the "Thursday afternoon" entry of the backup-job pull request both sit at the end of this file; whichever merges second keeps both.
