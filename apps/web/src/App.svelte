@@ -12,6 +12,7 @@
   import { sealAnswer } from '@wb/crypto';
   import { api } from './lib/api.ts';
   import { codePoints, sessionCards, truncateCodePoints } from './lib/deck.ts';
+  import { dayStatus } from './lib/days.ts';
   import { parseRoute } from './lib/route.ts';
   import { localDay, WorkshopStore } from './lib/store.ts';
   import { reconcile, syncNow, type SyncStatus } from './lib/sync.ts';
@@ -58,7 +59,10 @@
   let cookies = $state(0);
 
   const card = $derived(cards[index]);
-  const notYetOpen = $derived(workshop !== undefined && localDay() < workshop.opensDay);
+  /** Today against the workshop's days, judged on the device (lib/days.ts); the server has the last word. */
+  const today = () =>
+    workshop ? dayStatus(localDay(), workshop.opensDay, workshop.config.closesDay) : 'open';
+  const notYetOpen = $derived(workshop !== undefined && today() === 'before');
   /** "16 November 2026" in the phone's language; noon avoids the day shifting at a timezone edge. */
   const longDay = (day: string) =>
     new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
@@ -94,7 +98,9 @@
       code = saved;
       await afterCode();
     } else {
-      screen = 'welcome';
+      // A new arrival outside the workshop's days is told so here, before any request, so the
+      // screen does not depend on the API answering (it may not, before hardening week).
+      screen = today() === 'open' ? 'welcome' : 'closed';
     }
   });
 
@@ -102,7 +108,7 @@
     if (!store || !workshop) return;
     me = await reconcile(store, workshop.config.slug, code);
     sync = await syncNow(store, workshop.config.slug, code);
-    if (localDay() > workshop.config.closesDay || localDay() < workshop.opensDay) {
+    if (today() !== 'open') {
       screen = 'closed';
       return;
     }

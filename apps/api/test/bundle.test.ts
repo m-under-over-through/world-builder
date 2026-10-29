@@ -1,7 +1,8 @@
 // The deployed function is one file made by tools/ops/bundle-api.ts. These tests prove what that
 // file is allowed to contain and that it answers on its own, outside the test runner, the way the
-// runbook says it does when the database is unreachable (docs/learn/07-bundling-the-function.md).
-import { describe, expect, it } from 'vitest';
+// runbook says it does when the database is unreachable or a secret is missing
+// (docs/learn/07-bundling-the-function.md).
+import { beforeAll, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -80,39 +81,73 @@ describe('the function import graph', () => {
 });
 
 describe('the bundled function', () => {
-  it('builds into one file that carries neither PGlite nor the crypto package', async () => {
-    const outDir = mkdtempSync(join(tmpdir(), 'wb-bundle-'));
+  const outDir = mkdtempSync(join(tmpdir(), 'wb-bundle-'));
+  const runner = join(outDir, 'run.mjs');
+  let text = '';
+
+  beforeAll(async () => {
     const file = await bundleApi({ outDir, commitRef: 'abc1234def5678' });
-    const text = readFileSync(file, 'utf8');
-    expect(text).not.toMatch(/pglite/i);
-    expect(text).not.toMatch(/tweetnacl|@wb\/crypto|crypto_box/);
-    // Health answers from plain Node, no test runner, with a database that cannot be reached:
-    // 503 with ok false and the baked-in version, which is what the runbook tells the operator to expect.
-    const runner = join(outDir, 'run.mjs');
+    text = readFileSync(file, 'utf8');
+    // Runs the bundle in plain Node, no test runner: one request, the status and body as JSON.
     writeFileSync(
       runner,
       [
         "const mod = await import('./api.mjs');",
-        "const res = await mod.default(new Request('http://localhost/api/health'));",
+        'const [path, method = "GET"] = process.argv.slice(2);',
+        "const init = method === 'GET' ? {} : { method, body: '{}', headers: { 'content-type': 'application/json' } };",
+        'const res = await mod.default(new Request(`http://localhost${path}`, init));',
         'console.log(JSON.stringify({ status: res.status, body: await res.json() }));',
       ].join('\n'),
     );
-    const out = execFileSync(process.execPath, [runner], {
+  }, 60_000);
+
+  /** The environment the bundle runs with: the test runner's, minus the two secrets, plus what the case sets. */
+  function run(path: string, vars: Record<string, string>, method = 'GET') {
+    const env = { ...process.env, ...vars };
+    for (const name of ['DATABASE_URL', 'WB_PEPPER']) if (!(name in vars)) delete env[name];
+    const out = execFileSync(process.execPath, [runner, path, method], {
       encoding: 'utf8',
       timeout: 30_000,
-      env: {
-        ...process.env,
-        DATABASE_URL: 'postgres://wb:nobody@db.invalid/neondb', // .invalid never resolves (RFC 2606)
-        WB_PEPPER: DEV_PEPPER,
-      },
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'], // the function logs its reason to stderr; keep the test output clean
     });
-    const { status, body } = JSON.parse(out.trim().split('\n').pop()!) as {
+    return JSON.parse(out.trim().split('\n').pop()!) as {
       status: number;
-      body: { ok: boolean; version: string; dbReachable: boolean };
+      body: Record<string, unknown>;
     };
+  }
+
+  it('is one file that carries neither PGlite nor the crypto package', () => {
+    expect(text).not.toMatch(/pglite/i);
+    expect(text).not.toMatch(/tweetnacl|@wb\/crypto|crypto_box/);
+  });
+
+  it('answers health with 503, ok false and the baked-in version when the database is unreachable', () => {
+    const { status, body } = run('/api/health', {
+      DATABASE_URL: 'postgres://wb:nobody@db.invalid/neondb', // .invalid never resolves (RFC 2606)
+      WB_PEPPER: DEV_PEPPER,
+    });
     expect(status).toBe(503);
     expect(body.ok).toBe(false);
     expect(body.dbReachable).toBe(false);
     expect(body.version).toBe('abc1234');
-  }, 60_000);
+  }, 30_000);
+
+  it('answers every path with 503 SERVER_NOT_CONFIGURED when DATABASE_URL is not set', () => {
+    const health = run('/api/health', { WB_PEPPER: DEV_PEPPER });
+    expect(health.status).toBe(503);
+    expect(health.body.error).toBe('SERVER_NOT_CONFIGURED');
+    expect(health.body.ok).toBeUndefined(); // the function answers, not the app
+    const join = run('/api/rural-manufacturing/join', { WB_PEPPER: DEV_PEPPER }, 'POST');
+    expect(join.status).toBe(503);
+    expect(join.body.error).toBe('SERVER_NOT_CONFIGURED');
+  }, 30_000);
+
+  it('answers 503 SERVER_NOT_CONFIGURED when the pepper is missing or not 32 bytes', () => {
+    const url = { DATABASE_URL: 'postgres://wb:nobody@db.invalid/neondb' };
+    expect(run('/api/health', url).body.error).toBe('SERVER_NOT_CONFIGURED');
+    expect(run('/api/health', { ...url, WB_PEPPER: 'dG9vIHNob3J0' }).body.error).toBe(
+      'SERVER_NOT_CONFIGURED',
+    );
+  }, 30_000);
 });
