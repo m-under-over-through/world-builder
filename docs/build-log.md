@@ -286,3 +286,38 @@ Then the staging deploy: the Netlify deploy log has the line `bundle-api: wrote 
 - Walked on staging in the browser pane after the second redeploy (commit `2071c16`): the wave link cleaned itself to the workshop address and counted the open; New here, consent, join 200; four cards, three answered (one with an emoji) and one set aside, "Synced." after each; the session end with the masked code; the privacy panel: 0 cookies, one host (`staging--worldbuilder-uot.netlify.app`), microphone, camera and location blocked by policy, key `de7f-523e-d6db-ad50 (staging)`, 1 session and 4 events sealed on the server, 0 waiting. `/api/health` then reported `eventsToday: 4`. The API sets no cookie on any path. Staging's data is disposable; this test participant stays.
 - One thing the panel got wrong: "Version: local". Vite only exposes variables that start with `VITE_`, and Netlify's commit is `COMMIT_REF`. `apps/web/vite.config.ts` now defines `import.meta.env.VITE_COMMIT_REF` from it at build time, so the panel and `/api/health` report the same commit; on a laptop the panel still says "local". Verified on staging at commit `e87d838`: the panel and `/api/health` show the same version, and a reload of the page found the saved code and the four sealed events.
 - Staging verified after the redeploy, about 45 seconds after the push: `https://staging--worldbuilder-uot.netlify.app/api/health` answered 200 with `ok: true`, `version: fbec63f` (the pushed commit), `dbReachable: true`, no backup yet, and `rural-manufacturing` as `open`. The API answers with HSTS and no cookie; the client page carries the self-only Content Security Policy.
+
+## 2026-10-29, Thursday. The skeleton is on main; production serves the client; two gaps the production deploy showed, closed
+
+### What
+
+- Pull request 1 (`skeleton` into `main`) merged with a merge commit, `2e47c07`, after Marco tried staging on his phone and read the log. Four checks passing, one skipped. The tree on `main` is identical to the skeleton's last commit `d6b6c35`; the merge commit only records the merge, so the hashes this log quotes stay in `main`'s history.
+- Netlify deployed `main` to production within a minute: `https://worldbuilder.under-over-through.co` serves the client at version `2e47c07` with the self-only Content Security Policy and HSTS. The `skeleton` branch is kept on GitHub for now. The `staging` branch deploy stays at `d6b6c35`, the same tree.
+- Production has no API until hardening week, by plan: the Production context has no `WB_PEPPER` and no `DATABASE_URL`, so the build's migration and sync steps did nothing (as designed) and the function threw at its first request. Netlify turned that into a 502 whose body was its own exception record (`DATABASE_URL is not set for this deploy context`, with a stack trace of file positions in the bundle; nothing secret, nothing personal). That showed two gaps, both closed in the same afternoon:
+  1. **The function had no error code for "my secrets are missing".** It now reads its three pieces of configuration (`DATABASE_URL`, `WB_PEPPER`, the pepper's shape) inside one guard; when any is missing it logs one line per function instance naming the variable, never its value, and answers every `/api/*` path with 503 and the new code `SERVER_NOT_CONFIGURED`, before the app exists, so the answer never depends on the database. The code is in the contracts and the runbook; the bundle test now builds the file once and runs it three ways in plain Node: unreachable database (503, `ok: false`, the baked-in version, as before), no `DATABASE_URL` (503 with the code on health and on a join), no pepper or a short one (503 with the code).
+  2. **A new arrival before the opening day was only turned away by the API.** The client checked the day itself only for a returning participant, so on production today "New here" led to consent and then "Something went wrong: CLIENT_SYNC_FAILED". Now one small function, `apps/web/src/lib/days.ts`, says where a day falls against the workshop's days (`before`, `open`, `after`), and the client uses it for a new arrival as well as a returning participant: before any request, "Not open yet. This opens on 16 November 2026." or "This workshop has closed." The server stays the authority, with `WORKSHOP_CLOSED` once a request is made; the screen is the same either way. Tests for the rule in `apps/web/test/days.test.ts`; the wiring in `App.svelte` is two lines and has no component test, the client has no harness for one yet.
+- 119 tests.
+
+### How to verify
+
+```
+git log --oneline -2 origin/main           # 2e47c07 Merge the walking skeleton into main, then d6b6c35
+git diff --stat d6b6c35 2e47c07            # prints nothing: same tree
+npm run check                              # 119 tests, incl. the three bundle runs
+node tools/ops/bundle-api.ts && env -u DATABASE_URL -u WB_PEPPER node -e "import('./netlify/functions-build/api.mjs').then(async (m) => { const r = await m.default(new Request('http://localhost/api/health')); console.log(r.status, await r.text()); })"
+```
+
+The last line prints the log line `SERVER_NOT_CONFIGURED DATABASE_URL is not set for this deploy context`, then `503 {"error":"SERVER_NOT_CONFIGURED","message":...}`. Once this is on `main`: `curl -s https://worldbuilder.under-over-through.co/api/health` answers 503 with that body instead of Netlify's exception record, and the production address itself shows "Not open yet. This opens on 16 November 2026." in place of the welcome screen; staging, whose opening day is 28 October, still shows the welcome screen.
+
+### Decisions made on the way
+
+- **A merge commit, not a squash.** This log quotes commits by hash; a squash would have left those hashes only on a branch that may be deleted.
+- **`staging` not fast-forwarded to the merge commit.** Same tree; a rebuild would only change the version string. From here, `main` is production, pull requests get deploy previews against the staging database, and `staging` is fast-forwarded to `main` whenever the stable staging address should show what production will.
+- **Production secrets stay unset until hardening week**, as planned on 28 October, even though the domain now serves the client. Nobody has the address before the newsletter on 16 November; and with this change a visitor who finds it early is told the opening day.
+- **The not-configured answer comes from the function, not the app.** The app needs a database to exist; the answer must not. It is also kept for the instance's life: variables change only with a deploy, and a deploy makes new instances, so re-reading them per request would only repeat the log line.
+- **The client's day check is the same rule at both ends**, opening and close, for a new arrival and for a returning participant, in one function with a test, instead of two comparisons written out in two places.
+
+### Open
+
+- Thursday's monitor in Better Stack goes on staging's health endpoint until production has its secrets; on production it would alert for a known reason, and `SERVER_NOT_CONFIGURED` is now the body it would see.
+- Next, per the plan: the backup job in the ops repository, the Backblaze application key, the monitor. Friday: restore and decrypt drills, branch protection on `main`, the walkthrough.

@@ -80,6 +80,10 @@ _Provisional._ Meaning: too many requests from this code or on this route. Cause
 
 _Provisional._ Meaning: an unexpected exception. The response carries an `errorId`; the log line with the same id has the stack. Check: the log for that id. Fix: depends on the stack. Confirm: the id stops appearing.
 
+### SERVER_NOT_CONFIGURED
+
+Meaning: the deploy context has no `DATABASE_URL`, or no `WB_PEPPER`, or a pepper that is not 32 bytes in base64. The function answers every `/api/*` path with 503 and this code, before the app exists; the client shows the code. The monitor on `/api/health` alerts, since `"ok":true` is absent. Cause: a context whose variables were never set (Production before hardening week; a deploy preview of a pull request from a fork, which Netlify keeps secret variables away from), a variable set after the deploy (a change reaches only later deploys), or a pepper pasted with a character missing. Check: the function log (Netlify, the deploy's Functions tab) for the line `SERVER_NOT_CONFIGURED <reason>`, which names the variable and never its value; then Netlify, Project configuration, Environment variables, which contexts hold a value. Fix: set the value for that context (`docs/account-setup.md`, section 5), then Deploys, Trigger deploy. Confirm: `/api/health` answers 200 with `"ok":true`.
+
 ## Client error codes
 
 ### CLIENT_STORAGE_UNAVAILABLE
@@ -130,7 +134,7 @@ _Provisional._ Hosts the client and the API function. Where the login is: the sa
 
 ### Netlify function answers 502 on every `/api/*` path
 
-Symptom: the health monitor alerts; every API path answers 502 with a JSON body whose `errorMessage` starts with `Cannot find module` (or another error thrown before the first request); the client shows `CLIENT_SYNC_FAILED` and keeps answers in the outbox, so nothing is lost. Cause: the deployed function file needs something that is not in it. Since 28 October 2026 the build makes that file itself (`tools/ops/bundle-api.ts`, learning note 07), so this means the build step was skipped or changed. Check: the deploy log in Netlify (Deploys, the deploy, the log) has a line `bundle-api: wrote ... (NNN KB, version ...)`; `npm test` passes `apps/api/test/bundle.test.ts` locally. Fix: in Netlify, Deploys, open the last good deploy and press \"Publish deploy\" to roll back in a minute; then fix the build and push. Participants' phones keep their outbox for `EVENT_RETENTION_DAYS` and re-send on the next open.
+Symptom: the health monitor alerts; every API path answers 502 with a JSON body whose `errorMessage` starts with `Cannot find module` (or another error thrown before the first request); the client shows `CLIENT_SYNC_FAILED` and keeps answers in the outbox, so nothing is lost. Cause: the deployed function file needs something that is not in it. Since 28 October 2026 the build makes that file itself (`tools/ops/bundle-api.ts`, learning note 07), so this means the build step was skipped or changed. Check: the deploy log in Netlify (Deploys, the deploy, the log) has a line `bundle-api: wrote ... (NNN KB, version ...)`; `npm test` passes `apps/api/test/bundle.test.ts` locally. Fix: in Netlify, Deploys, open the last good deploy and press \"Publish deploy\" to roll back in a minute; then fix the build and push. Participants' phones keep their outbox for `EVENT_RETENTION_DAYS` and re-send on the next open. A 503 with `SERVER_NOT_CONFIGURED` in the body is a different failure: the function runs, its deploy context lacks a secret; see that code.
 
 ### Neon: world-builder
 

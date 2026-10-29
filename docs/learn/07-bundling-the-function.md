@@ -59,10 +59,19 @@ DATABASE_URL=postgres://wb:nobody@db.invalid/neondb WB_PEPPER=ZGV2ZWxvcG1lbnQtcG
 
 Expected: `503` and a JSON body with `"ok":false`, `"dbReachable":false` and the version you passed. On Netlify, the deploy log has a line `bundle-api: wrote ... (NNN KB, version abc1234)` and the live `/api/health` reports that version.
 
+And once more with no secrets at all, which is what a deploy context looks like before its variables are set:
+
+```
+env -u DATABASE_URL -u WB_PEPPER node /tmp/run.mjs $PWD/netlify/functions-build/api.mjs
+```
+
+Expected: one log line, `SERVER_NOT_CONFIGURED DATABASE_URL is not set for this deploy context`, then `503` and `{"error":"SERVER_NOT_CONFIGURED", ...}`. The function answers that itself, before the app exists, so the answer never needs the database; the runbook has the entry.
+
 ## What can go wrong
 
 - **A dependency that cannot be inlined.** Packages with native code, or that read files next to themselves at runtime, break when bundled. The tool fails the build with the import's name. The fix is to keep such a package out of the function's graph; the staging deploy shows the problem before production does.
 - **Something heavy sneaks in.** The log line prints the size. The skeleton's bundle is about 1.2 MB unminified: the Neon driver, Zod (a third of it translations of its error messages), Drizzle's Postgres dialect, Hono, and our code. A jump to several megabytes means a new import pulled in more than intended. Run `npx esbuild --bundle --platform=node --format=esm --analyze netlify/functions/api.mts --outfile=/dev/null` for a breakdown by package.
+- **A deploy context without its secrets.** The function does not throw; it answers every path with 503 `SERVER_NOT_CONFIGURED` and logs which variable is missing, never a value. Production looks like this until hardening week, and so does a deploy preview of a pull request from a fork. Set the variable for that context and trigger a deploy.
 - **The graph test and reality differ.** The test reads source text, not the bundler's view. It is a guard for the wrong import landing in the wrong file, and the bundle test is the one that proves what the artefact holds. Keep both.
 
 ## What it does not do

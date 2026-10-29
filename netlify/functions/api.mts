@@ -7,26 +7,50 @@
 // (docs/learn/07-bundling-the-function.md).
 import { createApp, type App } from '../../apps/api/src/app.ts';
 import { validatePepper } from '../../apps/api/src/auth.ts';
-import { connectNeon } from '../../packages/db/src/index.ts';
+import { ERROR_CODES } from '../../packages/contracts/src/index.ts';
+import { connectNeon, type Db } from '../../packages/db/src/index.ts';
 
-let appPromise: Promise<App> | undefined;
+let appPromise: Promise<App | undefined> | undefined;
 
-async function getApp(): Promise<App> {
-  if (!appPromise) {
-    appPromise = (async () => {
-      const databaseUrl = process.env.DATABASE_URL;
-      if (!databaseUrl) throw new Error('DATABASE_URL is not set for this deploy context');
-      const db = connectNeon(databaseUrl);
-      return createApp({
-        db,
-        pepper: validatePepper(process.env.WB_PEPPER),
-        version: process.env.COMMIT_REF?.slice(0, 7) ?? 'unknown',
-      });
-    })();
-  }
+/**
+ * The app, or undefined when this deploy context cannot run one: no DATABASE_URL, no WB_PEPPER,
+ * or a pepper that is not 32 bytes (the Production context before hardening week; a deploy
+ * preview of a pull request from a fork, which Netlify keeps secret variables away from). The
+ * reason is logged once per function instance, naming the variable and never its value, and every
+ * request then answers 503 SERVER_NOT_CONFIGURED (docs/runbook.md) instead of Netlify's own 502
+ * for an exception. The answer is kept for the instance's life: variables change only with a
+ * deploy, and a deploy makes new instances.
+ */
+function getApp(): Promise<App | undefined> {
+  if (!appPromise) appPromise = configure();
   return appPromise;
 }
 
-export default async (request: Request): Promise<Response> => (await getApp()).fetch(request);
+async function configure(): Promise<App | undefined> {
+  let db: Db;
+  let pepper: string;
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new Error('DATABASE_URL is not set for this deploy context');
+    db = connectNeon(databaseUrl);
+    pepper = validatePepper(process.env.WB_PEPPER);
+  } catch (error) {
+    console.error(
+      `SERVER_NOT_CONFIGURED ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
+  return createApp({ db, pepper, version: process.env.COMMIT_REF?.slice(0, 7) ?? 'unknown' });
+}
+
+function notConfigured(): Response {
+  const { status, meaning } = ERROR_CODES.SERVER_NOT_CONFIGURED;
+  return Response.json({ error: 'SERVER_NOT_CONFIGURED', message: meaning }, { status });
+}
+
+export default async (request: Request): Promise<Response> => {
+  const app = await getApp();
+  return app ? app.fetch(request) : notConfigured();
+};
 
 export const config = { path: '/api/*' };

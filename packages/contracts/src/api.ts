@@ -97,6 +97,12 @@ export const ERROR_CODES = {
     status: 500,
     meaning: 'Unexpected failure. The response carries an errorId that matches a server log line.',
   },
+  // Answered by the function itself, before the app exists, so it never depends on the database.
+  SERVER_NOT_CONFIGURED: {
+    status: 503,
+    meaning:
+      'This deploy context has no DATABASE_URL or no valid WB_PEPPER; every route answers this until they are set and the site redeployed.',
+  },
 } as const;
 export type ErrorCode = keyof typeof ERROR_CODES;
 export const errorCodeSchema = z.enum(Object.keys(ERROR_CODES) as [ErrorCode, ...ErrorCode[]]);
