@@ -66,6 +66,7 @@ Three refusals carry the safety. The target variable is `RESTORE_URL`, never `DA
 - **The private key is lost.** Every backup becomes unreadable at once. Vault plus two printed copies; the Friday decrypt drill proves the copy in the vault works.
 - **The heartbeat alerts while runs are green.** The heartbeat URL is empty for that target (the log says `skipped`), or its period is shorter than a day.
 - **A run is skipped with "No connection string".** Expected until that target's secret exists; production's comes in hardening week.
+- **A Neon branch disappears, and the build says `password authentication failed`.** Neon's Create branch dialog defaults to deleting a new branch after one day. A branch left on that default goes a day later, compute and all, and a connection to the vanished compute is refused with the password message, not with an unknown host. The default branch cannot expire. Set Auto-delete to never for any branch that must stay (`staging`); leave the day on the drill branch, which is meant to go. This is what took staging down on 29 October 2026.
 
 ## What it does not do
 

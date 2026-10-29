@@ -24,7 +24,7 @@ What it is for: the only stateful thing you run.
 - [ ] Two-factor if the account settings offer it; backup codes printed.
 - [ ] Stay on the **Free** plan. Note its limits in the runbook: 100 compute hours and 0.5 GB of storage a month, a six-hour restore window.
 - [ ] Create a project named `world-builder`, region **US East (Ohio)**, which is where Netlify's functions run, newest Postgres offered.
-- [ ] Branches: the default branch is production. Create a branch named `staging` from it; it becomes staging's database on Tuesday.
+- [ ] Branches: the default branch is production. Create a branch named `staging` from it; it becomes staging's database on Tuesday. In the Create branch dialog set **Auto-delete** to never. The dialog's default is "After 1 day", and a branch left on it is deleted a day later, compute and all; that is what happened to the first `staging` branch on 29 October. The default branch cannot expire.
 - [ ] **Leave for Tuesday:** roles and connection strings.
 - [ ] Record: project id, region, the two branch names.
 

@@ -358,8 +358,39 @@ Once the five values are set (section 6 of `docs/account-setup.md`): `gh workflo
 
 ### Open
 
-- **Staging cannot reach its database since about 16:00 UTC.** `/api/health` on staging says `dbReachable: false`, and every deploy preview (pull requests 3 and 4) fails in the migrate step with `password authentication failed for user 'neondb_owner'`. Staging has not redeployed since the morning, so the value Netlify holds is the one that worked then; the Neon side stopped accepting it. Not caused by a commit: the two pull requests fail on docs-only and client-only changes, no tool or string for Neon exists on this laptop, no connection string appears in either repository's history, and GitHub reports no secret-scanning alert. Neon did send "you've created your new organization" at 14:36 UTC, so the console was in use that morning; its Operations page will say whether a password was reset. The fix needs the string and is Marco's; the runbook's Neon entry has it. Until then no preview builds, and the first backup run has nothing to connect to.
+- **Staging could not reach its database from about 16:00 UTC.** Resolved the same evening: the Neon branch behind staging had expired on the console's one-day default, not a password change. The evening entry below has the cause, the fix and the corrected pages.
 - The first real run, once the five values exist. Then Friday's restore drill into a scratch Neon branch and the decrypt drill with the key from the vault, both scripted now (`runbook/restore-drill.md` in the ops repository).
 - Marco's first phone test of staging, two observations, to act on in week two's UX pass:
   1. **A link that cleaned itself lost the wave.** He opened the wave link on the Mac without starting, then opened the same tab on the iPhone through Safari's tabs from other devices. The client had replaced the address with `/rural-manufacturing/` on the Mac (so a reload would not count a second open, and so an invite token never lingers in the address bar), and that cleaned address is what Safari carried over. On the phone there was no wave, no stored arrival and no code, so the welcome screen could only say "open the link you were sent". The same happens to anyone who shares the page from the browser after opening it. Fix to decide: keep the wave in the address bar (a wave is not a secret) and count an open once per device instead of per load; keep cleaning only invite links.
   2. **The code reads as a puzzle.** The session end shows the code with Copy, but the place to type it, "I have a code", exists only on a device that has none; on the device that already remembers, there is nothing to paste into, which is correct and still confusing. To decide: say on the session-end screen what the code is for ("only if you open this on another device"), keep "I have a code" reachable from the privacy panel, and word the welcome screen for the three cases (link, code, neither). The architecture plan's position stands: only something the participant carries can prove a second device is the same person, and the code is that thing; the work is in the wording and the placement.
+
+---
+
+## 2026-10-29, Thursday evening. Staging's database branch expired on a Neon timer; recreated
+
+### What
+
+- Found why staging lost its database at about 16:00 UTC: Neon's Create branch dialog ticks **Auto-delete: After 1 day** by default, and the `staging` branch of 28 October was created with that default in place. Neon deleted the branch, compute and all, a day later. From Netlify the vanished compute answered `password authentication failed for user 'neondb_owner'`, which is why the afternoon's diagnosis pointed at the password. Marco saw the default in the dialog, and the Branches page listed `production` alone.
+- Ruled out before that: no secret in either repository, no workflow or script that talks to Neon's control plane, no Neon tool or key on the laptop. Neon's "new organization" email of 14:36 UTC is a lifecycle mail sent a day after the welcome mail of 14:34 UTC on 28 October; it changed nothing.
+- Marco recreated `staging` (`br-muddy-pine-b58g7t0f`, parent `production`, Auto-delete set to never), put the new string in the vault and in Netlify's `DATABASE_URL` under Deploy Previews and Branch deploys, and triggered a staging deploy. Nothing was lost: staging held test data only, and the first deploy recreates the tables and reloads the workshop.
+- Docs corrected. `docs/account-setup.md` section 2 says to set Auto-delete to never. The runbook's Neon entry and the ops page `runbook/neon.md` give the real cause, the check (is the branch listed; Monitoring, System operations) and the fix, and the ops page carries the new branch id. `runbook/restore-drill.md` says to leave the one-day timer on the drill branch, where it is the right behaviour. Note 08 has the lesson under "What can go wrong".
+- Pull request 4 got an empty commit (20bf6f1) so Netlify builds its preview again; pull request 3's preview rebuilds with this entry.
+
+### Why
+
+A database branch with a timer is a new idea in this project: Neon treats a new branch as disposable unless told otherwise, and the console says so only in a dropdown. Production is the default branch, which Neon refuses to expire, so the real data was never exposed to this; every branch created by hand from now on needs the dropdown read.
+
+### How to verify
+
+- `https://staging--worldbuilder-uot.netlify.app/api/health` answers `dbReachable: true` and lists `rural-manufacturing` as open.
+- The deploy previews of pull requests 3 and 4 build, and their `/api/health` says the same.
+- In Neon, Branches, `staging` shows no expiry on its overview.
+
+### Decisions made on the way
+
+- **Auto-delete off for `staging`, on for `restore-drill`.** The drill branch is meant to vanish, and the timer is a second guarantee that it does. Staging and production are not.
+- **An empty commit to retry a preview.** Netlify's Retry button lives in its console; a commit whose message says why is the same action, kept in the record.
+
+### Open
+
+- The compute id of the new `staging` branch, for `runbook/neon.md`: the `ep-` name on the branch's Computes tab, also the first label of the connection string's host.
