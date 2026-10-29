@@ -321,3 +321,40 @@ The last line prints the log line `SERVER_NOT_CONFIGURED DATABASE_URL is not set
 
 - Thursday's monitor in Better Stack goes on staging's health endpoint until production has its secrets; on production it would alert for a known reason, and `SERVER_NOT_CONFIGURED` is now the body it would see.
 - Next, per the plan: the backup job in the ops repository, the Backblaze application key, the monitor. Friday: restore and decrypt drills, branch protection on `main`, the walkthrough.
+
+## 2026-10-29, Thursday afternoon. The nightly backup job; Marco's first phone test
+
+### What
+
+- The backup job, in the ops repository (`world-builder-ops`, commit `7a00b0d`): `.github/workflows/backup.yml` runs `scripts/backup.sh` at 07:17 UTC for each database whose connection string is set, and on demand. One whole-database dump as plain SQL and one export per workshop (its own rows, one CSV per table), each sealed to the backup key with `age` on the runner, uploaded to the Backblaze bucket under `<target>/database/<day>/` and `<target>/workshops/<slug>/<day>/`, and kept as the run's artifact for 14 days. Then a `backup_runs` row per file, which `/api/health` reports as `lastBackupAt`; rate buckets older than an hour deleted; the Better Stack heartbeat pinged, or its `/fail` address on failure.
+- `scripts/test-backup.sh` runs the script with stand-ins for `pg_dump`, `psql`, `age`, `aws` and `curl` and checks the file names, the bucket keys, the rows, the heartbeat, the refusal of a malformed slug, and that none of the stand-in secrets reached a log or a file. The ops repository's `checks.yml` runs it with shellcheck on every push. Thirteen checks; the first version failed one of them, because the loop split slugs on spaces and the fixture's `bad slug!` became two words, one of which passed the shape check. Slugs are now read one per line.
+- Ops runbook pages: `backups.md` (new: the job, secrets and variables, retention, checks, how to run by hand, how to restore, what can go wrong), `backblaze.md` (the key, Object Lock 14 days, the lifecycle rule), `betterstack.md` (the heartbeat; the health monitor on staging), `neon.md` (direct strings for `pg_dump`; the `backup` role for production, with its grants).
+- Here: `docs/account-setup.md` section 6, the click path for the five values (backup key with `age-keygen`, Backblaze key and the two bucket rules, the direct Neon string, the heartbeat, the monitor); the runbook's Backups entry rewritten; ADR 0011 amended (14 days, not 30; one job per database); learning note 08.
+
+### Why
+
+The plan makes backups a week-one item that cannot follow later. The free tier's six-hour window is covered by two copies at two other vendors, each a file nobody can open without the backup key, and a heartbeat turns a backup that silently stops into a morning alert.
+
+### How to verify
+
+```
+git clone git@github.com:m-under-over-through/world-builder-ops.git && bash world-builder-ops/scripts/test-backup.sh   # ok: 13 checks passed
+```
+
+Once the five values are set (section 6 of `docs/account-setup.md`): `gh workflow run backup.yml --repo m-under-over-through/world-builder-ops -f target=staging`, watch it under Actions, then `curl -s https://staging--worldbuilder-uot.netlify.app/api/health` shows `lastBackupAt` today, Backblaze shows today's folder, and the heartbeat is up.
+
+### Decisions made on the way
+
+- **14 days, everywhere, not 30.** The trust page says the last copies expire within two weeks of the deletion day; a 30-day artifact would have broken that by itself. Object Lock, the lifecycle rule and the artifact all say 14.
+- **Deletion is stopped by the lock, not by the key.** Backblaze's console cannot make a key without the delete capability; the bucket's governance-mode lock is what no application key can override. The plan's "write and list, no delete" is delivered that way.
+- **Plain SQL dumps.** A restore is `psql < file`, readable with `less`; size does not matter at a few megabytes.
+- **The owner's string for staging, a `backup` role for production.** Staging's data is disposable and its string is already in the vault; production gets a role that can read, record a run and prune, and nothing else, so a leaked ops secret cannot alter participant data. The grants are on the Neon page.
+- **No real database on the laptop.** The script runs against stand-ins here and against the real database only in Actions, where the connection string is. The first real run is the verification; it waits for Marco's values.
+- **The AWS command line with two checksum variables** rather than Backblaze's own tool: it is on every runner, and the two variables are the known adjustment for Backblaze.
+
+### Open
+
+- The first real run, once the five values exist. Then Friday's restore drill into a scratch Neon branch and the decrypt drill with the key from the vault.
+- Marco's first phone test of staging, two observations, to act on in week two's UX pass:
+  1. **A link that cleaned itself lost the wave.** He opened the wave link on the Mac without starting, then opened the same tab on the iPhone through Safari's tabs from other devices. The client had replaced the address with `/rural-manufacturing/` on the Mac (so a reload would not count a second open, and so an invite token never lingers in the address bar), and that cleaned address is what Safari carried over. On the phone there was no wave, no stored arrival and no code, so the welcome screen could only say "open the link you were sent". The same happens to anyone who shares the page from the browser after opening it. Fix to decide: keep the wave in the address bar (a wave is not a secret) and count an open once per device instead of per load; keep cleaning only invite links.
+  2. **The code reads as a puzzle.** The session end shows the code with Copy, but the place to type it, "I have a code", exists only on a device that has none; on the device that already remembers, there is nothing to paste into, which is correct and still confusing. To decide: say on the session-end screen what the code is for ("only if you open this on another device"), keep "I have a code" reachable from the privacy panel, and word the welcome screen for the three cases (link, code, neither). The architecture plan's position stands: only something the participant carries can prove a second device is the same person, and the code is that thing; the work is in the wording and the placement.

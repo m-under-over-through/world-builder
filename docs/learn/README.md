@@ -11,3 +11,4 @@ Explainers for the ideas in this codebase, written for the operator: someone who
 | `05-what-a-review-finds.md`      | Ten lessons from the first independent review: atomic file creation, bounded contracts, text encoding, degenerate keys, strict schemas |
 | `06-the-skeleton-end-to-end.md`  | Where an answer goes, file by file; how to run the whole stack locally; what the skeleton taught                                       |
 | `07-bundling-the-function.md`    | Imports, links and why a deployed function must be one file; how the build makes it and how two tests hold it                          |
+| `08-backups.md`                  | Logical dumps, sealing files with age, Object Lock, a heartbeat; what the nightly job does, step by step, and how to check it          |
