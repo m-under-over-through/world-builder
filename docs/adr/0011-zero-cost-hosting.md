@@ -31,3 +31,13 @@ The first partner's budget turned out to be small and the following use is a cla
 
 - Cloudflare's free Pages and Functions: no pause risk, a fourth vendor and a card on file for R2.
 - Keeping Neon's Launch plan: a seven-day restore window for a few dollars a month; the re-sync covers the gap for an experiment.
+
+## Amendment, 28 October 2026: the function is bundled by our own script
+
+The first staging deploy failed at the function's first request: Netlify's packager had turned `netlify/functions/api.mts` into JavaScript but left the workspace packages outside the file, and its copy of them held manifests without the TypeScript source behind the links. The fix, and the rule from here on:
+
+- `tools/ops/bundle-api.ts` bundles the function entry with esbuild into `netlify/functions-build/api.mjs`, one file whose only remaining imports are Node's own modules. It runs as the third step of the build command, refuses to finish if any other import is left outside, and bakes the deploy's commit into the file so `/api/health` reports it. `netlify.toml` names that folder as the functions directory.
+- `@wb/db` exposes the Neon connector at its root and the PGlite-capable dispatcher at `@wb/db/connect`, so the function's import graph never contains a test database.
+- `apps/api/test/bundle.test.ts` proves both: the graph, and the built file running in a plain Node process.
+
+esbuild is a declared development dependency (it was already present through drizzle-kit and Vite). Explained in `docs/learn/07-bundling-the-function.md`.

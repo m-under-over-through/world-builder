@@ -1,10 +1,30 @@
 # Netlify site configuration (ADR 0011). The client is static files under apps/web/public; the API
-# arrives as a Netlify Function on the same hostname. Until the client is built, the publish folder
-# holds a placeholder page. Security headers live in apps/web/public/_headers.
+# is a Netlify Function on the same hostname. Its source is netlify/functions/api.mts; the build
+# bundles it into one plain JavaScript file in netlify/functions-build/ (tools/ops/bundle-api.ts,
+# docs/learn/07-bundling-the-function.md), which is the functions directory Netlify packages.
+# The publish folder is built by Vite. The build first applies migrations and loads the workshop
+# folders into the context's database (DATABASE_URL), so no connection string ever touches a
+# laptop. Security headers and redirects live in apps/web/public and are copied into dist/.
 
 [build]
-  publish = "apps/web/public"
-  command = "echo 'placeholder: nothing to build yet'"
+  publish = "apps/web/dist"
+  command = "node tools/ops/migrate.ts && node tools/workshop/sync.ts && node tools/ops/bundle-api.ts && npm run build --workspace=apps/web"
 
 [build.environment]
   NODE_VERSION = "24"
+
+# The bundled function, one file with no imports beyond Node's own modules; nothing for Netlify's
+# packager to trace or copy.
+[functions]
+  directory = "netlify/functions-build"
+
+# Which public key the client seals to, per deploy context (ADR 0003, ADR 0011):
+# production builds use workshop.json, branch deploys and previews use workshop.staging.json.
+[context.production.environment]
+  VITE_WB_ENV = "production"
+
+[context.branch-deploy.environment]
+  VITE_WB_ENV = "staging"
+
+[context.deploy-preview.environment]
+  VITE_WB_ENV = "staging"

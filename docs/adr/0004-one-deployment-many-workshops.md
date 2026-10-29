@@ -25,3 +25,7 @@ The same experience will run for other groups, starting with a worldbuilding cla
 
 - One deployment per workshop (strongest isolation, N times the operations and the cost).
 - Subdomain per workshop (cleaner URLs, needs wildcard DNS and routing; can be added later without changing the data model).
+
+## Amendment, 28 October 2026: what the staging file may change
+
+`workshops/<slug>/workshop.staging.json` holds what staging builds and the local server use instead of the production values: the public key they seal to (ADR 0003) and, optionally, an earlier `opensDay`, so staging can be tried before the real window without touching `workshop.json`. Production ignores the file. The schema is strict, so nothing else can be overridden by accident; a test proves it.

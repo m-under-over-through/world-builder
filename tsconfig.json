@@ -17,7 +17,11 @@
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
+    "netlify/functions/**/*.mts",
     "tools/**/*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "apps/api/src/**/*.ts",
+    "apps/api/test/**/*.ts",
+    "apps/api/dev.ts"
   ]
 }

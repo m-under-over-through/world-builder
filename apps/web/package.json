@@ -1,0 +1,23 @@
+{
+  "name": "@wb/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The client: a static, installable web app. Seals answers on the device, keeps an outbox, syncs to the API on the same origin.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@wb/contracts": "*",
+    "@wb/crypto": "*",
+    "dexie": "^4.4.7"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "fake-indexeddb": "^6.2.6",
+    "svelte-check": "^4.7.7",
+    "vite": "^8.3.5"
+  }
+}

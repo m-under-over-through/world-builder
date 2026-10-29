@@ -11,17 +11,22 @@
     "apps/*"
   ],
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && svelte-check --tsconfig apps/web/tsconfig.json --fail-on-warnings",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test && npm run format:check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "workshop:keygen": "node tools/workshop/keygen.ts"
+    "workshop:keygen": "node tools/workshop/keygen.ts",
+    "dev:api": "node apps/api/dev.ts",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
     "prettier": "^3.3.0",
+    "prettier-plugin-svelte": "^4.1.1",
     "typescript": "^5.9.0",
     "vitest": "^3.0.0"
   }

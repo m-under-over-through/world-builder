@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .secrets/
+netlify/functions-build/
 .env
 .env.*
 .DS_Store

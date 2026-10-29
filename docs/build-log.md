@@ -194,3 +194,95 @@ What the free tiers take away and what covers it: a six-hour restore window (nig
 ## 2026-10-28, Wednesday. Accounts open; the partner is named
 
 Marco opened the three free accounts: Neon (project `red-union-82272211`, US East Ohio, Postgres 18, default branch `production`, branch `staging`), Backblaze (bucket `world-builder-backups`, Object Lock on, region `us-east-005`), Better Stack (one monitor on the main site for now). Identifiers are on vendor pages in the ops repository's `runbook/`. The partner is Mechanism; the project runs pro bono under Under Over Through, so the organiser line is "Under Over Through x Mechanism" and the answers are owned jointly by Under Over Through and Mechanism (corrected the same day from an earlier assumption that UOT alone owned them), with Under Over Through running the system and the spreadsheet shared with Mechanism at the end. Placeholders replaced in the workshop file, the copy file and the trust page text. Still open on Marco's side: the domain's auto-renew and holding account.
+
+---
+
+## 2026-10-28, Wednesday afternoon. The walking skeleton
+
+### What exists now (branch `skeleton`, pull request to `main`)
+
+The thinnest path through every part of the system, all real, deployed to a preview on Netlify, and walked end to end in a browser against the local stack:
+
+- `packages/db`: the schema from the architecture plan as Drizzle tables, one generated SQL migration, the queries (every one scoped by workshop or participant), the workshop loader. Tests run the real SQL on PGlite, a Postgres compiled to WebAssembly that runs inside the test process, so `npm test` needs no database and CI no service. 13 tests, including the cross-workshop proofs.
+- `apps/api`: the Hono app with every route in the contracts; the keyed hash of the code; byte caps before parsing; strict schemas; error codes on every path; rate limits without addresses (ADR 0012); the open window. `netlify/functions/api.mts` hands `/api/*` to it; `apps/api/dev.ts` runs it locally with a local Postgres. 16 tests through `app.request()`.
+- `apps/web`: Svelte and Vite. Wave and invite links, join, consent, one session of W warm-ups then C checkpoints, answers sealed on the device before storage, an outbox synced in bounded batches, accepted events kept fourteen days and re-sent if the server lacks them, "I have a code" continuing from the server's record, the privacy panel with live values, delete me. 11 tests for the pure logic and the store.
+- `tools/workshop/export.ts` opens a workshop's answers on your machine with the private key file and writes a CSV with fresh pseudonyms. `tools/ops/pepper.ts` makes a pepper the way keygen makes a key. `tools/ops/migrate.ts` and `tools/workshop/sync.ts` run in the Netlify build so no connection string touches a laptop.
+- Two new error codes with runbook entries: `REQUEST_INVALID`, `REQUEST_TOO_LARGE`. ADR 0012 for the libraries and the rate limiting. Learning note 06 walks an answer through the files.
+
+### The walkthrough, as it happened
+
+Open the wave link; the URL is cleaned to `/rural-manufacturing/`; New here; consent; card 1 of 4 "What is a typical Tuesday night?"; an answer with an emoji saved, "Synced."; card 2 set aside; two more answers; "That is a session." with the code masked; reveal; the privacy panel: cookies 0, one host, key `de7f-…` (local), 1 session and 4 events on the server, sealed. The database rows start with `v1.`; the export tool, run with the development key, wrote the three answers back in plain text, emoji intact, and nothing for the set-aside card. Then the device storage wiped, "I have a code", the code typed: card 1 was the one warm-up not yet answered, and the panel showed the earlier answers still on the server.
+
+### Findings on the way
+
+- The local on-disk Postgres is one process at a time: stop the development API before running the export locally. Neon has no such limit. Written into learning note 06.
+- "Cards already answered" came from the device store only, so a wiped device repeated the first card. The client now combines the device's record with the server's. Found by the walkthrough, not by a test; a test for `sessionCards` with a server-provided set would have caught it, and the UI builder's brief will say so.
+- A session row is created when a session starts, so an open-and-leave produces an empty session. Harmless; "sessions count" can later count only sessions with events.
+- `npm install` with several packages in one command sometimes installed only the first; `npm ls` afterwards is the habit now.
+- Prettier formats Svelte only with its plugin, and a chained command stopped silently when the formatter failed. Added the plugin; check exit codes, not output.
+- A type that is a union of two database drivers cannot call methods whose generics differ; typing the connection as the common Postgres base fixed it (ADR 0012).
+- Web Crypto wants a `Uint8Array` over a plain `ArrayBuffer`; one from a library may be typed over a shared buffer. Copy into a fresh array.
+
+### How to verify by hand
+
+```
+npm run check                                   # 105 tests, svelte-check, formatting
+npm run dev:api                                 # terminal 1
+npm run dev:web                                 # terminal 2, then open localhost:5173/rural-manufacturing/join/wave-1
+node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key   # with the API stopped
+```
+
+### For Marco: the staging deploy needs two secrets, set once in Netlify
+
+1. `node tools/ops/pepper.ts staging` writes `.secrets/staging.pepper`; `pbcopy < .secrets/staging.pepper`; in Netlify, Project configuration, Environment variables, add `WB_PEPPER` with the value scoped to **Branch deploys** and **Deploy previews** only; paste the same into the vault as "World Builder: staging pepper"; delete the file.
+2. In Neon, project `world-builder`, branch `staging`, copy the connection string (role `neondb_owner`, database `neondb`, the direct one or the pooled one both work with the HTTP driver). In Netlify add `DATABASE_URL`, same two scopes. Into the vault as "World Builder: Neon staging connection string".
+3. The click path for both, field by field, is section 5 of `docs/account-setup.md`. Say so, and the `staging` branch gets created from `skeleton`; its first deploy applies the migration, loads the workshop, and the health endpoint at `https://staging--worldbuilder-uot.netlify.app/api/health` reports the database. Production's two values come in hardening week, scoped to **Production** only.
+
+### Still open
+
+- The first-session intro, the Later pile, install prompts and dictation hints: week two, UI builder.
+- The deck engine with seeded shuffle and defer rules: week two, deck builder.
+- The backup job, the Better Stack heartbeat, drills: Thursday and Friday.
+- Branch protection on `main`: Friday, after this lands.
+
+## 2026-10-28, Wednesday evening. Staging secrets set; the first deploy failed at the function; the function is now bundled
+
+### What
+
+- Marco set `WB_PEPPER` and `DATABASE_URL` in Netlify for the Deploy Previews and Branch deploys contexts, both marked secret. `docs/account-setup.md` gained section 5 with the click path, field by field, including what the free plan does with the scopes once the secret flag is on. One pepper was generated, set, and then lost before it reached the vault; Netlify never shows a secret again, so it was replaced with a fresh one (nothing had been stored under it) and the vault came first the second time.
+- The `staging` branch was created from `skeleton` and deployed. The build ran (migration, workshop sync, client), but every `/api/*` path answered 502 with `Cannot find module '/var/task/node_modules/@wb/contracts/src/index.ts' imported from /var/task/netlify/functions/api.mjs`. Netlify's packager had turned the function into JavaScript but left the workspace packages outside the file, and its copy of them carried manifests without the TypeScript source behind the links.
+- The fix: the build now makes the function file itself. `tools/ops/bundle-api.ts` bundles `netlify/functions/api.mts` with esbuild into `netlify/functions-build/api.mjs`, one file with no imports left to resolve, and refuses to finish if any import other than a Node module would remain outside. `netlify.toml` runs it as the third build step and names that folder as the functions directory. The deploy's commit is baked into the file, so `/api/health` now reports the exact commit that is running.
+- `@wb/db` was split so the function's import graph never contains PGlite: the package root exports the schema, the queries and `connectNeon`; the dispatcher that also knows PGlite, and the migrator, moved to `@wb/db/connect`, used by tools, tests and the local server. `Db` lives in `packages/db/src/types.ts`.
+- The health route had a flaw the bundle test exposed: it checked the rate limit before its own database guard, so an unreachable database would have produced a 500 `SERVER_ERROR` instead of the 503 the monitor expects. The limiter now sits inside the guard.
+- Tests: `apps/api/test/bundle.test.ts` walks the import graph from the function entry (reaches the app, the contracts, the Neon connector; never PGlite, the tools-only connector, or `@wb/crypto`), then builds the real bundle into a temporary folder, checks its text, and runs it in a plain Node process with a database host that cannot exist, expecting 503, `ok: false`, `dbReachable: false` and the baked-in version. `app.test.ts` gained "health when the database is unreachable". 110 tests.
+- esbuild is a declared development dependency now (ADR 0012); it was already installed through drizzle-kit and Vite. ADR 0011 has an amendment. Learning note 07 explains imports, links, and bundling. The runbook has an entry for "function answers 502 on every path", with the one-minute rollback. The ops runbook (private) records the variable names, contexts and vault item names, and the staging compute.
+
+### Why
+
+A deployed function runs from a zip on a server with no repository and no `npm install`. Whatever it imports has to be in the zip, already JavaScript. Leaving that to a packager's heuristics put the first failure at the first request, in production-like conditions, with the cause three layers away. Making the artefact ourselves puts the failure at build time, with the import's name, and leaves one readable file as what runs.
+
+### How to verify
+
+```
+npm run check                                              # 110 tests, incl. the graph and bundle tests
+node tools/ops/bundle-api.ts --commit $(git rev-parse HEAD)   # writes netlify/functions-build/api.mjs, prints size and version
+grep -c "^import" netlify/functions-build/api.mjs          # 0: nothing left to resolve
+```
+
+Then the staging deploy: the Netlify deploy log has the line `bundle-api: wrote ... (NNN KB, version <commit>)`, and `curl https://staging--worldbuilder-uot.netlify.app/api/health` answers 200 with `"ok":true`, `"dbReachable":true`, the commit as `version`, and the workshop `rural-manufacturing` as `open`. Learning note 07 has the by-hand run of the bundle with a database that cannot exist.
+
+### Decisions made on the way
+
+- **Our own bundling step, not `node_bundler = "esbuild"` in `netlify.toml`.** That setting would make Netlify's packager inline packages too, but it would also follow the literal dynamic import of PGlite into the artefact, and which packager Netlify picks for a TypeScript function is a heuristic that has changed before. One tool we run, with a check and a test, is legible; a setting whose behaviour we infer from a failure is not.
+- **Not minified.** Bytes do not matter at 1.2 MB on a function; a readable artefact does.
+- **The Neon connector at the package root, the dispatcher at a sub-path**, rather than hiding the PGlite import from the bundler with a non-literal specifier. The split states the rule in the package's shape and a test enforces it.
+- **The limiter inside health's guard**: a health check must describe the outage, not become part of it.
+
+### Open
+
+- The bundle is 1.2 MB, a third of it Zod's translations of its own error messages. Harmless; worth a look if cold starts ever matter.
+- CI failed once on this branch with a test timing out at 5 seconds: a sync test on PGlite took 5.2 s on the shared runner while eighteen test files ran side by side. The test timeout is now 30 s in `vitest.config.ts`. If a test needs anything near that, it is the test that is wrong, not the limit.
+- The first join on staging answered `WORKSHOP_CLOSED`, correctly: the workshop opens on 16 November and the API refuses joins outside the window. To try staging before then, `workshop.staging.json` may now name an earlier `opensDay` (strict schema, ADR 0004 amendment); the sync tool stores it for staging and the folder's day for production, the client uses the same day to word its screen, and a participant who arrives before the opening day sees "Not open yet. This opens on 16 November 2026." instead of a bare error code. Tests in contracts and db.
+- Walked on staging in the browser pane after the second redeploy (commit `2071c16`): the wave link cleaned itself to the workshop address and counted the open; New here, consent, join 200; four cards, three answered (one with an emoji) and one set aside, "Synced." after each; the session end with the masked code; the privacy panel: 0 cookies, one host (`staging--worldbuilder-uot.netlify.app`), microphone, camera and location blocked by policy, key `de7f-523e-d6db-ad50 (staging)`, 1 session and 4 events sealed on the server, 0 waiting. `/api/health` then reported `eventsToday: 4`. The API sets no cookie on any path. Staging's data is disposable; this test participant stays.
+- One thing the panel got wrong: "Version: local". Vite only exposes variables that start with `VITE_`, and Netlify's commit is `COMMIT_REF`. `apps/web/vite.config.ts` now defines `import.meta.env.VITE_COMMIT_REF` from it at build time, so the panel and `/api/health` report the same commit; on a laptop the panel still says "local". Verified on staging at commit `e87d838`: the panel and `/api/health` show the same version, and a reload of the page found the saved code and the four sealed events.
+- Staging verified after the redeploy, about 45 seconds after the push: `https://staging--worldbuilder-uot.netlify.app/api/health` answered 200 with `ok: true`, `version: fbec63f` (the pushed commit), `dbReachable: true`, no backup yet, and `rural-manufacturing` as `open`. The API answers with HSTS and no cookie; the client page carries the self-only Content Security Policy.

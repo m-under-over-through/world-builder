@@ -38,7 +38,19 @@ export const ROUTES = {
  * Error codes. Each one is a heading in docs/runbook.md. The server returns the code; the client
  * shows it in the diagnostics view; a participant can read it out and you can look it up.
  */
+/** The API refuses bodies larger than this before parsing them (CLAUDE.md, API builder notes). */
+export const MAX_REQUEST_BYTES = 1_000_000;
+
 export const ERROR_CODES = {
+  REQUEST_INVALID: {
+    status: 400,
+    meaning: 'The body is not JSON or does not match the contract for this route (join, invites).',
+  },
+  REQUEST_TOO_LARGE: {
+    status: 413,
+    meaning:
+      'The body is larger than MAX_REQUEST_BYTES. The client splits its outbox into smaller batches.',
+  },
   WORKSHOP_UNKNOWN: { status: 404, meaning: 'No workshop with this slug.' },
   WORKSHOP_CLOSED: {
     status: 403,

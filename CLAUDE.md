@@ -46,7 +46,7 @@ Read these before touching anything, in this order:
 ## Notes for builders, from the first review
 
 - **API builder.** The API is a Netlify Function: a web-standard fetch handler that calls `app.fetch`; Neon through the serverless HTTP driver; secrets from Netlify environment variables, with separate values for the staging branch deploy (ADR 0011). Cap the request body in bytes before parsing JSON; a schema can only bound what is already parsed. Persist only the parsed value, never the raw body. Join shares the rate limit of the authenticated routes. Compare invite tokens as strings, never decoded. Health publishes nothing per workshop beyond its status.
-- **UI builder.** Truncate answers by code points, not by string length; half an emoji is refused by `sealAnswer` with `CRYPTO_BAD_TEXT`. Call `sealAnswer` before writing to the outbox so nothing unsendable is ever stored. Keep events the server has accepted for `EVENT_RETENTION_DAYS` and, on open, re-send any whose id is missing from `GET /me`.
+- **UI builder.** Truncate answers by code points, not by string length; half an emoji is refused by `sealAnswer` with `CRYPTO_BAD_TEXT`. Call `sealAnswer` before writing to the outbox so nothing unsendable is ever stored. Keep events the server has accepted for `EVENT_RETENTION_DAYS` and, on open, re-send any whose id is missing from `GET /me`. Split sync batches by `SYNC_MAX_EVENTS` and by `MAX_REQUEST_BYTES`.
 - **Everyone.** Create files that must not be overwritten with `flag: 'wx'`. Anchor paths on `import.meta.url`, not the current directory. Reject unknown command-line flags.
 
 ## Commands
