@@ -58,6 +58,8 @@ Three refusals carry the safety. The target variable is `RESTORE_URL`, never `DA
 
 `scripts/test-restore.sh` runs both scripts with stand-ins for `age` and `psql` (gzip and tar are real) and checks the opened files, the report lines, the order of the statements, the counts and every refusal: 12 checks, on a laptop with nothing installed and in the ops repository's CI.
 
+The first drill ran on 30 October 2026, and for real: the key typed from paper opened the morning's backup, and when the staging branch was deleted by a wrong click in Neon's branch list, that same backup was restored into a recreated branch in five seconds, nine tables, every count as expected. The build log of that day has the record; the drill page has what it taught.
+
 ## What can go wrong
 
 - **`pg_dump: error: server version mismatch`.** The runner's own PostgreSQL 16 answered `pg_dump`, not the 18 the install step had fetched from the PostgreSQL project's repository: Ubuntu's `pg_wrapper`, which sits behind `/usr/bin/pg_dump`, picks the version of the runner's configured cluster. The workflow now puts version 18's own directory first on the path and checks the major before dumping. This is how the first run failed, on 29 October 2026. When Neon moves to a newer major, raise the number in both places.

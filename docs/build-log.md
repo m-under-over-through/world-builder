@@ -477,3 +477,38 @@ The stubbed test proves the script's logic, not the runner or the vendors: the r
 - Ops pull request 2 to merge before the nightly schedule, or the night's run fails the same way and the heartbeat alerts.
 - Marco: delete `.secrets/backup.age.key` once the vault note and the two prints exist; confirm the Backblaze folders and the heartbeat; the compute id for `runbook/neon.md`.
 - Friday: the restore drill from this backup, with the drill scripts of ops pull request 1; the decrypt drill from paper.
+
+---
+
+## 2026-10-30, Friday. Four pull requests merged; the restore drill, for real: staging deleted by mistake and brought back from the morning's backup
+
+### What
+
+- Morning: the four open pull requests merged with merge commits, in this order: ops 2 (the first-run fixes), ops 1 (the drill scripts), app 3 (the backup docs), app 4 (the wave fix; its build-log entry moved to its place by time of day on the way). The backup job then ran green from `main` (run 41074724799) and `staging` was fast-forwarded to the merged commit `a6b39f1`. The night's scheduled run had come at 14:18 UTC, seven hours after its 07:17 slot, and failed the first way, `main` not yet carrying the fix; the heartbeat alerted once.
+- The drill, by hand, from `runbook/restore-drill.md` in the ops repository, now cloned at `~/Documents/Dev/world-builder-ops`. Step 1 from the bucket: Backblaze's browser download puts the folder path in front of the file name (`staging_database_2026-10-30_staging-database-20261030T144748Z.sql.gz.age`); the scripts read the suffix and did not mind. Step 2, the decrypt drill: the key typed from the printed copy, checked with `age-keygen -y` against `AGE_PUBLIC_KEY` (a match), then `opened ..., 7950 bytes` and `a database dump: 9 tables, 0 sealed answers`. Zero answers is right: staging had been recreated the evening before.
+- Step 3 went wrong in the most useful direction. In Neon's branch list, meaning to create `restore-drill`, Marco deleted `staging`. Neon has no undo for a deleted branch. So the scratch database became the real thing: `staging` recreated from `production` with Auto-delete set to never, its direct string into `RESTORE_URL`, and `scripts/restore.sh` loaded the morning's dump: `loading 9 tables`, then `workshops 1`, `waves 1`, `participants 0`, `sessions 0`, `events 0`, `invites 0`, `backup_runs 2`, `rate_buckets 1007`, `events with a sealed body: 0; with any other body: 0`, `done: 9 tables restored`, five seconds from sealed file to counted tables. The comparison against the source could not run, the source being gone; the proof was the deploy and the health endpoint instead.
+- The new string went into the vault, into Netlify's `DATABASE_URL` under Deploy Previews and Branch deploys, and into the ops secret `NEON_STAGING_URL`. The backup job run from `main` proved the secret at once (run 41084775381, the restored database dumped again). Staging's rebuild took three tries: the Trigger deploy button built production; the branch deploy's own Retry failed with `migrate: expected a postgres:// URL in this context`, the value under Branch deploys having been pasted in another shape than the plain string; pasted again as the plain `postgresql://` string, the retry built, and health answered `dbReachable: true` with the restored `lastBackupAt`.
+- About an hour and a quarter from the first download to the green health line, the detour included.
+- Docs: the runbook gains a Netlify entry for the `migrate: expected a postgres:// URL` message and the Trigger deploy button; note 08 records the drill. In the ops repository: `runbook/restore-drill.md` (the download's name, the "staging itself is gone" variant, the record of this drill), `runbook/netlify.md` (the same two lessons), `runbook/neon.md` (the new branch id).
+
+### Why
+
+A drill is for finding what the runbook got wrong before it matters, and this one found four things: the download's name, the Trigger deploy button, the shape of a pasted string, and that one wrong click in the branch list deletes a database with no undo. The restore itself was the part that could not be allowed to surprise anyone, and it did not.
+
+### How to verify
+
+- `https://staging--worldbuilder-uot.netlify.app/api/health`: `version a6b39f1`, `dbReachable: true`, `lastBackupAt` at 15:53 UTC on 30 October, `rural-manufacturing` open.
+- Actions in the ops repository: runs 41074724799 and 41084775381 green; Backblaze holds two files under `staging/database/2026-10-30/`.
+- Neon, Branches: `production` and `staging`, the latter with no expiry on its overview.
+
+### Decisions made on the way
+
+- **Restore into the recreated staging itself, not into a scratch branch.** The target was empty, the data disposable, and the point of the drill is "the database is gone". The drill page now describes this variant next to the scratch one.
+- **The same click on `production` would be the same story**, with the day's answers since the last dump lost for real. Neon's protected branches prevent it and are on paid plans only; a decision for hardening week, with the price next to it.
+
+### Open
+
+- The heartbeat's grace period: the schedule drifted seven hours on its first night, which will trip a two-hour grace on an ordinary day. Suggested: about 12 hours. Marco's decision, one field in Better Stack and one line on `runbook/betterstack.md`.
+- `rate_buckets` held 1007 rows after a day with no participants. What fills it, and whether the job's prune keeps it in check, is worth a look next week.
+- Branch protection on `main`, and the walkthrough of the skeleton, still on today's list.
+- The comparison run of the drill, against a live source, on the next drill day.
