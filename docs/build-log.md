@@ -512,3 +512,33 @@ A drill is for finding what the runbook got wrong before it matters, and this on
 - `rate_buckets` held 1007 rows after a day with no participants. What fills it, and whether the job's prune keeps it in check, is worth a look next week.
 - Branch protection on `main`, and the walkthrough of the skeleton, still on today's list.
 - The comparison run of the drill, against a live source, on the next drill day.
+
+---
+
+## 2026-10-30, Friday afternoon. The week-2 briefs, from an audit of the skeleton
+
+### What
+
+- `docs/briefs/`, new: a README with the rules every builder follows (from the plan's sections 3, 4 and 7), `week-2-plan.md` with the gap list, the file ownership table, the schedule as planned and a shortened variant, and the eight decisions Marco must take before Monday; and four briefs, one per stream: the deck engine (`packages/deck`, one day, first), the client (`apps/web`, the long pole, ten items in order), the API and database (done by Tuesday, six items), and operations (tools, runbook, scans, drills, eight items).
+- The gap list comes from a read-only audit of `main` at df4a9cb against the plan's "ships by 15 November" list and the screen map, done by a separate agent so the briefs are not written from memory. The short version: the skeleton has the whole path and 122 tests; what is missing is the first-session screens, the deck rules, the wording (every string is hard-coded and errors show as raw codes), the trust page and policy pages, the failure behaviour for an unknown code and for offline join, a set of thin spots in the API's tests, and a runbook that still describes the plan in places rather than the code.
+- The README map gains the `docs/briefs/` row.
+
+### Why
+
+The plan's week 2 is the parallel build, and its cohesion rules say the briefs are what keep parallel work coherent: one owner per file, contracts through the integrator, a test that defines done. Writing them from an audit rather than from the plan's list means they say what is actually missing, including things the plan did not foresee (the byte cap measuring the wrong unit, `JOIN_WAVE_CLOSED` unreachable, `rate_buckets` growing by the minute).
+
+### How to verify
+
+- Read `docs/briefs/README.md`, then `week-2-plan.md`, then the four briefs; the plan's section 4 lists the decisions.
+- Check the gap list against the code where it makes a claim: `grep -rn "JOIN_WAVE_CLOSED" apps/api/src` finds no return; `apps/web/src/App.svelte` is the only component; `packages/deck` does not exist.
+
+### Decisions made on the way
+
+- **The deck engine is its own brief and package**, not part of the UI brief: pure logic with a contract and tests, one day, and the UI builder consumes it on Tuesday. The README has said `packages/deck` since the planning sprint.
+- **The wording pass is the UI builder's first item**, before any new screen: once every string comes from `copy.md`, the partner can change words without a code change, and raw error codes stop reaching participants.
+- **The briefs are written for the planned schedule** and mark what to cut if the timeline shortens, in order and with the cost of each cut; the decision stays with Marco and the partner.
+
+### Open
+
+- The eight decisions in `week-2-plan.md`, section 4, before Monday: timeline, `JOIN_WAVE_CLOSED`, the join limit, the look, who writes the policy texts, HSTS preload, the heartbeat grace, branch protection.
+- The two contract changes the API brief relies on (`JOIN_WAVE_CLOSED` removed, the join comment corrected) are the integrator's and wait for decision 2.

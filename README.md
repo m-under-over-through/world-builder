@@ -18,6 +18,7 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 | `docs/account-setup.md`               | The order and settings for opening the vendor accounts, with checkboxes                                                                         | Marco                 |
 | `docs/build-log.md`                   | What was done, when, why, how to verify. Read this first when returning                                                                         | everyone              |
 | `docs/runbook.md`                     | One entry per error code and per service: meaning, cause, fix, check                                                                            | ops                   |
+| `docs/briefs/`                        | The briefs for parallel work: the gap list against the plan, the schedule, one brief per builder                                                | integrator            |
 | `CLAUDE.md`                           | Instructions for agents                                                                                                                         | integrator            |
 | `packages/contracts`                  | The shared vocabulary as Zod schemas: events, sessions, decks, workshops, API, error codes                                                      | integrator            |
 | `packages/crypto`                     | Sealing answers to a workshop key and opening them with the private key                                                                         | integrator            |
