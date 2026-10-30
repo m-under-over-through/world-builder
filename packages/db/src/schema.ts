@@ -48,7 +48,11 @@ export const waves = pgTable(
     /** The wave id in the link: /<slug>/join/<wave>. */
     wave: text('wave').notNull(),
     label: text('label').notNull(),
-    /** Link opens, counted with no cookie and no address; repeat opens count again. */
+    /**
+     * Devices that opened the wave link. The client counts once per device, the first time the
+     * device arrives through this wave, with no cookie and no address: a reload does not count
+     * again, a cleared browser or a second device does. Approximate by design (ADR 0006).
+     */
     openedCount: integer('opened_count').notNull().default(0),
     joinedCount: integer('joined_count').notNull().default(0),
   },

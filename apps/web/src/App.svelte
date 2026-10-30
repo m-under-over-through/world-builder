@@ -13,7 +13,7 @@
   import { api } from './lib/api.ts';
   import { codePoints, sessionCards, truncateCodePoints } from './lib/deck.ts';
   import { dayStatus } from './lib/days.ts';
-  import { parseRoute } from './lib/route.ts';
+  import { countsAsOpen, parseArrival, parseRoute, type Arrival } from './lib/route.ts';
   import { localDay, WorkshopStore } from './lib/store.ts';
   import { reconcile, syncNow, type SyncStatus } from './lib/sync.ts';
   import { ENV, findWorkshop, VERSION, type Workshop } from './lib/workshops.ts';
@@ -38,7 +38,7 @@
   let workshop = $state<Workshop | undefined>();
   let store: WorkshopStore | undefined;
   let code = $state('');
-  let arrival = $state<{ wave?: string; invite?: string }>({});
+  let arrival = $state<Arrival>({});
   let error = $state('');
   let codeInput = $state('');
   let revealed = $state(false);
@@ -81,18 +81,24 @@
     }
     store = new WorkshopStore(route.slug);
     const saved = await store.get('code');
+    const stored = parseArrival(await store.get('arrival'));
     if (route.wave) {
+      // A wave is not a secret, so the address stays as it is: a copied address, the share sheet
+      // and Safari's tabs from other devices all still join. The open is counted once per device,
+      // the first time this device arrives through this wave (lib/route.ts, countsAsOpen).
       arrival = { wave: route.wave };
-      await store.set('arrival', JSON.stringify(arrival));
-      void api(`/${route.slug}/waves/${route.wave}/opened`, { method: 'POST', body: {} });
-      history.replaceState(null, '', `/${route.slug}/`);
+      if (countsAsOpen(stored, route.wave)) {
+        await store.set('arrival', JSON.stringify(arrival));
+        void api(`/${route.slug}/waves/${route.wave}/opened`, { method: 'POST', body: {} });
+      }
     } else if (route.invite) {
+      // An invite token works once and must not linger in the address bar or travel in a share,
+      // so the address is replaced by the workshop's home once the token is stored.
       arrival = { invite: route.invite };
       await store.set('arrival', JSON.stringify(arrival));
       history.replaceState(null, '', `/${route.slug}/`);
     } else {
-      const a = await store.get('arrival');
-      if (a) arrival = JSON.parse(a);
+      arrival = stored;
     }
     if (saved) {
       code = saved;
