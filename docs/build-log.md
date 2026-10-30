@@ -321,3 +321,113 @@ The last line prints the log line `SERVER_NOT_CONFIGURED DATABASE_URL is not set
 
 - Thursday's monitor in Better Stack goes on staging's health endpoint until production has its secrets; on production it would alert for a known reason, and `SERVER_NOT_CONFIGURED` is now the body it would see.
 - Next, per the plan: the backup job in the ops repository, the Backblaze application key, the monitor. Friday: restore and decrypt drills, branch protection on `main`, the walkthrough.
+
+## 2026-10-29, Thursday afternoon. The nightly backup job; Marco's first phone test
+
+### What
+
+- The backup job, in the ops repository (`world-builder-ops`, commit `7a00b0d`): `.github/workflows/backup.yml` runs `scripts/backup.sh` at 07:17 UTC for each database whose connection string is set, and on demand. One whole-database dump as plain SQL and one export per workshop (its own rows, one CSV per table), each sealed to the backup key with `age` on the runner, uploaded to the Backblaze bucket under `<target>/database/<day>/` and `<target>/workshops/<slug>/<day>/`, and kept as the run's artifact for 14 days. Then a `backup_runs` row per file, which `/api/health` reports as `lastBackupAt`; rate buckets older than an hour deleted; the Better Stack heartbeat pinged, or its `/fail` address on failure.
+- `scripts/test-backup.sh` runs the script with stand-ins for `pg_dump`, `psql`, `age`, `aws` and `curl` and checks the file names, the bucket keys, the rows, the heartbeat, the refusal of a malformed slug, and that none of the stand-in secrets reached a log or a file. The ops repository's `checks.yml` runs it with shellcheck on every push. Thirteen checks; the first version failed one of them, because the loop split slugs on spaces and the fixture's `bad slug!` became two words, one of which passed the shape check. Slugs are now read one per line.
+- Ops runbook pages: `backups.md` (new: the job, secrets and variables, retention, checks, how to run by hand, how to restore, what can go wrong), `backblaze.md` (the key, Object Lock 14 days, the lifecycle rule), `betterstack.md` (the heartbeat; the health monitor on staging), `neon.md` (direct strings for `pg_dump`; the `backup` role for production, with its grants).
+- The drill scripts, in the ops repository (its pull request 1, commit `fd81f60`): `scripts/unseal.sh` opens one sealed file with the backup key and says what it holds; `scripts/restore.sh` opens a dump, loads it into a scratch database and prints a count per table next to the source's, after refusing a pooled string, a database that already holds tables and a dump that is not ours; `scripts/test-restore.sh` checks both with stand-ins, 12 checks; `runbook/restore-drill.md` is Friday's procedure with the expected observations. Written on Thursday evening while Marco was away, so that Friday's drill is a run and not a build.
+- `.prettierignore` gains `.claude/worktrees`: the app keeps session worktrees inside the checkout (excluded from git locally, not through `.gitignore`), and `npm run check` was reading a built function bundle in one of them.
+- Here: `docs/account-setup.md` section 6, the click path for the five values (backup key with `age-keygen`, Backblaze key and the two bucket rules, the direct Neon string, the heartbeat, the monitor); the runbook's Backups entry rewritten; ADR 0011 amended (14 days, not 30; one job per database); learning note 08.
+
+### Why
+
+The plan makes backups a week-one item that cannot follow later. The free tier's six-hour window is covered by two copies at two other vendors, each a file nobody can open without the backup key, and a heartbeat turns a backup that silently stops into a morning alert.
+
+### How to verify
+
+```
+git clone git@github.com:m-under-over-through/world-builder-ops.git && bash world-builder-ops/scripts/test-backup.sh   # ok: 13 checks passed
+bash world-builder-ops/scripts/test-restore.sh   # ok: 12 checks passed
+```
+
+Once the five values are set (section 6 of `docs/account-setup.md`): `gh workflow run backup.yml --repo m-under-over-through/world-builder-ops -f target=staging`, watch it under Actions, then `curl -s https://staging--worldbuilder-uot.netlify.app/api/health` shows `lastBackupAt` today, Backblaze shows today's folder, and the heartbeat is up.
+
+### Decisions made on the way
+
+- **14 days, everywhere, not 30.** The trust page says the last copies expire within two weeks of the deletion day; a 30-day artifact would have broken that by itself. Object Lock, the lifecycle rule and the artifact all say 14.
+- **Deletion is stopped by the lock, not by the key.** Backblaze's console cannot make a key without the delete capability; the bucket's governance-mode lock is what no application key can override. The plan's "write and list, no delete" is delivered that way.
+- **Plain SQL dumps.** A restore is `psql < file`, readable with `less`; size does not matter at a few megabytes.
+- **The owner's string for staging, a `backup` role for production.** Staging's data is disposable and its string is already in the vault; production gets a role that can read, record a run and prune, and nothing else, so a leaked ops secret cannot alter participant data. The grants are on the Neon page.
+- **No real database on the laptop.** The script runs against stand-ins here and against the real database only in Actions, where the connection string is. The first real run is the verification; it waits for Marco's values.
+- **The AWS command line with two checksum variables** rather than Backblaze's own tool: it is on every runner, and the two variables are the known adjustment for Backblaze.
+- **`RESTORE_URL`, not `DATABASE_URL`, for the drill.** The restore's target has its own name, so a line copied from the job can never point a restore at a live database, and the script refuses a database that already holds tables. The guard is in the name and the refusal, not in the operator's attention.
+
+### Open
+
+- **Staging could not reach its database from about 16:00 UTC.** Resolved the same evening: the Neon branch behind staging had expired on the console's one-day default, not a password change. The evening entry below has the cause, the fix and the corrected pages.
+- The first real run, once the five values exist. Then Friday's restore drill into a scratch Neon branch and the decrypt drill with the key from the vault, both scripted now (`runbook/restore-drill.md` in the ops repository).
+- Marco's first phone test of staging, two observations, to act on in week two's UX pass:
+  1. **A link that cleaned itself lost the wave.** He opened the wave link on the Mac without starting, then opened the same tab on the iPhone through Safari's tabs from other devices. The client had replaced the address with `/rural-manufacturing/` on the Mac (so a reload would not count a second open, and so an invite token never lingers in the address bar), and that cleaned address is what Safari carried over. On the phone there was no wave, no stored arrival and no code, so the welcome screen could only say "open the link you were sent". The same happens to anyone who shares the page from the browser after opening it. Fix to decide: keep the wave in the address bar (a wave is not a secret) and count an open once per device instead of per load; keep cleaning only invite links.
+  2. **The code reads as a puzzle.** The session end shows the code with Copy, but the place to type it, "I have a code", exists only on a device that has none; on the device that already remembers, there is nothing to paste into, which is correct and still confusing. To decide: say on the session-end screen what the code is for ("only if you open this on another device"), keep "I have a code" reachable from the privacy panel, and word the welcome screen for the three cases (link, code, neither). The architecture plan's position stands: only something the participant carries can prove a second device is the same person, and the code is that thing; the work is in the wording and the placement.
+
+---
+
+## 2026-10-29, Thursday evening. Staging's database branch expired on a Neon timer; recreated
+
+### What
+
+- Found why staging lost its database at about 16:00 UTC: Neon's Create branch dialog ticks **Auto-delete: After 1 day** by default, and the `staging` branch of 28 October was created with that default in place. Neon deleted the branch, compute and all, a day later. From Netlify the vanished compute answered `password authentication failed for user 'neondb_owner'`, which is why the afternoon's diagnosis pointed at the password. Marco saw the default in the dialog, and the Branches page listed `production` alone.
+- Ruled out before that: no secret in either repository, no workflow or script that talks to Neon's control plane, no Neon tool or key on the laptop. Neon's "new organization" email of 14:36 UTC is a lifecycle mail sent a day after the welcome mail of 14:34 UTC on 28 October; it changed nothing.
+- Marco recreated `staging` (`br-muddy-pine-b58g7t0f`, parent `production`, Auto-delete set to never) and put the new string in the vault and in Netlify's `DATABASE_URL` under Deploy Previews and Branch deploys. Nothing was lost: staging held test data only, and the first deploy recreates the tables and reloads the workshop. The previews proved the Deploy Previews value at once: pull request 4's rebuilt preview answered `dbReachable: true` with the workshop loaded. The stable staging address stayed on the old deploy, because Netlify's Trigger deploy button builds the production branch, not `staging`; staging was rebuilt by fast-forwarding `staging` to `main` (1b74e9e), the documented way to refresh it.
+- Docs corrected. `docs/account-setup.md` section 2 says to set Auto-delete to never. The runbook's Neon entry and the ops page `runbook/neon.md` give the real cause, the check (is the branch listed; Monitoring, System operations) and the fix, and the ops page carries the new branch id. `runbook/restore-drill.md` says to leave the one-day timer on the drill branch, where it is the right behaviour. Note 08 has the lesson under "What can go wrong".
+- Pull request 4 got an empty commit (20bf6f1) so Netlify builds its preview again; pull request 3's preview rebuilt with this entry. Both previews build against the new branch and answer `dbReachable: true`.
+
+### Why
+
+A database branch with a timer is a new idea in this project: Neon treats a new branch as disposable unless told otherwise, and the console says so only in a dropdown. Production is the default branch, which Neon refuses to expire, so the real data was never exposed to this; every branch created by hand from now on needs the dropdown read.
+
+### How to verify
+
+- `https://staging--worldbuilder-uot.netlify.app/api/health` answers `dbReachable: true` and lists `rural-manufacturing` as open.
+- The deploy previews of pull requests 3 and 4 build, and their `/api/health` says the same.
+- In Neon, Branches, `staging` shows no expiry on its overview.
+
+### Decisions made on the way
+
+- **Auto-delete off for `staging`, on for `restore-drill`.** The drill branch is meant to vanish, and the timer is a second guarantee that it does. Staging and production are not.
+- **An empty commit to retry a preview.** Netlify's Retry button lives in its console; a commit whose message says why is the same action, kept in the record.
+- **Staging rebuilt by fast-forward, not from the Netlify console.** The morning entry already names fast-forwarding `staging` to `main` as the way to refresh the stable address; Netlify's Trigger deploy builds the production branch and cannot rebuild a branch deploy. Both runbook pages now say so.
+
+### Open
+
+- The compute id of the new `staging` branch, for `runbook/neon.md`: the `ep-` name on the branch's Computes tab, also the first label of the connection string's host.
+
+---
+
+## 2026-10-29, Thursday night. The first backup ran against staging; two fixes on the way; the backup key replaced
+
+### What
+
+- Marco completed section 6 of `docs/account-setup.md`: the backup key, the Backblaze writer key and the two bucket rules, Neon's direct string, the Better Stack heartbeat and monitor. Four secrets and one variable now exist in the ops repository.
+- The first key pair was voided before use: the whole key file, secret line included, was pasted into the session, and a session transcript is not a vault. A new pair was generated with a command that shows only the public half (`age-keygen -o`), its public key set as `AGE_PUBLIC_KEY`, and the old file left for Marco to delete. Nothing had been sealed with the old pair.
+- Three runs of `backup.yml` against staging, started by hand:
+  1. Run 40963230115 failed in the dump: `pg_dump: error: aborting because of server version mismatch`, server 18.6, pg_dump 16.15. The install step had fetched client 18, but the runner's own PostgreSQL 16 answered through Ubuntu's `pg_wrapper`. Fix: the install step puts `/usr/lib/postgresql/18/bin` first on the path for the later steps and fails at once if the pg_dump there is not an 18.
+  2. Run 40963527753 dumped and sealed both files, then Backblaze refused the upload: `Content-MD5 OR x-amz-checksum- HTTP header is required for Put Object requests with Object Lock parameters`. With the newer checksum types turned off, `aws s3 cp` sent neither. Fix: each file goes up with `aws s3api put-object --content-md5`, and the test's aws stand-in checks the MD5 against the body (`ok: 13 checks passed`).
+  3. Run 40963927650, from the fix branch, went through: `dumping the database`, `sealed staging-database-20261029T221151Z.sql.gz.age, 2497 bytes`, `sealed staging-workshop-rural-manufacturing-20261029T221151Z.tar.gz.age, 0 events`, `uploading to world-builder-backups`, `recording the run`, `heartbeat sent`, `done: 2 sealed files`. Artifact `backup-staging-40963927650`, 3822 bytes, kept until 12 November. Staging's health now says `lastBackupAt: 2026-10-29 22:12:02`.
+- Both fixes are ops pull request 2 (branch `pg-dump-18-on-path`, 9e1d1a0), with the runbook's two "what can go wrong" bullets rewritten to say what happened; note 08's bullets say the same.
+
+### Why
+
+The stubbed test proves the script's logic, not the runner or the vendors: the runner's path and Backblaze's Object Lock rule only show on a real run. Both failures stopped before anything was written, and the fix branch could be run with `--ref` before merging, so `main` never carried a job that was known to be broken.
+
+### How to verify
+
+- `https://staging--worldbuilder-uot.netlify.app/api/health` shows today's `lastBackupAt`.
+- Actions in the ops repository: run 40963927650 green, with the seven log lines above; its artifact listed for 14 days.
+- Backblaze, Browse Files, `world-builder-backups`: `staging/database/2026-10-29/` and `staging/workshops/rural-manufacturing/2026-10-29/` hold one `.age` file each.
+- Better Stack: the heartbeat is up, after two failure pings from the first two runs.
+
+### Decisions made on the way
+
+- **MD5 in the request, not the newer checksums back on.** Backblaze's answer names both as acceptable; the MD5 is one line with `openssl`, works with the newer checksum types still off, and the service verifies the body against it.
+- **Fix branch runs before the merge.** `gh workflow run --ref <branch>` runs the job from a branch with the repository's secrets, so a fix is proved on a real run before it reaches `main`. The schedule keeps running `main`, so ops pull request 2 should merge before the first night.
+
+### Open
+
+- Ops pull request 2 to merge before the nightly schedule, or the night's run fails the same way and the heartbeat alerts.
+- Marco: delete `.secrets/backup.age.key` once the vault note and the two prints exist; confirm the Backblaze folders and the heartbeat; the compute id for `runbook/neon.md`.
+- Friday: the restore drill from this backup, with the drill scripts of ops pull request 1; the decrypt drill from paper.

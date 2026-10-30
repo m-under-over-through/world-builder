@@ -41,3 +41,12 @@ The first staging deploy failed at the function's first request: Netlify's packa
 - `apps/api/test/bundle.test.ts` proves both: the graph, and the built file running in a plain Node process.
 
 esbuild is a declared development dependency (it was already present through drizzle-kit and Vite). Explained in `docs/learn/07-bundling-the-function.md`.
+
+## Amendment, 29 October 2026: the shape of the backup job, and 14 days rather than 30
+
+The job exists now (ops repository, `.github/workflows/backup.yml`, `scripts/backup.sh`, page `runbook/backups.md`). Two things differ from the text above:
+
+- **Both copies last 14 days, not 30.** The trust page promises that the last backup copies expire within two weeks of the deletion day. The bucket's default Object Lock holds a file 14 days (governance mode, so the writer key cannot destroy recent backups) and its lifecycle rule removes it the day after; the artifact's retention is 14 days. Nothing outlives the promise by itself.
+- **One job per database, by deploy context.** Keys in the bucket start with `staging/` or `production/`; a target without a connection string is skipped, so production joins in hardening week by setting its secrets. Each run also records itself in that database's `backup_runs` table, which the health endpoint reports, and prunes the rate buckets, the housekeeping the schema already assigned to the nightly job.
+
+Per workshop the job writes one export, that workshop's rows from every table as CSV, next to the whole-database dump; a workshop's exports stop with the workshop. Explained in `docs/learn/08-backups.md`.
