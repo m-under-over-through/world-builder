@@ -24,7 +24,7 @@ What it is for: the only stateful thing you run.
 - [ ] Two-factor if the account settings offer it; backup codes printed.
 - [ ] Stay on the **Free** plan. Note its limits in the runbook: 100 compute hours and 0.5 GB of storage a month, a six-hour restore window.
 - [ ] Create a project named `world-builder`, region **US East (Ohio)**, which is where Netlify's functions run, newest Postgres offered.
-- [ ] Branches: the default branch is production. Create a branch named `staging` from it; it becomes staging's database on Tuesday.
+- [ ] Branches: the default branch is production. Create a branch named `staging` from it; it becomes staging's database on Tuesday. In the Create branch dialog set **Auto-delete** to never. The dialog's default is "After 1 day", and a branch left on it is deleted a day later, compute and all; that is what happened to the first `staging` branch on 29 October. The default branch cannot expire.
 - [ ] **Leave for Tuesday:** roles and connection strings.
 - [ ] Record: project id, region, the two branch names.
 
@@ -76,6 +76,39 @@ Then the connection string:
 - [ ] Say so in the session. The `staging` branch is then created from the skeleton, and its first build log shows the migration and the workshop sync running against Neon, then `https://staging--worldbuilder-uot.netlify.app/api/health` reports the database.
 
 Two things worth knowing. A new or changed variable reaches only deploys made after the change, so set both before the branch exists. And because the repository is public, Netlify's default policy keeps secret variables away from deploy previews of pull requests that come from forks; the build is written to do nothing with the database when the values are missing, so such a preview still builds, it only has no API.
+
+## 6. The backup key, the Backblaze key, the ops secrets, the heartbeat and the monitor, thirty minutes (29 October)
+
+What it is for: the nightly backup job in the ops repository (`world-builder-ops`, `runbook/backups.md`) needs five values it must never find in a file. One is public and becomes a repository variable; four are secrets and become Actions secrets of that repository. Each goes into Bitwarden first. Names and vault item names are in the ops runbook page; this is the click path.
+
+The backup key first, on this laptop. `age` is the file-encryption tool the job uses (same idea as the sealed boxes, learning note 01, for whole files); you also need it on Friday for the decrypt drill, together with `psql` 18 for the restore drill (`brew install libpq`; the dump begins with a line only a recent psql reads).
+
+```
+brew install age
+age-keygen -o .secrets/backup.age.key      # writes the key file; prints "Public key: age1..." which is not secret
+```
+
+- [ ] `cat .secrets/backup.age.key` (three lines) into Bitwarden as a secure note "World Builder: backup key (age)". Print two copies and put one in each key envelope: losing this key makes every backup unreadable.
+- [ ] The public key, the `age1...` line, into the ops repository as a variable: `gh variable set AGE_PUBLIC_KEY --repo m-under-over-through/world-builder-ops --body "age1..."` (or paste it in the session; it is public). Then `rm .secrets/backup.age.key`.
+
+Backblaze, the writer key and the two bucket rules:
+
+- [ ] **Application Keys**, **Add a New Application Key**: name `world-builder-backup-writer`; **Allow access to Bucket(s)**: `world-builder-backups` only; **Type of Access**: Read and Write; **Allow List All Bucket Names** on; no file name prefix; no duration. Backblaze shows the `applicationKey` once. Into Bitwarden as "World Builder: Backblaze backup key" with both the `keyID` and the `applicationKey`.
+- [ ] GitHub, repository `world-builder-ops`, **Settings**, **Secrets and variables**, **Actions**, **New repository secret**: `B2_KEY_ID` with the keyID, then again `B2_APPLICATION_KEY` with the applicationKey.
+- [ ] **Buckets**, `world-builder-backups`, **Bucket Settings**, **Object Lock**: default retention **Governance**, **14 days**. This is what stops deletion: no application key can remove a file for 14 days after upload.
+- [ ] Same page, **Lifecycle Settings**, **Use custom lifecycle rules**: file name prefix empty, days from uploading to hiding **14**, days from hiding to deleting **1**. Files are gone after 15 days, which keeps the trust page's "within two weeks".
+
+Neon, the direct connection string:
+
+- [ ] The job runs `pg_dump`, which needs a plain session, so it takes the **direct** connection string, not the pooled one. In Neon, branch `staging`, **Connect**, turn **Connection pooling off**, copy the string (its host has no `-pooler`). If the Bitwarden item from section 5 already holds the direct form, use that.
+- [ ] GitHub, the same secrets page: `NEON_STAGING_URL`.
+
+Better Stack, the heartbeat and the monitor:
+
+- [ ] **Heartbeats**, **Create heartbeat**: name `World Builder backup, staging`; expect a ping every **1 day**; grace period **2 hours**; alert by email and the app. Copy its URL (it is the secret).
+- [ ] GitHub, the same secrets page: `HEARTBEAT_URL_STAGING`.
+- [ ] **Monitors**, **Create monitor**: URL `https://staging--worldbuilder-uot.netlify.app/api/health`; alert when **URL doesn't contain keyword**, keyword `"ok":true`; check every 3 minutes. Staging for now: production answers `SERVER_NOT_CONFIGURED` by design until hardening week, and a monitor there would alert for a known reason.
+- [ ] Say so in the session. The first run is started by hand against staging and watched; then the staging health endpoint reports `lastBackupAt` and the heartbeat turns green. Production's three values (`NEON_PRODUCTION_URL` for the `backup` role, `HEARTBEAT_URL_PRODUCTION`, the production monitor) come in hardening week.
 
 ## After the three
 
