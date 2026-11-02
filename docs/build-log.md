@@ -613,3 +613,41 @@ The week-2 gap list: the skeleton compared `text.length` with `MAX_REQUEST_BYTES
 ### Open
 
 - The remaining five items of the API brief follow as pull requests, each stacked on the one before.
+
+---
+
+## 2026-11-02, Monday. API, 2 of 6: one log line when a body fails the contract
+
+### What
+
+- `apps/api/src/log.ts`, new. A `Logger` with `warn` and `error` that the app takes as a dependency: the console in deployment (`consoleLogger`), an array in tests, so a test can read what was written and prove what was not. `validationLine` builds the one line for a refused body: the route as written in `ROUTES` (`POST /api/:slug/join`, so never a slug or a wave), the error code, and where in the body the contract was not met, as paths of our own field names and array positions with Zod's issue code. Example: `SYNC_PAYLOAD_INVALID POST /api/:slug/sync: events.2.body (invalid_format), events.2 (unrecognized_keys)`. A body that is not JSON gives `body is not JSON`. More than 20 issues become ", and N more".
+- `apps/api/src/app.ts`: join and sync write the line through `log.warn` before answering `REQUEST_INVALID` or `SYNC_PAYLOAD_INVALID`. `AppDeps.log` is optional; the function and `dev.ts` use the console.
+- Tests. `apps/api/test/log.test.ts`: the line names the route, the code and the field paths with the issue kind and nothing else; an unknown key is pointed at by the object that holds it, never by name (a code hidden in a key and an email address stay out); array positions let the reader count to the bad event; the not-JSON line and the cap. `app.test.ts`: a refused join writes one line, equal to the expected text, carrying neither the code, its hash, the wave text, the extra field's name or value, nor the slug; a non-JSON body writes the one line that says so; a refused sync batch writes one line carrying none of the code, its hash, the session id or seed, the event id or body, the card id, the extra field or its value.
+
+### Why
+
+The runbook's `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` entries tell the reader to look at "the validation issues in the log line", and the gap list found no line. The non-negotiable is that no log line carries a value from a request; the way to keep that true is to decide once what a line may contain (paths of our own names, positions, Zod's issue kinds) and to have a test read every line the app writes. Item 2 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test`: 42 tests pass; `npm run check` is green.
+- On the deploy preview of pull request 11: post a join with an extra field and read the function log.
+
+  ```
+  curl -s -X POST -H 'content-type: application/json' \
+    -d '{"code":"1234567890123456","wave":"wave-1","emailAddress":"x@y.z"}' \
+    https://deploy-preview-11--worldbuilder-uot.netlify.app/api/rural-manufacturing/join
+  ```
+
+  Expected: `{"error":"REQUEST_INVALID",...}`; in Netlify, Deploys, this preview, Functions, `api`: one WARN line `REQUEST_INVALID POST /api/:slug/join: (root) (unrecognized_keys)`, with nothing of the body in it.
+
+### Decisions made on the way
+
+- **Paths and issue kinds, not messages and not keys.** Zod's message for an unknown key quotes the key, and a key is text the client chose: `{"1234567890123456": 1}` would put a code in the log. The line points at the object that holds the unknown key and says `unrecognized_keys`; the reader opens the contract and sees which keys that object allows.
+- **The route pattern, not the path.** `POST /api/:slug/join` is the same text for every workshop; the path would carry the slug and, on the wave route, the wave. Neither is personal, but a line that varies with the request invites a reader to grep for a participant.
+- **The logger is a dependency, not a module import.** Tests that read `console` output are brittle and would see lines from other tests; an array passed in is exact. The function passes nothing and gets the console.
+- **One line, capped.** A batch of 200 events with the same mistake is one line with 20 paths and "and 180 more"; the first path tells the reader what is wrong.
+
+### Open
+
+- Drizzle wraps a failed query in `DrizzleQueryError`, whose message is `Failed query: <sql> params: <params>`, and the params of a failed insert are code hashes and sealed bodies. The `SERVER_ERROR` line still logs the error object. Item 3 tests that line and will make it carry the error's name, the SQL with its placeholders and the stack, never the params.
