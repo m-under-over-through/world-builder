@@ -589,6 +589,72 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 The brief's item 1: the operator's tools must be tested and must not overwrite what they should not. The export is the one place answers are ever readable (ADR 0003), so its mistakes are the expensive ones: an export of the wrong workshop would have been a file of `[could not open]` rows found after the fact; a second run on the same day would have replaced the morning's file, scrub log and all. Fresh pseudonyms are what the architecture plan's section 14 promises in the hand-off package.
 
+## 2026-11-02, Monday, midday. The participant texts, drafted for the legal review
+
+### What
+
+- `docs/participant-texts.md`, new: the consent screen (under 80 words), the terms, the privacy policy, the trust page's seven sections and the one-paragraph data management plan, written for a phone screen from the architecture plan's sections 6.4, 9, 13 and 14. Square brackets mark the three things the reviewers decide: a minimum age, the contact address, a governing law. The UI builder's first pull request creates the `copy.md` sections and later items take these drafts as they are; the words change when the review lands.
+
+### Why
+
+Decision 5 of today: the integrator drafts, Marco reviews with Mechanism's legal team, and the UI never waits for the words. One file, so the review has one thing to read and the client has one place to take the text from.
+
+### How to verify
+
+Read the file against the plan's sections it cites; every claim in it is a fact of the system (what the schema holds, what the headers forbid, the dates), not an intention.
+
+### Decisions made on the way
+
+- **"Locked" and "scrambled" instead of "encrypted" and "hashed"** in the participant-facing text, with the real terms one tap away on the trust page.
+- **No promise about hosting logs.** The policy says the hosts may keep technical records under their own policies and that we do not receive them; the trust page's honest limit says why that is the truthful version.
+
+---
+
+## 2026-11-02, Monday evening. Ops 3: the runbook describes the code; the services section written
+
+### What
+
+- Every one of the eighteen entries that said _Provisional_ was read against `apps/api/src/app.ts`, `netlify/functions/api.mts`, `apps/web/src` and `packages/crypto`, and rewritten to say what the code does today. Where the code does not yet do what the plan says, the entry says so and names the builder's item that changes it, so the runbook never describes a behaviour that cannot be seen. The mark is gone from the file; the introduction now says when the check was made.
+- The six entries the brief singled out: `WORKSHOP_UNKNOWN` no longer points at a `/api/<slug>/health` route that does not exist (the health listing of slugs does the job, and any unknown path answers this code); `WORKSHOP_CLOSED` covers both ends of the window and the status, and the staging file's earlier day; `JOIN_WAVE_UNKNOWN` says the deploy creates `wave-1` only; `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` say nothing is logged today and name the API builder's log line; `CLIENT_STORAGE_UNAVAILABLE` says the client does not produce it yet and names the UI builder's item 9.
+- The rest: `REQUEST_TOO_LARGE` (the two checks, the unit the API builder changes), `JOIN_WAVE_FULL` (the cap can be exceeded by one or two), `JOIN_INVITE_INVALID` and `JOIN_INVITE_USED` (hashes compared as strings; one statement claims an invite), `JOIN_CODE_TAKEN` (no log line; the client's retry is the UI builder's item 4; an invite is spent by the collision), `AUTH_CODE_MISSING` (what the header must look like, which routes carry it), `AUTH_CODE_UNKNOWN` (after a reset or a restore; the per-workshop limit on unknown codes; what the client does today with a stored code), `SYNC_BATCH_TOO_LARGE` (the numbers, checked before validation), `INVITES_EXHAUSTED` (existing participants are not topped up), `RATE_LIMITED` (the five buckets with their numbers, decision 3 pending in the API builder's item 6, the rows in `rate_buckets`), `SERVER_ERROR` (the log line's shape and where to read it within the day), `CLIENT_SEAL_FAILED` (a crypto error shows its own code; this one is for everything else), `CLIENT_SYNC_FAILED` (`offline` against `error`, Netlify's own 502 page), `CRYPTO_BAD_PRIVATE_KEY` and `CRYPTO_OPEN_FAILED` (the export's key check of ops item 1). The Netlify build entry mentions migrate's second line (ops item 2).
+- The services section replaces "To be written" with an introduction and one entry per service: Netlify and Neon lose their mark and gain their cost, login, failure and ops page; Backblaze, Better Stack, GitHub, Bitwarden and Google Workspace are new, each with where the login is, what it costs, what breaks without it, how to move off it, and its page in the ops repository. The three pages that did not exist, `runbook/github.md`, `runbook/bitwarden.md` and `runbook/google-workspace.md`, are an ops pull request of the same evening.
+
+### Why
+
+The brief's item 3: the runbook must describe the code as it is, not as it was planned. Half the entries were written on 23 October before any handler existed; four of them told the reader to look for a log line or a route that is not there. An operator following those on a bad night would have lost time on the runbook itself.
+
+### How to verify
+
+- `npm test -- packages/contracts/test/runbook.test.ts` (every code has a heading); `grep -c Provisional docs/runbook.md` prints 0.
+- Pick an entry and check its claim against the file it names, for example `RATE_LIMITED` against `LIMITS` in `apps/api/src/app.ts`, or `CLIENT_SYNC_FAILED` against `apps/web/src/lib/api.ts` and `sync.ts`.
+- On the deploy preview: `curl -s https://deploy-preview-<n>--worldbuilder-uot.netlify.app/api/nope` answers `WORKSHOP_UNKNOWN`, as the entry now says; `curl -s -X POST .../api/rural-manufacturing/join -H 'content-type: application/json' -d '{}'` answers `REQUEST_INVALID` with no log line in the function's log.
+
+### Decisions made on the way
+
+- **An entry names the builder's item when the code lags the plan**, instead of describing the plan as if it were built or leaving the behaviour out. Three such places: the validation log line (API item 2), the byte cap's unit (API item 1), the storage fallback and the stored-code behaviour (UI item 9). When those land, the sentence is removed; the API and UI builders' reports propose the wording and the ops builder applies it.
+- **The join limit is written as the code has it (30) with decision 3 next to it (120)**, because the number in the file is the number participants meet until the API builder's change merges.
+- **Vendor pages for GitHub, the vault and the mail** rather than longer runbook entries: the public runbook says what and why, the private page names the identifiers, as the other vendors already do.
+- **Three forward references** (`runbook/scans.md`, `runbook/staging-reset.md`, `runbook/laptop-is-gone.md` in the ops repository) are left in, since items 4, 5 and 6 create them this week; the pull request says so.
+
+### Open
+
+- The API builder's and UI builder's runbook proposals, from their reports, are applied when the integrator passes them on.
+- Better Stack's paused staging monitor: the cause goes on `runbook/betterstack.md` once seen in the console.
+
+## 2026-11-02, Monday, early afternoon. The deck engine, item 1: the session plan and the seeded shuffle
+
+### What
+
+- **`packages/deck` exists**, the package the README has listed since the skeleton. It is pure functions, no I/O: plain data in, a plan out. This pull request is item 1 of the deck brief (`docs/briefs/week-2-deck.md`): `planSession` and the seeded shuffle. Item 2, `applyDismiss` and `isSessionOver`, follows in the next pull request.
+- **`planSession(input)`** takes the deck, `warmupsPerSession`, `checkpointsPerSession`, the session's seed, the set of card ids ever answered and the list of card ids deferred in the previous session, and returns `{ queue }`: the card ids of the session, in order. The rules of the architecture plan, section 8: deferred cards first, in the order they were deferred, each counted against its set; then warm-ups up to W, then checkpoints up to C, each set shuffled by the seed, never-answered cards before answered ones, answered ones only when the set's unanswered cards have run out; never the same card twice in a session; a small deck gives what it has.
+- **The seeded shuffle**, in `packages/deck/src/random.ts`: FNV-1a turns the seed string into a 32-bit number, mulberry32 turns that into a stream of numbers, and Fisher-Yates turns the stream into an order. Written in the package, no dependency, about thirty lines in all. Learning note 09 explains the idea and the three steps.
+- 32 tests in `packages/deck/test/`, named as behaviours: same seed same order; different seeds differ; warm-ups before checkpoints; counts respected; unanswered preferred; cycling when a set is exhausted; deferred first, in order, counted against the set, more than the count all shown, unknown ids skipped, duplicates once; small deck; empty history; counts of zero and counts that are not whole numbers; file order irrelevant; no repeat over forty seeds and three histories; inputs untouched; the real workshop deck; the published answers for the hash and the generator; a fairness check over three thousand seeds; the worked example. 154 tests in the repository.
+- Outside the brief's files: the lock file gains the workspace link for the new package (`npm ci` in CI refuses a lock that does not match), `docs/learn/09-seeded-shuffle.md` and its row in the notes' index, because `CLAUDE.md` asks for a note when a change brings an idea the operator has not met here, and this entry.
+
+### Why
+
+The skeleton picks cards in file order, so every participant sees the same first four cards and a resumed session cannot know where it was. Section 8 asks for a seeded shuffle so that a stored seed replays a session, and for the three rules about deferred, unanswered and answered cards. The UI builder picks the package up on Tuesday and replaces `apps/web/src/lib/deck.ts` with it; until then the client is untouched.
+
 ### How to verify
 
 ```
@@ -611,3 +677,76 @@ The first run prints the counts and `written to: .../.secrets/exports/rural-manu
 
 - The runbook's `CRYPTO_OPEN_FAILED` and `CRYPTO_BAD_PRIVATE_KEY` entries describe the export's old behaviour (a `[could not open]` row per envelope). They are rewritten in ops item 3 with the rest of the runbook.
 - The README's `tools/workshop` row names `keygen`, `sync` and `export`; the `--out` and `--overwrite` flags change nothing there. A proposal for the integrator comes with item 7.
+  npm run check # typecheck, 154 tests, formatting
+  npx vitest run packages/deck # the 32 tests of the engine alone
+
+```
+
+The worked example, which the last test pins: a deck of six cards, four warm-ups (`tuesday-night`, `on-tv`, `embarrassing`, `cool`) and two checkpoints (`immigrants`, `rich-poor`), counts 3 and 1, seed `example`, no history. The plan is `cool, on-tv, embarrassing, immigrants`. The same call gives the same plan every time; seed `other` gives `cool, embarrassing, on-tv, rich-poor`. With `tuesday-night`, `on-tv` and `embarrassing` already answered, the plan is `cool` first, then two of the answered three in the seed's order, then the checkpoint. With `cool` and `rich-poor` deferred in the previous session, the plan is `cool, rich-poor, on-tv, embarrassing`: both deferred cards first, and the deferred checkpoint has taken the one checkpoint place.
+
+Nothing to see in the browser yet; the client still uses the skeleton's file order until the UI builder's item 5.
+
+### Decisions made on the way
+
+- **mulberry32 over xoshiro.** Both were named in the brief. mulberry32 is one 32-bit number of state and five lines; xoshiro128 is four numbers and needs a second generator to spread the seed into them. For a deck of a few dozen cards, the smaller one is as good and far easier to read, and the operator can hold the whole recipe in mind. Pinned in the tests against the published outputs, because a change to the generator would reorder every stored session.
+- **FNV-1a for the seed string.** The seed the client makes is already 64 random bits as hex; the hash exists so that any string, `example` included, works as a seed, and so that each set can have its own sub-seed. 32 bits of generator state means two different seeds give the same order about once in four billion pairs, which is harmless: it is an order, not a secret.
+- **One sub-seed per set, and the set's ids sorted before the shuffle.** The order of a set then depends on the seed and on which ids the set holds, not on the other set's size or on the order of the cards in the file. Reordering `deck.json` by hand changes nothing; adding or removing a card changes that set's order, which a deck version bump records anyway.
+- **Deferred cards are never capped.** The brief says they come first and count against their set; it does not say "up to the count". A deferred card was promised a future session, and the Later pile that would otherwise catch it is a later tier, so the engine shows every deferred card and adds nothing fresh from a set whose count is spent. In practice a previous session can only defer as many as it showed, so this matters only if the counts are lowered between sessions.
+- **The caller's list of deferred cards is trusted, not filtered against the answered set.** A card answered in session 1, back in session 5 because the set had run out, and deferred there is in both lists and is still owed a showing. The caller is the one who knows "not answered since the deferral".
+- **The engine never throws.** There is no failure path and therefore no error code: an unknown deferred id is skipped, a duplicate is shown once, a count that is not a whole number is read towards zero and never below. The counts come from `workshop.json`, where the schema already bounds them.
+- **Types only from `@wb/contracts`.** The engine imports `Deck`, `Card` and `CardSet` as types, so nothing of the contracts package runs inside it and the client bundle grows by the engine alone.
+- **The word "queue".** Section 8 and the brief both say "the queue" for the session's ordered cards; the plan's field is `queue`. The glossary does not have the word yet; proposed in the report.
+
+### Open
+
+- For the integrator: the reading of "counted against the set" when the deferred cards outnumber the count (all shown, nothing fresh added), the field name `queue` and its glossary line, and the README row, all proposed in the pull request's report.
+- The UI builder's `deferredIds`: the ids with a `deferred` event in the previous session, in `seq` order, minus any answered since. The engine shows exactly that list first.
+
+---
+
+## 2026-11-02, Monday, afternoon. The deck engine, item 2: dismiss, defer and the end of a session
+
+### What
+
+- **`applyDismiss(plan, cardId, dismissedThisSession)`** returns `{ plan, event }`. The first dismissal of a card in this session moves it to the end of the queue and names the event `dismissed`. The second dismissal of the same card in the same session takes it out of the queue and names the event `deferred`. A card that is not in the queue gives the same plan back and no event. The input plan is never changed. `dismissedThisSession` is the set of card ids already dismissed in this session, kept by the caller.
+- **`isSessionOver(plan, answeredOrDeferredThisSession)`** is true when every card in the queue is in the set: the queue is exhausted. With warm-ups then checkpoints that is after the last checkpoint; a card dismissed once is still owed its second showing and keeps the session open.
+- `DismissEvent` is `Extract<EventKind, 'dismissed' | 'deferred'>`, so the names the engine returns are, by type, names the event contract knows. The header of `packages/deck/src/index.ts` now describes all three functions. This is item 2 of the deck brief; the package is complete as the brief specifies it.
+- 21 tests in `packages/deck/test/dismiss-and-session-over.test.ts`: first dismissal to the end; second removes and defers; not in the queue, no-op and no event; a card already deferred cannot be dismissed again; middle of the queue; last card stays last; input untouched; only this session's dismissals count; set or array; the names are contract kinds; the session is not over before the last checkpoint and is over after it; over when the last card is deferred instead; a once-dismissed card keeps it open; order of answering irrelevant; ids outside the queue do not count; an empty queue is over; a resumed session rebuilds its queue by replaying its dismissals; feeding this session's answers back as history changes the plan; the worked example continued. 175 tests in the repository.
+
+### Why
+
+Section 8: "Dismiss moves the card to the end of this session's queue. A second dismiss defers it to a future session", and "A session ends after the checkpoints". The skeleton's "Set aside" writes `dismissed` and moves on, so a set-aside card is gone for the session and never comes back. The UI builder's item 5 replaces that with these two functions.
+
+### How to verify
+
+```
+
+npm run check # typecheck, 175 tests, formatting
+npx vitest run packages/deck # the 53 tests of the engine alone
+
+```
+
+The worked example continued, pinned by the last test. Same deck of six, counts 3 and 1, seed `example`: the plan is `cool, on-tv, embarrassing, immigrants`.
+
+| Step                                                                   | Queue after                             | Event       |
+| ---------------------------------------------------------------------- | --------------------------------------- | ----------- |
+| the participant sets `cool` aside                                      | `on-tv, embarrassing, immigrants, cool` | `dismissed` |
+| they answer the other three; `isSessionOver` with those three answered | the same                                | not over    |
+| `cool` comes round again and they set it aside a second time           | `on-tv, embarrassing, immigrants`       | `deferred`  |
+| `isSessionOver` with the three answered                                |                                         | over        |
+| next session, with `cool` in the deferred list                         | `cool` first, then three more           |             |
+
+### Decisions made on the way
+
+- **The engine names the event, it does not build it.** An event has an id, a session id, a seq, a day and a deck version, all of which belong to the client; the engine answers "which kind", `dismissed` or `deferred`, typed from the contract, and the client builds the event the way it already builds `answered`.
+- **The engine is stateless; the caller keeps `dismissedThisSession`.** The set is this session's `dismissed` events, so a resumed session remembers which cards have had their first chance. A dismissal in an earlier session does not count: a deferred card that comes back starts fresh and gets its two chances again.
+- **"After the last checkpoint" is read as "the queue is exhausted"**, as the brief says in so many words. The two agree unless a warm-up was dismissed once, in which case it sits after the checkpoint and the session waits for it. The alternative, ending the session at the checkpoint and leaving the dismissed card unresolved, would lose the second dismissal that makes a card `deferred`.
+- **A deferred card leaves the queue, and `isSessionOver` also accepts its id in the done set.** The client can hold the latest plan or the first plan plus the done set; both give the same answer. Nothing depends on which bookkeeping the UI builder picks.
+- **The no-op returns the same plan object**, so a caller can see by identity that nothing changed.
+- **Resuming is replay, not storage.** The client stores the seed and the events, never the queue. On resume it calls `planSession` with the history as it stood when the session started, which is every answer from other sessions and the previous session's deferrals, then replays this session's `dismissed` and `deferred` events through `applyDismiss` in `seq` order. Two tests show the recipe and the pitfall: this session's own answers must not be fed back as history mid-session, or the plan changes under the participant.
+
+### Open
+
+- The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
+- For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.
+```
