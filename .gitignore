@@ -7,3 +7,7 @@ netlify/functions-build/
 .env.*
 .DS_Store
 *.log
+
+# Design skills for the agent, installed per working copy (docs/services.md); never committed.
+.claude/skills/
+.claude/agents/

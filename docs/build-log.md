@@ -542,3 +542,35 @@ The plan's week 2 is the parallel build, and its cohesion rules say the briefs a
 
 - The eight decisions in `week-2-plan.md`, section 4, before Monday: timeline, `JOIN_WAVE_CLOSED`, the join limit, the look, who writes the policy texts, HSTS preload, the heartbeat grace, branch protection.
 - The two contract changes the API brief relies on (`JOIN_WAVE_CLOSED` removed, the join comment corrected) are the integrator's and wait for decision 2.
+
+---
+
+## 2026-11-02, Monday. The eight decisions; the week starts
+
+### What
+
+- Marco answered the eight decisions of `docs/briefs/week-2-plan.md`; they are recorded in its section 4. In short: a complete working version for a demo on Friday 6 November, the week after for UX and UI with Marco and the partner, launch unchanged; `JOIN_WAVE_CLOSED` removed (pull request 7); the join limit raised to 120 per minute with a client retry; a designer's pass, warm, creative, informal, with the Impeccable design skills for the UI builder; the integrator drafts consent, terms and the privacy policy for Mechanism's legal review; no HSTS preload; the heartbeat grace at 12 hours (ops pull request 4); branch protection on.
+- Branch protection on `main` in the app repository: pull requests only, the `check` workflow must pass, no force pushes, no deletion, no exception for administrators. GitHub's free plan refuses it on the private ops repository ("Upgrade to GitHub Pro or make this repository public"); the ops repository keeps the habit without the rule.
+- The Impeccable design skills (`docs/services.md`) are installed per working copy, never committed: `.gitignore` and `.prettierignore` learn `.claude/skills` and `.claude/agents`. The UI brief carries the design direction and the commands to use.
+- Better Stack paused the staging health monitor over the weekend "because it was down for too long" while staging answered `"ok":true` throughout and the nightly job ran on both days (six to seven hours late, as every day). The monitor's definition is the suspect, an inverted condition or a keyword that does not match `{"ok":true,`; Marco checks it in the console and unpauses it. The ops brief's Better Stack page gets the lesson once the cause is seen.
+- The four builder sessions start today from the briefs: the deck engine first, the API, operations, and the client on the wording pass.
+
+### Why
+
+HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Transport-Security` header tells a browser that has visited the site once to use HTTPS only for that host for the next year, so a later `http://` link or a downgrade attempt on a public network goes nowhere. That already holds for everyone after their first visit. `preload` goes one step further: the domain is submitted to a list compiled into browsers, so even the very first visit is HTTPS only. The price is that the list takes the registrable domain, `under-over-through.co`, with `includeSubDomains` required, so every present and future subdomain of the company's domain would be bound to HTTPS, and leaving the list takes months. Our app is one subdomain; the newsletter links are `https://` to begin with; so the gain is a first visit from a typed `http://` address, and the cost is a decision about the whole domain. Not worth it for this app. `includeSubDomains` on our own host is free (the app has no subdomains of its own) and goes in.
+
+### How to verify
+
+- `gh api repos/m-under-over-through/world-builder/branches/main/protection` answers with the rules; a push to `main` without a pull request is refused.
+- `docs/briefs/week-2-plan.md`, section 4, has the eight answers.
+- `git status` in a working copy after `npx -y impeccable@4.8.0 install --project --providers=claude-code --no-hooks -y` shows nothing to commit.
+
+### Decisions made on the way
+
+- **The design tooling is not committed.** It is a 60-kilobyte package plus a native binary per platform; each working copy installs it with one command, and the repository stays the app and its docs.
+- **The policy texts are drafted by the integrator, not the UI builder**, in `docs/participant-texts.md`, so that the legal review has one file and the UI lays out whatever that file says.
+
+### Open
+
+- Merging during the week: with branch protection on, every pull request waits for the `check` workflow; the integrator merges after the independent review.
+- The Better Stack monitor's definition, to be read in the console.

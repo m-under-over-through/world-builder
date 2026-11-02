@@ -84,15 +84,15 @@ What is missing, by stream.
 
 Not cut, whatever the timeline: consent, the privacy policy and the trust page (the promise the newsletter makes); the wording pass (raw error codes in front of participants are a trust failure); the failure behaviour for an unknown code and for offline join; the security pass; one day of pilot; the drills, already done.
 
-A schedule one week shorter, launching Monday 9 November, would be: build Mon 2 to Wed 4 with cuts 1 to 3, hardening Thu 5, pilot Fri 6 to Sat 7 with cut 4, go or no-go Sun 8. Possible, with the partner's cards final by Tuesday 3 instead of Thursday 5. The decision is Marco's and the partner's; the briefs are written for the planned schedule and mark the cuttable items.
+A schedule one week shorter, launching Monday 9 November, would be: build Mon 2 to Wed 4 with cuts 1 to 3, hardening Thu 5, pilot Fri 6 to Sat 7 with cut 4, go or no-go Sun 8. Possible, with the partner's cards final by Tuesday 3 instead of Thursday 5. Decided on 2 November: a complete working version for a demo on Friday 6 November, launch unchanged; see section 4.
 
-## 4. Decisions needed before Monday
+## 4. Decisions, taken by Marco on 2 November
 
-1. **The timeline:** as planned, or shortened, and by how much.
-2. **`JOIN_WAVE_CLOSED`:** remove the code (recommended) or give waves a window.
-3. **The join limit:** raise it to 120 per minute per workshop, or have the client retry a `RATE_LIMITED` join after the server's wait. Recommended: both; the retry is cheap.
-4. **The look.** The screen map says what, not how it looks. Recommended for this round: one stylesheet of tokens (two fonts from the system, four colours, three sizes), large type, high contrast, no illustration. The partner's colours can replace the four. A designer's pass is not in the plan; say if one is wanted.
-5. **Who writes terms, the privacy policy and the consent text**, and by when. The UI needs the sections to exist by Wednesday 4 to lay them out; the words can land Thursday.
-6. **HSTS `preload`:** no (recommended; the app is a subdomain of the company's domain, and preload binds the whole domain) or yes.
-7. **The heartbeat grace period** in Better Stack: 12 hours (recommended) or as it is.
-8. **Branch protection on `main`** in both repositories: on (recommended; every change already goes through a pull request) or not yet.
+1. **Timeline.** A rough but complete working version by Friday 6 November, for a demo. The week of 9 November is for UX and UI, in working sessions with Marco and the partner on the cards, the copy and the look; those sessions never block the builders, who work on placeholders. Launch stays 16 November unless the demo says otherwise. The cut list in section 3 is the order in which to drop things if Friday comes first.
+2. **`JOIN_WAVE_CLOSED`:** removed (pull request 7).
+3. **The join limit:** 120 per minute per workshop, and the client retries a `RATE_LIMITED` join once after the server's wait. What a participant sees either way: with 30 per minute, the thirty-first person to open the newsletter in the same minute would have seen an error on the consent screen and had to tap again; with 120 and the retry, nobody sees anything but a one-second pause. The cap of 150 per wave stays the real bound on how many can join at all; the per-minute limit only sets the pace, so raising it costs nothing worth having.
+4. **The look:** a designer's pass, warm, creative and informal; not the look of an AI product. The design direction is in the UI brief. The Impeccable design skills are installed per working copy for the UI builder (`docs/services.md`).
+5. **Terms, privacy policy and consent:** the integrator drafts them, short and plain, in `docs/participant-texts.md`; Marco reviews them with Mechanism's legal team; the UI lays them out from the draft and swaps the words when the review lands.
+6. **HSTS preload:** no, unless Marco says otherwise after reading the explanation in the build log of 2 November. `includeSubDomains` is added.
+7. **The heartbeat grace:** 12 hours, set in Better Stack and on the ops page.
+8. **Branch protection on `main`:** on in the app repository (pull requests only, the check must pass, no force pushes, no deletion, no exception for administrators). GitHub's free plan does not offer it on a private repository, so the ops repository keeps the habit without the rule until the plan changes or the repository becomes public.

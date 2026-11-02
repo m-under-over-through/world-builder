@@ -12,7 +12,7 @@ Every route and error code in the contract behaves as the runbook says, is teste
 
 ## The contract to satisfy
 
-`packages/contracts/src/api.ts` as it is, with two changes the integrator makes before Monday and the builder then relies on: `JOIN_WAVE_CLOSED` is removed from `ERROR_CODES` and the runbook (the wave window is the workshop's days, ADR 0006, enforced as `WORKSHOP_CLOSED`), and the comment on `JOIN_CODE_TAKEN` is corrected to say that join has its own bucket per workshop. If Marco decides to raise the join limit, the number arrives in the brief's first comment.
+`packages/contracts/src/api.ts` as of pull request 7 (2 November): `JOIN_WAVE_CLOSED` is gone (the wave window is the workshop's days, ADR 0006, enforced as `WORKSHOP_CLOSED`), and the comment on `JOIN_CODE_TAKEN` says that join has its own bucket per workshop. Decided the same day: the join limit becomes 120 per minute per workshop (item 6), and the client retries a `RATE_LIMITED` join once.
 
 ## Files owned
 
@@ -25,7 +25,7 @@ Every route and error code in the contract behaves as the runbook says, is teste
 3. **The tests the table lacks.** Over HTTP: `WORKSHOP_CLOSED` on sync, me, invites and delete; `JOIN_WAVE_FULL`, `JOIN_INVITE_INVALID`, `JOIN_WAVE_UNKNOWN` on join; `RATE_LIMITED` on every bucket, with the response body checked against `errorResponseSchema`; `SERVER_ERROR` with its `errorId` matching a log line; `REQUEST_TOO_LARGE` on sync; idempotent sync (the same batch twice, the same accepted ids, one row); the route table (every entry of `ROUTES` is served, and nothing else is).
 4. **Authorization over HTTP.** Code A cannot write into B's session through `/sync`, read B through `/me`, spend B's invites or delete B; an invite spent twice at once is spent once; a code from one workshop is unknown in another. Each a test named as a behaviour. The manual authorization test from section 12 becomes a short section in the runbook's Neon or Netlify entry, the ops builder's file: propose the text in the report.
 5. **The limiter's rows.** Decide and implement one of: prune `rate_buckets` older than an hour on every hundredth request (one delete, bounded), or leave the prune to the nightly job and document the bound (about one row per minute per live bucket). Recommended: prune on the way; the job's prune stays as the backstop. Test the bound either way.
-6. **Join under a newsletter.** If Marco raises the join limit, change the number and the test; either way, document in the runbook's `RATE_LIMITED` entry what a participant sees and that the client retries once.
+6. **Join under a newsletter.** The join limit becomes 120 per minute per workshop; change the number and its test, and propose for the runbook's `RATE_LIMITED` entry what a participant sees and that the client retries once.
 
 ## Tests that define done
 

@@ -20,6 +20,7 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 | `docs/runbook.md`                     | One entry per error code and per service: meaning, cause, fix, check                                                                            | ops                   |
 | `docs/briefs/`                        | The briefs for parallel work: the gap list against the plan, the schedule, one brief per builder                                                | integrator            |
 | `CLAUDE.md`                           | Instructions for agents                                                                                                                         | integrator            |
+| `PRODUCT.md`, `DESIGN.md`             | The product context and the visual system the UI builder records in week 2, read by the design skills                                           | UI builder            |
 | `packages/contracts`                  | The shared vocabulary as Zod schemas: events, sessions, decks, workshops, API, error codes                                                      | integrator            |
 | `packages/crypto`                     | Sealing answers to a workshop key and opening them with the private key                                                                         | integrator            |
 | `packages/db`                         | The database: Drizzle schema, generated SQL migration, queries, the workshop loader; tests on an in-process Postgres                            | integrator            |
