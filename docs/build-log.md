@@ -710,3 +710,33 @@ The brief's "tests that define done": every row of the error-code table over HTT
 - Whether `GET /me` should stay readable between the close day and the delete day, for the privacy panel's "what we store": the docs say no, the integrator confirms (pull request 15's report).
 - "Today" is the UTC day, so the window closes at 7 pm Eastern on 6 December: accept, or set `closesDay` a day later. Marco's call; in the report.
 - Two words for the glossary, bucket and budget; the runbook proposals for nine entries; in the report.
+
+---
+
+## 2026-11-02, Monday. API, 4 of 6: the authorization boundary between participants, over HTTP
+
+### What
+
+- `apps/api/test/authorization.test.ts`, new, eight tests on the helpers of item 3. Code A against participant B: A cannot write into B's session through `/sync` (nothing accepted, B unchanged, and the response does not say why); A cannot read B through `/me`; A cannot spend B's invites; A cannot delete B. Invites under replay: an invite spent twice at once is spent once, one join, one `JOIN_INVITE_USED`, one invite paid; a third try is still refused and the guest's rows carry nothing of the issuer. A code from one workshop in another: `AUTH_CODE_UNKNOWN` on me, sync, invites and delete, the home workshop untouched; the same code joined in two workshops is two participants, and deleting one leaves the other.
+- No code changed. The queries already scope every read and write by participant and workshop; `packages/db/test/scoping.test.ts` proved it at the query level, and these tests prove it through the header, the hash and the routes.
+- `main` merged in: the participant texts; the two build-log entries of the day sit in time order.
+- The manual authorization test of the architecture plan, section 12, is written out as `curl` steps with expected answers in pull request 18, proposed for the runbook's Netlify entry.
+
+### Why
+
+Section 12's pre-launch list names "a manual authorization test (code A cannot read, write or delete participant B), invite replay and over-use tests". A test over HTTP is the manual test run on every push; the written sequence is for the day someone wants to see it with their own eyes on staging. Item 4 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/authorization.test.ts`: 8 tests; `npm run check` is green, 164 tests.
+- By hand: the sequence in pull request 18, on staging or on its deploy preview (`https://deploy-preview-18--worldbuilder-uot.netlify.app`, which shares staging's database). In short: join A and B; B stores a session; A's sync into that session answers empty accepted lists; A's `me` shows nothing of it; A's delete leaves B's `me` intact; B's invite used twice gives one join and one `JOIN_INVITE_USED`.
+
+### Decisions made on the way
+
+- **Two joins in flight through `Promise.all`, not one after the other.** PGlite runs one statement at a time, but the two requests interleave at every `await`, so the test exercises the single-statement claim on the invite (`update ... where used = false returning`) that protects Neon too.
+- **The response stays silent on why.** `syncBatch` accepts an id only if the row exists afterwards under this participant, and the response lists what was accepted and nothing more; a reason would tell A that B's session exists. The test asserts the empty lists and nothing else in the body.
+- **The manual test is proposed for the runbook, not added to it.** `docs/runbook.md` is the ops builder's file this week.
+
+### Open
+
+- Whether the runbook gets the sequence as a paragraph in the Netlify entry or as its own heading (a heading with spaces does not trip the one-word-heading test).
