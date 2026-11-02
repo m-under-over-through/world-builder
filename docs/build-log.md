@@ -623,6 +623,30 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 
 ---
 
+## 2026-11-02, Monday, late. Ops 7: the small corrections
+
+### What
+
+- `docs/services.md`: the artifact copy of the backups is kept 14 days, not 30, as ADR 0011's amendment of 29 October decided and as the job does.
+- In the ops repository: the README says that branch protection is on for the app repository's `main` and refused on the private ops repository by GitHub's free plan, so the ops repository keeps the habit without the rule (decision 8 of 2 November). The heartbeat's grace of 12 hours was already on the Better Stack page (ops pull request 4, merged).
+- The README map's two tool rows are the integrator's; the proposal is below.
+
+### Why
+
+The brief's item 7: three sentences that were wrong or missing, each of which would have misled someone reading the documents instead of the code.
+
+### How to verify
+
+`grep -n "14 days" docs/services.md` finds the artifact row; `grep -n "30 days" docs/services.md` finds nothing. The ops README's paragraph on branch protection matches `gh api repos/m-under-over-through/world-builder/branches/main/protection` (rules present) and the message GitHub shows on the private repository's branch settings.
+
+### Decisions made on the way
+
+- **A proposal for the README map, for the integrator** (the README is not the ops builder's). Row `tools/workshop`: "`keygen`, `sync` (folders into the database at deploy), `export` (decrypt to CSV on your machine; refuses a wrong key and a second export of the day); each tested as the operator runs it; later `status`, `new`, `close`, `delete`". Row `tools/ops`: "`migrate` and `bundle-api` (at deploy) and `pepper`, each tested; the headers test that holds `apps/web/public/_headers` to the plan". And `docs/runbook.md`'s row could lose "per service" being aspirational: it is now true.
+
+### Open
+
+- Item 8, `workshop status`, starts only when items 1 to 7 are merged.
+
 ## 2026-11-02, Monday afternoon. UI item 1: the component test harness and the copy loader
 
 ### What
