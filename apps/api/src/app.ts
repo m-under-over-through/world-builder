@@ -35,6 +35,7 @@ import {
 } from '@wb/db';
 import { codeHash, newInviteToken, tokenHash } from './auth.ts';
 import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
+import { consoleLogger, validationLine, type Logger } from './log.ts';
 
 /**
  * The API (architecture plan, sections 6, 9 and 12; CLAUDE.md, API builder notes).
@@ -45,6 +46,8 @@ import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
  *   and only the parsed value is used.
  * - Every failure path returns { error, message } with a code from ERROR_CODES. Unexpected
  *   errors get an errorId that matches the log line.
+ * - A body that fails the contract writes one log line naming the route, the code and the field
+ *   paths (log.ts); never a value, a body, a code or a hash.
  * - Rate limits without addresses: per code on authenticated routes, per workshop on the rest.
  * - This package never imports @wb/crypto: it stores sealed bodies it cannot read.
  */
@@ -54,6 +57,8 @@ export interface AppDeps {
   pepper: string;
   version: string;
   now?: () => Date;
+  /** Where log lines go; the console in deployment, an array in tests. */
+  log?: Logger;
 }
 
 type Vars = { workshop: Workshop; participant: Participant };
@@ -72,6 +77,7 @@ export function todayDay(now: Date): string {
 
 export function createApp(deps: AppDeps) {
   const now = deps.now ?? (() => new Date());
+  const log = deps.log ?? consoleLogger;
   const app = new Hono<{ Variables: Vars }>();
 
   const fail = (c: Context, code: ErrorCode, errorId?: string) => {
@@ -94,6 +100,9 @@ export function createApp(deps: AppDeps) {
     return bytes === BODY_TOO_LARGE ? TOO_LARGE : parseJsonBytes(bytes);
   };
   const TOO_LARGE = BODY_TOO_LARGE;
+
+  /** The route as written in ROUTES, "POST /api/:slug/join", so the line never carries a slug or a wave. */
+  const routeOf = (c: Context) => `${c.req.method} ${c.req.routePath}`;
 
   app.onError((error, c) => {
     const errorId = crypto.randomUUID().slice(0, 8);
@@ -183,7 +192,16 @@ export function createApp(deps: AppDeps) {
     const raw = await readJson(c);
     if (raw === TOO_LARGE) return fail(c, 'REQUEST_TOO_LARGE');
     const parsed = joinRequestSchema.safeParse(raw);
-    if (!parsed.success) return fail(c, 'REQUEST_INVALID');
+    if (!parsed.success) {
+      log.warn(
+        validationLine(
+          'REQUEST_INVALID',
+          routeOf(c),
+          raw === undefined ? 'not json' : parsed.error.issues,
+        ),
+      );
+      return fail(c, 'REQUEST_INVALID');
+    }
     const { code, wave, invite } = parsed.data;
     const hash = await codeHash(deps.pepper, workshop.slug, code);
     const today = todayDay(now());
@@ -223,7 +241,16 @@ export function createApp(deps: AppDeps) {
       }
     }
     const parsed = syncRequestSchema.safeParse(raw);
-    if (!parsed.success) return fail(c, 'SYNC_PAYLOAD_INVALID');
+    if (!parsed.success) {
+      log.warn(
+        validationLine(
+          'SYNC_PAYLOAD_INVALID',
+          routeOf(c),
+          raw === undefined ? 'not json' : parsed.error.issues,
+        ),
+      );
+      return fail(c, 'SYNC_PAYLOAD_INVALID');
+    }
     return c.json(await syncBatch(deps.db, c.get('participant').id, parsed.data));
   });
 

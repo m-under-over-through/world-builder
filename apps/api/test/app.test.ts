@@ -10,6 +10,7 @@ import {
 import { ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '@wb/db';
 import { connect } from '@wb/db/connect';
 import { createApp, type App } from '../src/app.ts';
+import { codeHash } from '../src/auth.ts';
 
 /**
  * The API is exercised through app.request(), the same entry point the Netlify Function calls,
@@ -30,6 +31,9 @@ const now = () => new Date(`${DAY}T12:00:00Z`);
 let db: Db;
 let app: App;
 const slug = 'rural-manufacturing';
+/** Every line the app logged, so a test can read what was written and prove what was not. */
+const lines: string[] = [];
+const log = { warn: (line: string) => lines.push(line), error: (line: string) => lines.push(line) };
 
 beforeAll(async () => {
   db = await connect('pglite://memory');
@@ -56,7 +60,7 @@ beforeAll(async () => {
   );
   await setWorkshopStatus(db, 'not-yet', 'open');
   await ensureWave(db, future.id, 'wave-1', 'first');
-  app = createApp({ db, pepper: TEST_PEPPER, version: 'test', now });
+  app = createApp({ db, pepper: TEST_PEPPER, version: 'test', now, log });
 });
 
 const json = (body: unknown, headers: Record<string, string> = {}) => ({
@@ -179,6 +183,34 @@ describe('join', () => {
       headers: { 'content-type': 'application/json' },
     });
     expect((await res.json()).error).toBe('REQUEST_INVALID');
+  });
+
+  it('a refused join writes one log line with the route, the code and the field paths, and nothing from the body', async () => {
+    lines.length = 0;
+    const code = generateCode();
+    const res = await app.request(
+      `/api/${slug}/join`,
+      json({ code, wave: 'Wave One', emailAddress: 'someone@example.org' }),
+    );
+    expect(res.status).toBe(400);
+    expect(lines).toEqual([
+      'REQUEST_INVALID POST /api/:slug/join: wave (invalid_format), (root) (unrecognized_keys)',
+    ]);
+    const line = lines[0]!;
+    for (const secret of [code, 'Wave One', 'emailAddress', 'someone', 'example.org', slug]) {
+      expect(line).not.toContain(secret);
+    }
+    expect(line).not.toContain(await codeHash(TEST_PEPPER, slug, code));
+  });
+
+  it('a body that is not JSON writes one log line that says so and quotes nothing', async () => {
+    lines.length = 0;
+    await app.request(`/api/${slug}/join`, {
+      method: 'POST',
+      body: 'code=1234567890123456',
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(lines).toEqual(['REQUEST_INVALID POST /api/:slug/join: body is not JSON']);
   });
 
   it('the same code twice is JOIN_CODE_TAKEN', async () => {
@@ -306,6 +338,36 @@ describe('sync and me', () => {
     );
     expect(big.status).toBe(413);
     expect((await big.json()).error).toBe('SYNC_BATCH_TOO_LARGE');
+  });
+
+  it('a refused batch writes one log line naming the field, never the event, the code or its hash', async () => {
+    const code = await joined();
+    const s = session();
+    const e = { ...answered(s.id, 2), body: 'not an envelope', ip: '1.2.3.4' };
+    lines.length = 0;
+    const res = await app.request(
+      `/api/${slug}/sync`,
+      json({ sessions: [s], events: [answered(s.id, 0), answered(s.id, 1), e] }, auth(code)),
+    );
+    expect(res.status).toBe(400);
+    expect(lines).toEqual([
+      'SYNC_PAYLOAD_INVALID POST /api/:slug/sync: events.2.body (too_small), events.2.body (invalid_format), events.2 (unrecognized_keys)',
+    ]);
+    const line = lines[0]!;
+    for (const secret of [
+      code,
+      s.id,
+      s.seed,
+      e.id,
+      e.body,
+      'ip',
+      '1.2.3.4',
+      'tuesday-night',
+      slug,
+    ]) {
+      expect(line).not.toContain(secret);
+    }
+    expect(line).not.toContain(await codeHash(TEST_PEPPER, slug, code));
   });
 });
 
