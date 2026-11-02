@@ -12,3 +12,4 @@ Explainers for the ideas in this codebase, written for the operator: someone who
 | `06-the-skeleton-end-to-end.md`  | Where an answer goes, file by file; how to run the whole stack locally; what the skeleton taught                                                 |
 | `07-bundling-the-function.md`    | Imports, links and why a deployed function must be one file; how the build makes it and how two tests hold it                                    |
 | `08-backups.md`                  | Logical dumps, sealing files with age, Object Lock, a heartbeat; what the nightly job does, step by step, how to check it, and the restore drill |
+| `09-seeded-shuffle.md`           | Pseudo-random generators, seeds, Fisher-Yates; why a stored seed replays a session; the three functions of the deck engine                       |
