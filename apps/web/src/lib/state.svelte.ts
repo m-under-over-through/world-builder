@@ -14,6 +14,13 @@ import { sealAnswer } from '@wb/crypto';
 import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
 import type { Copy, ListKey } from './copy.ts';
 import { dayStatus } from './days.ts';
+import {
+  INSTALL_DISMISSALS,
+  installDue,
+  readDismissals,
+  runsInstalled,
+  type InstallOffer,
+} from './install.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
@@ -75,6 +82,12 @@ export type CardState = 'fresh' | ListKey<'Card states'>;
 /** How long "Synced." (or "Saved on this device.") stays on the card before the next one comes. */
 export const SETTLE_MS = 900;
 
+/** The steps of the session end: the code (session 1), the install prompt, then "come back". */
+export type EndStep = 'code' | 'install' | 'done';
+
+/** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
+export const LAST_WORKSHOP = 'wb:lastWorkshop';
+
 export class AppState {
   screen = $state<Screen>('loading');
   workshop = $state.raw<Workshop | undefined>(undefined);
@@ -119,6 +132,12 @@ export class AppState {
   sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0 });
   /** The sync in flight, so two never run at once (one after a save, one after a set-aside). */
   private syncing: Promise<SyncStatus> | null = null;
+  /** Where the session end stands: the code first on session 1, then the install prompt, then "come back". */
+  endStep = $state<EndStep>('done');
+  /** The browser's own install offer, kept from `beforeinstallprompt` until the prompt uses it. */
+  installOffer = $state.raw<InstallOffer | null>(null);
+  /** Leaves this page for another address; a test replaces it. */
+  go: (href: string) => void = (href) => location.replace(href);
 
   // the panel
   me = $state.raw<MeResponse | null>(null);
@@ -157,10 +176,18 @@ export class AppState {
     const route = parseRoute(pathname);
     this.workshop = route ? findWorkshop(route.slug) : undefined;
     if (!route || !this.workshop) {
+      // The installed app starts at `/` (apps/web/pwa.ts); it goes on to the workshop this device
+      // last opened. With none remembered, this is not a workshop.
+      const last = !route ? this.lastWorkshop() : null;
+      if (last && findWorkshop(last)) {
+        this.go(pageHref(last));
+        return;
+      }
       this.screen = 'no-workshop';
       return;
     }
     this.copy = this.workshop.copy;
+    this.rememberWorkshop(route.slug);
     this.platform = detectPlatform(navigator.userAgent, navigator.maxTouchPoints);
     this.store = new WorkshopStore(route.slug);
     const saved = await this.store.get('code');
@@ -201,6 +228,22 @@ export class AppState {
       return;
     }
     await this.land();
+  }
+
+  private lastWorkshop(): string | null {
+    try {
+      return localStorage.getItem(LAST_WORKSHOP);
+    } catch {
+      return null;
+    }
+  }
+
+  private rememberWorkshop(slug: string): void {
+    try {
+      localStorage.setItem(LAST_WORKSHOP, slug);
+    } catch {
+      /* storage refused: the installed app's `/` will say "not a workshop" */
+    }
   }
 
   /**
@@ -288,7 +331,7 @@ export class AppState {
     this.cardState = 'fresh';
     if (sessionOver(this.live)) {
       this.card = undefined;
-      this.screen = 'session-end';
+      await this.endSession();
       return;
     }
     // The demo card: before anything was done in the first session, once per device. A second
@@ -303,6 +346,55 @@ export class AppState {
     await this.record('shown');
     this.live = withShown(this.live);
     this.screen = 'card';
+  }
+
+  /**
+   * The session end (docs/screen-map.md; architecture plan 8.1): on session 1 the code first,
+   * so someone who installs after seeing it can type it into the installed app; then the install
+   * prompt, while it is due; then "come back another day". Later sessions go straight there.
+   */
+  private async endSession(): Promise<void> {
+    this.endStep = this.sessionNo === 1 ? 'code' : (await this.installIsDue()) ? 'install' : 'done';
+    this.screen = 'session-end';
+  }
+
+  /** The install prompt is due until dismissed twice, and never in an app that is installed. */
+  private async installIsDue(): Promise<boolean> {
+    if (!this.store) return false;
+    return installDue({
+      platform: this.platform,
+      dismissals: readDismissals(await this.store.get(INSTALL_DISMISSALS)),
+      installed: runsInstalled(),
+    });
+  }
+
+  /** "Next" under the code: the install prompt if it is due, else "come back". */
+  async nextFromCode(): Promise<void> {
+    this.endStep = (await this.installIsDue()) ? 'install' : 'done';
+  }
+
+  /** "Not now" on the install prompt: counted, and after the second one never asked again. */
+  async dismissInstall(): Promise<void> {
+    if (this.store) {
+      const n = readDismissals(await this.store.get(INSTALL_DISMISSALS)) + 1;
+      await this.store.set(INSTALL_DISMISSALS, String(n));
+    }
+    this.endStep = 'done';
+  }
+
+  /** "Install", where the browser made the offer: its own dialog, then "come back" either way. */
+  async install(): Promise<void> {
+    const offer = this.installOffer;
+    this.installOffer = null;
+    if (offer) {
+      try {
+        await offer.prompt();
+        await offer.userChoice;
+      } catch {
+        /* the browser withdrew the offer; the steps stay on the screen next time */
+      }
+    }
+    this.endStep = 'done';
   }
 
   /** "Got it" on the demo card, or a swipe: seen once per device, then the first card. */

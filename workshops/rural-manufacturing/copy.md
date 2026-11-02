@@ -58,8 +58,22 @@ That is a session. This code is you: it is random, and it is the only thing that
 
 ## Session end: install (under 40 words)
 
+<!-- The install prompt at the end of the first session. [per-platform steps] is filled from the "Install steps" list below. -->
+
 [placeholder]
 Add this to your home screen for next time. [per-platform steps]
+
+## Install steps (under 25 words, per platform)
+
+<!-- How to add the app to the home screen, one line per platform; the app shows the line for the phone or computer it runs on. -->
+
+[placeholder]
+
+- iPhone and iPad: In Safari, tap Share, then "Add to Home Screen".
+- Android: In the browser menu, tap "Add to Home screen" or "Install app".
+- Mac: In Safari, File > Add to Dock; in Chrome, the install icon at the right of the address bar.
+- Windows: In Chrome or Edge, the install icon at the right of the address bar.
+- ChromeOS: In Chrome, the install icon at the right of the address bar.
 
 ## Trust page variables
 
@@ -86,6 +100,7 @@ Add this to your home screen for next time. [per-platform steps]
 - demo card: Try a card
 - dictation hint: Prefer to talk?
 - session end: That is a session.
+- install: Keep it close
 - closed: This workshop has closed.
 - not open yet: Not open yet.
 - privacy panel: Your privacy
@@ -115,6 +130,8 @@ Add this to your home screen for next time. [per-platform steps]
 - keep: Keep my answers
 - got it: Got it
 - prefer to talk: Prefer to talk?
+- install: Install
+- not now: Not now
 - trust page: How your answers are protected
 
 ## App labels

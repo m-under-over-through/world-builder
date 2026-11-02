@@ -20,7 +20,14 @@
   let { app = new AppState() }: { app?: AppState } = $props();
 
   onMount(() => {
+    // Chrome's own install offer, if it makes one: kept for the install prompt (lib/install.ts).
+    const keep = (event: Event) => {
+      event.preventDefault();
+      app.installOffer = event as AppState['installOffer'];
+    };
+    window.addEventListener('beforeinstallprompt', keep);
     void app.open(location.pathname);
+    return () => window.removeEventListener('beforeinstallprompt', keep);
   });
 </script>
 

@@ -1337,3 +1337,40 @@ On the deploy preview, in a fresh browser: the wave link, the intro, "I understa
 
 - The map's "the session ends after the last checkpoint" and the engine's "when the queue is exhausted" differ only when a warm-up set aside once comes round after the checkpoint; the engine's reading is kept (the deck builder's item 2 says why).
 - The `shown` events double the rows per session; the sync batches and the panel's counts take them in their stride, and the research gets "shown but not answered" for free. Say if the count on the panel should read answers only.
+
+---
+
+## 2026-11-03, Tuesday, small hours. UI item 6: session end and install
+
+### What
+
+- **The session end in steps** (`apps/web/src/screens/SessionEnd.svelte`, `app.endStep`). Session 1: the code first, in groups of four, masked, with reveal, copy and Next; then the install prompt while it is due; then "Come back another day" with what still waits to sync. Every later session goes straight to the last step, with the words of "Session end: another session". The order is section 8.1's: the code before the install, so the installed app can be given it.
+- **The install prompt** (`lib/install.ts`): the "Session end: install" words with the steps for this platform from the new "Install steps" list (iPhone and iPad, Android, Mac, Windows, ChromeOS; none on Linux and unknown, so no prompt there). "Not now" counts a dismissal in the device's settings; after two the prompt is never shown again; an app opened from the home screen (`display-mode: standalone`) never shows it. Where the browser makes its own install offer (`beforeinstallprompt`, Chrome on Android and desktops), an "Install" button opens the browser's dialog, once.
+- **The installable app** (`apps/web/pwa.ts`, vite-plugin-pwa 2.0.0 as ADR 0012 names it, with its workbox peers): the web app manifest, the icons (drawn by a script into `public/icons/`: a dark card on warm paper, 192, 512, a maskable 512, the Apple touch icon, an SVG favicon) and a service worker that keeps the client's own files, so an installed app opens offline. `/api/*` is never cached: no runtime caching at all, and a navigation to `/api/*` is never answered with the client's page (the deny list). The worker is registered from `main.ts` through the plugin's module, not an inline script, so the Content Security Policy (`script-src 'self'`) holds.
+- **The root address.** One deployment serves many workshops, so the manifest starts at `/`; the client remembers the last workshop opened on this device (`localStorage`, the slug only) and sends `/` on to it. With nothing remembered, `/` is "not a workshop", as before.
+- Tests: the install rules (due until two dismissals, never installed, never without steps; the stored count); the PWA options (starts at the root; no runtime caching, the deny list, the registration not inline); the three steps of the session end rendered; in the state: code then install then done on session 1, the prompt once more after one "Not now" and never after two, straight to "come back" without steps or when installed, "Install" using the offer once; `/` going on to the last workshop. 142 client tests, 365 in the repository (13 new).
+
+### Why
+
+Item 6 of the UI brief; architecture plan 8.1 (the order of the code and the install) and 6.2 (the installed app on iOS has its own storage, so the code must be seen before installing).
+
+### How to verify
+
+```
+npm run check                       # 365 tests
+npm run build:web                   # dist/sw.js, dist/manifest.webmanifest, dist/icons/
+```
+
+On the deploy preview on a phone: finish the first session (four cards). "That is a session." with the masked code, Reveal, Copy, Next. "Keep it close" with the steps for your phone, "Not now". "Come back another day", "Everything is synced". Safari's Share, "Add to Home Screen": the icon is a dark card on paper; opening it lands on the welcome (type the code) or the next card. In a browser's developer tools, Application, Service workers: `sw.js` active; the Network tab shows `/api/...` requests going to the network, never "from ServiceWorker".
+
+### Decisions made on the way
+
+- **"Never again after two dismissals" is read across sessions**: the prompt comes at the end of session 1 and, after one "Not now", once more at the end of the next session; the code reveal stays session 1 only. Two "Not now" and it is gone.
+- **The manifest starts at `/` and the client redirects**, rather than one manifest per workshop: the plugin writes one manifest, and the redirect is three lines and needs no build step. A device that has opened two workshops lands on the last one.
+- **No runtime caching.** The precache is the client's files; everything else goes to the network. Offline, an installed app opens, and the outbox carries the answers until the network is back, as before.
+- **Icons drawn by a script** (`python3`, no image library), so the files are reproducible and the repository has no binary of unknown origin. The partner's mark replaces them when it arrives.
+
+### Open
+
+- `theme_color` and the icon's colours are the visual pass's first tokens (item 10); the manifest and the icons will follow them.
+- The worker's own update: `registerType: 'autoUpdate'` swaps the files on the next open after a deploy. No "a new version is ready" line yet; the panel's version row says which commit is running.

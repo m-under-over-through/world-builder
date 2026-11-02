@@ -156,6 +156,7 @@ export const COPY_TEXT = [
 /** The lists the client reads, with the keys it reads from each. */
 export const COPY_LISTS = {
   'Dictation hint': ['iPhone and iPad', 'Android', 'Mac', 'Windows', 'ChromeOS'],
+  'Install steps': ['iPhone and iPad', 'Android', 'Mac', 'Windows', 'ChromeOS'],
   'Trust page variables': [
     'organizer',
     'data owners',
@@ -175,6 +176,7 @@ export const COPY_LISTS = {
     'demo card',
     'dictation hint',
     'session end',
+    'install',
     'closed',
     'not open yet',
     'privacy panel',
@@ -201,6 +203,8 @@ export const COPY_LISTS = {
     'keep',
     'got it',
     'prefer to talk',
+    'install',
+    'not now',
     'trust page',
   ],
   'App labels': ['loading', 'app name', 'retrying'],

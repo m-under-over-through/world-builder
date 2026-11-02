@@ -186,13 +186,41 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.error('CLIENT_SEAL_FAILED'), { exact: false })).toBeTruthy();
   });
 
-  it('the session end: the masked code, reveal and copy, come back, all synced', () => {
-    render(SessionEnd, { app: state({ code: '1234567890123456' }) });
+  it('the session end, the code step: the masked code, reveal, copy and Next; nothing else yet', () => {
+    render(SessionEnd, { app: state({ code: '1234567890123456', endStep: 'code' }) });
     expect(screen.getByText(MASKED_CODE)).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'reveal') })).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'next') })).toBeTruthy();
+    expect(screen.queryByText(copy.item('Session end', 'come back'))).toBeNull();
+    expect(screen.queryByText(copy.item('Titles', 'install'))).toBeNull();
+  });
+
+  it('the session end, the install step: the steps for this platform, "Not now", and "Install" only with an offer', () => {
+    const { unmount } = render(SessionEnd, {
+      app: state({ code: '1234567890123456', endStep: 'install', platform: 'iPhone and iPad' }),
+    });
+    expect(screen.getByText(copy.item('Titles', 'install'))).toBeTruthy();
+    expect(
+      screen.getByText(copy.item('Install steps', 'iPhone and iPad'), { exact: false }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'not now') })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'install') })).toBeNull();
+    expect(screen.queryByText(MASKED_CODE)).toBeNull();
+    unmount();
+    const offer = Object.assign(new Event('beforeinstallprompt'), { prompt: async () => {} });
+    render(SessionEnd, {
+      app: state({ endStep: 'install', platform: 'Android', installOffer: offer }),
+    });
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'install') })).toBeTruthy();
+  });
+
+  it('the session end, the last step: come back, all synced, and no code', () => {
+    render(SessionEnd, { app: state({ code: '1234567890123456', endStep: 'done' }) });
     expect(screen.getByText(copy.item('Session end', 'come back'))).toBeTruthy();
     expect(screen.getByText(copy.item('Session end', 'all synced'))).toBeTruthy();
+    expect(screen.queryByText(MASKED_CODE)).toBeNull();
+    expect(screen.queryByText(copy.text('Session end: another session'))).toBeNull();
   });
 
   it('the session end with answers waiting: the count in its wording', () => {
@@ -202,6 +230,15 @@ describe('the screens render the words of copy.md', () => {
     expect(
       screen.getByText(fill(copy.item('Session end', 'waiting to sync'), { n: 3 })),
     ).toBeTruthy();
+  });
+
+  it('the end of a later session: its own words, come back, and no code', () => {
+    const app = onACard({ code: '1234567890123456', endStep: 'done' });
+    app.live = { ...app.live!, session: { ...app.live!.session, sessionNo: 2 } };
+    render(SessionEnd, { app });
+    expect(screen.getByText(copy.text('Session end: another session'))).toBeTruthy();
+    expect(screen.getByText(copy.item('Session end', 'come back'))).toBeTruthy();
+    expect(screen.queryByText(MASKED_CODE)).toBeNull();
   });
 
   it('closed', () => {

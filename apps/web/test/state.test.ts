@@ -292,6 +292,115 @@ describe('a session on the deck engine', () => {
   });
 });
 
+describe('the session end', () => {
+  async function toTheEnd(app: AppState): Promise<void> {
+    while (app.screen === 'card') {
+      app.draft = 'An answer';
+      await app.save();
+    }
+    expect(app.screen).toBe('session-end');
+  }
+
+  it('session 1 on a phone: the code, then the install prompt, then "come back"', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    app.platform = 'Android';
+    await app.join();
+    await app.dismissDemo();
+    await toTheEnd(app);
+    expect(app.endStep).toBe('code');
+    await app.nextFromCode();
+    expect(app.endStep).toBe('install');
+    await app.dismissInstall();
+    expect(app.endStep).toBe('done');
+    expect(await app.store!.get('installDismissals')).toBe('1');
+  });
+
+  it('the install prompt comes once more after one "Not now", and never after two', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    app.platform = 'Android';
+    await app.join();
+    await app.dismissDemo();
+    await toTheEnd(app);
+    await app.nextFromCode();
+    await app.dismissInstall();
+
+    const second = await opened(`/${SLUG}/join/wave-1`);
+    second.platform = 'Android';
+    expect(second.sessionNo).toBe(2);
+    await toTheEnd(second);
+    expect(second.endStep).toBe('install');
+    await second.dismissInstall();
+    expect(await second.store!.get('installDismissals')).toBe('2');
+
+    const third = await opened(`/${SLUG}/join/wave-1`);
+    third.platform = 'Android';
+    expect(third.sessionNo).toBe(3);
+    await toTheEnd(third);
+    expect(third.endStep).toBe('done');
+  });
+
+  it('a platform without steps, or an app already installed, goes from the code to "come back"', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    app.platform = null;
+    await app.join();
+    await app.dismissDemo();
+    await toTheEnd(app);
+    expect(app.endStep).toBe('code');
+    await app.nextFromCode();
+    expect(app.endStep).toBe('done');
+
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('standalone') }));
+    const installed = await opened(`/${SLUG}/join/wave-1`);
+    installed.platform = 'iPhone and iPad';
+    await toTheEnd(installed);
+    expect(installed.endStep).toBe('done');
+  });
+
+  it('"Install" uses the browser\'s offer once and lands on "come back"', async () => {
+    stubRoutes({});
+    const app = new AppState();
+    app.workshop = workshop;
+    app.copy = workshop.copy;
+    app.store = new WorkshopStore(SLUG);
+    let prompted = 0;
+    app.installOffer = Object.assign(new Event('beforeinstallprompt'), {
+      prompt: async () => {
+        prompted++;
+      },
+      userChoice: Promise.resolve({ outcome: 'accepted' as const }),
+    });
+    app.endStep = 'install';
+    await app.install();
+    expect(prompted).toBe(1);
+    expect(app.installOffer).toBeNull();
+    expect(app.endStep).toBe('done');
+  });
+});
+
+describe('the installed app opens at the root', () => {
+  it('goes on to the workshop this device last opened, and says "not a workshop" when there is none', async () => {
+    stubRoutes({});
+    localStorage.removeItem('wb:lastWorkshop');
+    const first = await opened('/');
+    expect(first.screen).toBe('no-workshop');
+
+    const visited = await opened(`/${SLUG}/join/wave-1`);
+    expect(visited.screen).toBe('welcome');
+    expect(localStorage.getItem('wb:lastWorkshop')).toBe(SLUG);
+
+    const gone: string[] = [];
+    history.replaceState(null, '', '/');
+    const app = new AppState();
+    app.go = (href) => gone.push(href);
+    await app.open('/');
+    expect(gone).toEqual([`/${SLUG}/`]);
+    expect(app.screen).toBe('loading');
+  });
+});
+
 describe('the address bar', () => {
   it('remembers the wave link as the home address and restores it from the panel', async () => {
     stubRoutes({});
