@@ -19,6 +19,7 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 | `docs/build-log.md`                   | What was done, when, why, how to verify. Read this first when returning                                                                         | everyone              |
 | `docs/runbook.md`                     | One entry per error code and per service: meaning, cause, fix, check                                                                            | ops                   |
 | `docs/briefs/`                        | The briefs for parallel work: the gap list against the plan, the schedule, one brief per builder                                                | integrator            |
+| `docs/participant-texts.md`           | Consent, terms, privacy policy, trust page: the drafts the legal review reads and the client lays out                                           | Marco and the partner |
 | `CLAUDE.md`                           | Instructions for agents                                                                                                                         | integrator            |
 | `PRODUCT.md`, `DESIGN.md`             | The product context and the visual system the UI builder records in week 2, read by the design skills                                           | UI builder            |
 | `packages/contracts`                  | The shared vocabulary as Zod schemas: events, sessions, decks, workshops, API, error codes                                                      | integrator            |
