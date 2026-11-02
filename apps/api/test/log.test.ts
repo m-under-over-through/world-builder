@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { joinRequestSchema, syncRequestSchema } from '@wb/contracts';
-import { MAX_ISSUES_IN_LINE, validationLine } from '../src/log.ts';
+import { MAX_ISSUES_IN_LINE, serverErrorLine, validationLine } from '../src/log.ts';
 
 describe('the validation log line', () => {
   it('names the route, the code and the field paths with the issue kind, nothing else', () => {
@@ -64,5 +64,34 @@ describe('the validation log line', () => {
     expect(line.endsWith(', and 5 more')).toBe(true);
     expect(line).toContain(`events.${MAX_ISSUES_IN_LINE - 1}.seq`);
     expect(line).not.toContain(`events.${MAX_ISSUES_IN_LINE}.seq`);
+  });
+});
+
+describe('the server error line', () => {
+  it('carries the id, the name, the query without its parameters, the cause and the frames', () => {
+    // The shape Drizzle gives a failed query: the message ends with the parameters.
+    const cause = new Error('relation "rate_buckets" does not exist');
+    cause.name = 'PostgresError';
+    const error = new Error(
+      'Failed query: insert into "rate_buckets" ("key", "count") values ($1, $2)\nparams: auth:1234:abc123hash,1',
+      { cause },
+    );
+    error.name = 'DrizzleQueryError';
+    const line = serverErrorLine('0a1b2c3d', error);
+    const [head, causeLine, ...frames] = line.split('\n');
+    expect(head).toBe(
+      'SERVER_ERROR 0a1b2c3d DrizzleQueryError: Failed query: insert into "rate_buckets" ("key", "count") values ($1, $2)',
+    );
+    expect(causeLine).toBe('  cause: PostgresError: relation "rate_buckets" does not exist');
+    expect(frames.length).toBeGreaterThan(0);
+    for (const frame of frames) expect(frame).toMatch(/^\s+at /);
+    expect(line).not.toContain('params');
+    expect(line).not.toContain('abc123hash');
+  });
+
+  it('describes a thrown value that is not an Error by its type only', () => {
+    expect(serverErrorLine('deadbeef', 'the secret 1234567890123456')).toBe(
+      'SERVER_ERROR deadbeef a thrown value of type string',
+    );
   });
 });

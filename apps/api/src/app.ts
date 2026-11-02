@@ -35,7 +35,7 @@ import {
 } from '@wb/db';
 import { codeHash, newInviteToken, tokenHash } from './auth.ts';
 import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
-import { consoleLogger, validationLine, type Logger } from './log.ts';
+import { consoleLogger, serverErrorLine, validationLine, type Logger } from './log.ts';
 
 /**
  * The API (architecture plan, sections 6, 9 and 12; CLAUDE.md, API builder notes).
@@ -106,8 +106,9 @@ export function createApp(deps: AppDeps) {
 
   app.onError((error, c) => {
     const errorId = crypto.randomUUID().slice(0, 8);
-    // The stack is logged; the body never is. Netlify keeps function logs for about a day.
-    console.error(`SERVER_ERROR ${errorId}`, error);
+    // The stack is logged, the body never is, and a failed query's parameters are cut out
+    // (log.ts). Netlify keeps function logs for about a day.
+    log.error(serverErrorLine(errorId, error));
     return fail(c, 'SERVER_ERROR', errorId);
   });
 
@@ -254,8 +255,11 @@ export function createApp(deps: AppDeps) {
     return c.json(await syncBatch(deps.db, c.get('participant').id, parsed.data));
   });
 
+  // Past the close day the app shows a closing screen (screen map: WORKSHOP_CLOSED); seeing and
+  // deleting one's rows ends with collection, as the trust page says (architecture plan, 13).
   workshopRoutes.get('/me', authenticated, async (c) => {
     const workshop = c.get('workshop');
+    if (!isOpen(workshop)) return fail(c, 'WORKSHOP_CLOSED');
     const participant = c.get('participant');
     const data = await participantData(deps.db, participant.id);
     const body: MeResponse = {

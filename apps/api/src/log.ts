@@ -49,3 +49,35 @@ export function validationLine(
   const more = issues.length - shown.length;
   return `${code} ${route}: ${shown.join(', ')}${more > 0 ? `, and ${more} more` : ''}`;
 }
+
+/**
+ * The line for an unexpected failure (runbook: SERVER_ERROR). The response carries an errorId; this
+ * line carries the same id, the error's name and what it says, its cause, and the stack frames, so
+ * the reader can find the failing line. Drizzle puts a failed query's parameters in the error's
+ * message (`Failed query: <sql>\nparams: <values>`), and the parameters of our queries are code
+ * hashes, bucket keys built from them, and sealed bodies: the message is cut before `params:`, and
+ * the stack's header, which repeats the message, is dropped so that only the frames remain. The
+ * SQL stays, with its `$1` placeholders; the cause's message stays, since a Postgres primary
+ * message names the constraint or the relation and keeps values for its detail field.
+ */
+export function serverErrorLine(errorId: string, error: unknown): string {
+  const parts = [`SERVER_ERROR ${errorId} ${describeError(error)}`];
+  if (error instanceof Error && error.cause !== undefined) {
+    parts.push(`  cause: ${describeError(error.cause)}`);
+  }
+  if (error instanceof Error && error.stack) parts.push(...stackFrames(error.stack));
+  return parts.join('\n');
+}
+
+function describeError(error: unknown): string {
+  if (!(error instanceof Error)) return `a thrown value of type ${typeof error}`;
+  const message = error.message.split('\nparams:')[0] ?? '';
+  // Drizzle's query error does not set a name; the class name says what it is.
+  const name = error.name === 'Error' ? error.constructor.name : error.name;
+  return `${name}: ${message}`;
+}
+
+/** Only the "    at ..." lines. The header line repeats the message, parameters included. */
+function stackFrames(stack: string): string[] {
+  return stack.split('\n').filter((line) => /^\s+at /.test(line));
+}

@@ -1,98 +1,64 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  deckSchema,
+  ERROR_CODES,
+  errorResponseSchema,
   generateCode,
+  inviteTokenSchema,
   MAX_REQUEST_BYTES,
+  ROUTES,
   SYNC_MAX_EVENTS,
-  workshopConfigSchema,
 } from '@wb/contracts';
-import { ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '@wb/db';
-import { connect } from '@wb/db/connect';
+import type { Db } from '@wb/db';
 import { createApp, type App } from '../src/app.ts';
 import { codeHash } from '../src/auth.ts';
+import {
+  answered,
+  auth,
+  freshApp,
+  joined as joinedOn,
+  json,
+  seedWorkshop,
+  session,
+  slug,
+  TEST_PEPPER,
+  testClock,
+  workshopConfig,
+  type TestClock,
+} from './helpers.ts';
 
 /**
  * The API is exercised through app.request(), the same entry point the Netlify Function calls,
- * against a real in-memory Postgres. No network, no mocks.
+ * against a real in-memory Postgres (helpers.ts). One database for this file, with the real
+ * workshop and three more: one past its close day, one before its open day, one with a cap of one.
  */
 
-const folder = new URL('../../../workshops/rural-manufacturing/', import.meta.url);
-const workshopConfig = workshopConfigSchema.parse(
-  JSON.parse(readFileSync(new URL('workshop.json', folder), 'utf8')),
-);
-const deck = deckSchema.parse(JSON.parse(readFileSync(new URL('deck.json', folder), 'utf8')));
-
-// 32 zero bytes in base64: a fixed test pepper. Never used anywhere real.
-const TEST_PEPPER = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
-const DAY = '2026-11-20';
-const now = () => new Date(`${DAY}T12:00:00Z`);
-
-let db: Db;
 let app: App;
-const slug = 'rural-manufacturing';
-/** Every line the app logged, so a test can read what was written and prove what was not. */
-const lines: string[] = [];
-const log = { warn: (line: string) => lines.push(line), error: (line: string) => lines.push(line) };
+let clock: TestClock;
+/** Every line the app logged; a test empties it, acts, and reads what was written. */
+let logged: string[];
+const DAY = '2026-11-20';
 
 beforeAll(async () => {
-  db = await connect('pglite://memory');
-  const { id } = await syncWorkshop(db, workshopConfig, deck);
-  await setWorkshopStatus(db, slug, 'open');
-  await ensureWave(db, id, 'wave-1', 'first');
-  const closed = await syncWorkshop(
-    db,
-    { ...workshopConfig, slug: 'closed-one', closesDay: '2026-11-01', deleteDay: '2027-01-01' },
-    deck,
-  );
-  await setWorkshopStatus(db, 'closed-one', 'open');
-  await ensureWave(db, closed.id, 'wave-1', 'first');
-  const future = await syncWorkshop(
-    db,
-    {
-      ...workshopConfig,
-      slug: 'not-yet',
-      opensDay: '2026-12-01',
-      closesDay: '2026-12-20',
-      deleteDay: '2027-02-01',
-    },
-    deck,
-  );
-  await setWorkshopStatus(db, 'not-yet', 'open');
-  await ensureWave(db, future.id, 'wave-1', 'first');
-  app = createApp({ db, pepper: TEST_PEPPER, version: 'test', now, log });
+  const t = await freshApp();
+  app = t.app;
+  clock = t.clock;
+  await seedWorkshop(t.db, {
+    slug: 'closed-one',
+    closesDay: '2026-11-01',
+    deleteDay: '2027-01-01',
+  });
+  await seedWorkshop(t.db, {
+    slug: 'not-yet',
+    opensDay: '2026-12-01',
+    closesDay: '2026-12-20',
+    deleteDay: '2027-02-01',
+  });
+  await seedWorkshop(t.db, { slug: 'tiny-cap', cap: 1 });
+  logged = t.lines;
 });
 
-const json = (body: unknown, headers: Record<string, string> = {}) => ({
-  method: 'POST',
-  headers: { 'content-type': 'application/json', ...headers },
-  body: JSON.stringify(body),
-});
-const auth = (code: string) => ({ authorization: `Code ${code}` });
-const session = (sessionNo = 1) => ({
-  id: crypto.randomUUID(),
-  sessionNo,
-  startedDay: DAY,
-  deckVersion: '0.1',
-  seed: '0123456789abcdef',
-});
-const answered = (sessionId: string, seq = 0) => ({
-  id: crypto.randomUUID(),
-  sessionId,
-  cardId: 'tuesday-night',
-  seq,
-  kind: 'answered',
-  body: 'v1.' + 'A'.repeat(64),
-  createdDay: DAY,
-  deckVersion: '0.1',
-});
-
-async function joined(): Promise<string> {
-  const code = generateCode();
-  const res = await app.request(`/api/${slug}/join`, json({ code, wave: 'wave-1' }));
-  expect(res.status).toBe(200);
-  return code;
-}
+const joined = () => joinedOn(app);
 
 describe('health', () => {
   it('reports ok, the version, the database, and workshops by slug and status only', async () => {
@@ -109,8 +75,45 @@ describe('health', () => {
       { slug: 'closed-one', status: 'open' },
       { slug: 'not-yet', status: 'open' },
       { slug, status: 'open' },
+      { slug: 'tiny-cap', status: 'open' },
     ]);
     expect(JSON.stringify(body)).not.toContain('participants');
+  });
+});
+
+describe('the route table', () => {
+  const filled = (path: string) => path.replace(':slug', slug).replace(':wave', 'wave-1');
+
+  it('serves every entry of ROUTES: none answers 404', async () => {
+    for (const route of Object.values(ROUTES)) {
+      const res = await app.request(filled(route.path), { method: route.method });
+      expect(res.status, `${route.method} ${route.path}`).not.toBe(404);
+      const body = await res.json();
+      expect(body.error, `${route.method} ${route.path}`).not.toBe('WORKSHOP_UNKNOWN');
+    }
+  });
+
+  it('serves nothing else: a wrong method or an unlisted path is 404 with a contract body', async () => {
+    const unlisted: Array<[string, string]> = [
+      ['GET', `/api/${slug}/join`],
+      ['GET', `/api/${slug}/sync`],
+      ['POST', `/api/${slug}/me`],
+      ['GET', `/api/${slug}/waves/wave-1/opened`],
+      ['GET', `/api/${slug}/waves/wave-1`],
+      ['GET', `/api/${slug}/participants`],
+      ['GET', `/api/${slug}`],
+      ['GET', `/api/${slug}/`],
+      ['POST', '/api/health'],
+      ['GET', '/api/health/more'],
+      ['GET', '/api'],
+      ['GET', '/'],
+    ];
+    for (const [method, path] of unlisted) {
+      const res = await app.request(path, { method });
+      expect(res.status, `${method} ${path}`).toBe(404);
+      const body = errorResponseSchema.parse(await res.json());
+      expect(body.error, `${method} ${path}`).toBe('WORKSHOP_UNKNOWN');
+    }
   });
 });
 
@@ -141,6 +144,38 @@ describe('workshop scoping and lifecycle', () => {
     );
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe('WORKSHOP_CLOSED');
+  });
+
+  it('a participant of a workshop past its close day gets WORKSHOP_CLOSED on sync, me, invites and delete, and the rows stay', async () => {
+    const code = await joined();
+    const s = session();
+    await app.request(
+      `/api/${slug}/sync`,
+      json({ sessions: [s], events: [answered(s.id)] }, auth(code)),
+    );
+    clock.setDay('2026-12-07'); // the day after closesDay
+    try {
+      const attempts = [
+        app.request(
+          `/api/${slug}/sync`,
+          json({ sessions: [], events: [answered(s.id, 1)] }, auth(code)),
+        ),
+        app.request(`/api/${slug}/me`, { headers: auth(code) }),
+        app.request(`/api/${slug}/invites`, { method: 'POST', headers: auth(code) }),
+        app.request(`/api/${slug}/me`, { method: 'DELETE', headers: auth(code) }),
+      ];
+      for (const res of await Promise.all(attempts)) {
+        expect(res.status).toBe(403);
+        expect(errorResponseSchema.parse(await res.json()).error).toBe('WORKSHOP_CLOSED');
+      }
+    } finally {
+      clock.setDay(DAY);
+    }
+    const me = await app.request(`/api/${slug}/me`, { headers: auth(code) });
+    expect(me.status).toBe(200);
+    const body = await me.json();
+    expect(body.events).toHaveLength(1);
+    expect(body.participant.invitesLeft).toBe(3);
   });
 });
 
@@ -186,17 +221,17 @@ describe('join', () => {
   });
 
   it('a refused join writes one log line with the route, the code and the field paths, and nothing from the body', async () => {
-    lines.length = 0;
+    logged.length = 0;
     const code = generateCode();
     const res = await app.request(
       `/api/${slug}/join`,
       json({ code, wave: 'Wave One', emailAddress: 'someone@example.org' }),
     );
     expect(res.status).toBe(400);
-    expect(lines).toEqual([
+    expect(logged).toEqual([
       'REQUEST_INVALID POST /api/:slug/join: wave (invalid_format), (root) (unrecognized_keys)',
     ]);
-    const line = lines[0]!;
+    const line = logged[0]!;
     for (const secret of [code, 'Wave One', 'emailAddress', 'someone', 'example.org', slug]) {
       expect(line).not.toContain(secret);
     }
@@ -204,13 +239,13 @@ describe('join', () => {
   });
 
   it('a body that is not JSON writes one log line that says so and quotes nothing', async () => {
-    lines.length = 0;
+    logged.length = 0;
     await app.request(`/api/${slug}/join`, {
       method: 'POST',
       body: 'code=1234567890123456',
       headers: { 'content-type': 'application/json' },
     });
-    expect(lines).toEqual(['REQUEST_INVALID POST /api/:slug/join: body is not JSON']);
+    expect(logged).toEqual(['REQUEST_INVALID POST /api/:slug/join: body is not JSON']);
   });
 
   it('the same code twice is JOIN_CODE_TAKEN', async () => {
@@ -218,6 +253,37 @@ describe('join', () => {
     const res = await app.request(`/api/${slug}/join`, json({ code, wave: 'wave-1' }));
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe('JOIN_CODE_TAKEN');
+  });
+
+  it('a wave the workshop does not have is JOIN_WAVE_UNKNOWN', async () => {
+    const res = await app.request(
+      `/api/${slug}/join`,
+      json({ code: generateCode(), wave: 'wave-9' }),
+    );
+    expect(res.status).toBe(404);
+    expect(errorResponseSchema.parse(await res.json()).error).toBe('JOIN_WAVE_UNKNOWN');
+  });
+
+  it('a wave at its cap is JOIN_WAVE_FULL, and the code that was refused can still join elsewhere', async () => {
+    expect((await joinedOn(app, 'tiny-cap')).length).toBe(16);
+    const code = generateCode();
+    const res = await app.request('/api/tiny-cap/join', json({ code, wave: 'wave-1' }));
+    expect(res.status).toBe(403);
+    expect(errorResponseSchema.parse(await res.json()).error).toBe('JOIN_WAVE_FULL');
+    expect((await app.request(`/api/${slug}/join`, json({ code, wave: 'wave-1' }))).status).toBe(
+      200,
+    );
+  });
+
+  it('an invite token nobody issued is JOIN_INVITE_INVALID', async () => {
+    const token = 'A'.repeat(22);
+    expect(inviteTokenSchema.safeParse(token).success).toBe(true);
+    const res = await app.request(
+      `/api/${slug}/join`,
+      json({ code: generateCode(), invite: token }),
+    );
+    expect(res.status).toBe(404);
+    expect(errorResponseSchema.parse(await res.json()).error).toBe('JOIN_INVITE_INVALID');
   });
 
   it('refuses a Content-Length over the byte cap before reading the body', async () => {
@@ -317,6 +383,25 @@ describe('sync and me', () => {
     expect(body.events).toEqual([e]);
   });
 
+  it('the same batch twice is accepted twice with the same ids and stored once', async () => {
+    const code = await joined();
+    const s = session();
+    const batch = { sessions: [s], events: [answered(s.id, 0), answered(s.id, 1)] };
+    const first = await app.request(`/api/${slug}/sync`, json(batch, auth(code)));
+    const second = await app.request(`/api/${slug}/sync`, json(batch, auth(code)));
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const a = await first.json();
+    const b = await second.json();
+    expect(a.acceptedSessionIds).toEqual([s.id]);
+    expect([...a.acceptedEventIds].sort()).toEqual(batch.events.map((e) => e.id).sort());
+    expect(b).toEqual(a);
+    const me = await (await app.request(`/api/${slug}/me`, { headers: auth(code) })).json();
+    expect(me.sessions).toHaveLength(1);
+    expect(me.events).toHaveLength(2);
+    expect(me.participant.sessionsCount).toBe(1);
+  });
+
   it('an invalid batch is SYNC_PAYLOAD_INVALID and an oversized one is SYNC_BATCH_TOO_LARGE', async () => {
     const code = await joined();
     const s = session();
@@ -340,20 +425,38 @@ describe('sync and me', () => {
     expect((await big.json()).error).toBe('SYNC_BATCH_TOO_LARGE');
   });
 
+  it('a sync body over the byte cap is REQUEST_TOO_LARGE, and nothing of it is stored', async () => {
+    const code = await joined();
+    const s = session();
+    const padding = { ...answered(s.id, 0), body: 'v1.' + 'A'.repeat(64) };
+    const text = JSON.stringify({ sessions: [s], events: [padding] });
+    const body = text.slice(0, -2) + `,"note":"${'é'.repeat(MAX_REQUEST_BYTES / 2)}"}`;
+    expect(new TextEncoder().encode(body).byteLength).toBeGreaterThan(MAX_REQUEST_BYTES);
+    const res = await app.request(`/api/${slug}/sync`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...auth(code) },
+      body,
+    });
+    expect(res.status).toBe(413);
+    expect(errorResponseSchema.parse(await res.json()).error).toBe('REQUEST_TOO_LARGE');
+    const me = await (await app.request(`/api/${slug}/me`, { headers: auth(code) })).json();
+    expect(me.sessions).toEqual([]);
+  });
+
   it('a refused batch writes one log line naming the field, never the event, the code or its hash', async () => {
     const code = await joined();
     const s = session();
     const e = { ...answered(s.id, 2), body: 'not an envelope', ip: '1.2.3.4' };
-    lines.length = 0;
+    logged.length = 0;
     const res = await app.request(
       `/api/${slug}/sync`,
       json({ sessions: [s], events: [answered(s.id, 0), answered(s.id, 1), e] }, auth(code)),
     );
     expect(res.status).toBe(400);
-    expect(lines).toEqual([
+    expect(logged).toEqual([
       'SYNC_PAYLOAD_INVALID POST /api/:slug/sync: events.2.body (too_small), events.2.body (invalid_format), events.2 (unrecognized_keys)',
     ]);
-    const line = lines[0]!;
+    const line = logged[0]!;
     for (const secret of [
       code,
       s.id,
@@ -420,23 +523,30 @@ describe('delete me', () => {
   });
 });
 
-describe('rate limits without addresses', () => {
-  it('joins on one workshop are budgeted per minute', async () => {
-    const budget = await connect('pglite://memory');
-    const { id } = await syncWorkshop(budget, workshopConfig, deck);
-    await setWorkshopStatus(budget, slug, 'open');
-    await ensureWave(budget, id, 'wave-1', 'first');
-    const limitedApp = createApp({ db: budget, pepper: TEST_PEPPER, version: 'test', now });
-    let last = 200;
-    for (let i = 0; i < 31 && last === 200; i++) {
-      last = (
-        await limitedApp.request(
-          `/api/${slug}/join`,
-          json({ code: generateCode(), wave: 'wave-1' }),
-        )
-      ).status;
-    }
-    expect(last).toBe(429);
+describe('when the database fails mid-request', () => {
+  it('answers SERVER_ERROR with an errorId that matches one log line, and the line carries neither the code nor its hash', async () => {
+    const t = await freshApp();
+    const code = await joinedOn(t.app);
+    // Every request touches rate_buckets first; without the table the limiter's upsert fails with
+    // a real Drizzle error whose parameters include the bucket key, which is built from the hash.
+    await t.db.execute('drop table rate_buckets');
+    t.lines.length = 0;
+    const res = await t.app.request(`/api/${slug}/me`, { headers: auth(code) });
+    expect(res.status).toBe(500);
+    const body = errorResponseSchema.parse(await res.json());
+    expect(body.error).toBe('SERVER_ERROR');
+    expect(body.errorId).toMatch(/^[0-9a-f]{8}$/);
+    expect(t.lines).toHaveLength(1);
+    const line = t.lines[0]!;
+    expect(line.startsWith(`SERVER_ERROR ${body.errorId} DrizzleQueryError: Failed query:`)).toBe(
+      true,
+    );
+    expect(line).toContain('rate_buckets'); // the SQL, with its placeholders, stays
+    expect(line).toMatch(/\n\s+at /); // and the stack frames
+    expect(line).not.toContain('params');
+    expect(line).not.toContain(code);
+    expect(line).not.toContain(await codeHash(TEST_PEPPER, slug, code));
+    expect(JSON.stringify(body)).not.toContain('rate_buckets'); // the response says nothing of the inside
   });
 });
 
@@ -450,9 +560,24 @@ describe('health when the database is unreachable', () => {
         },
       },
     ) as unknown as Db;
-    const downApp = createApp({ db: unreachable, pepper: TEST_PEPPER, version: 'test', now });
+    const downApp = createApp({
+      db: unreachable,
+      pepper: TEST_PEPPER,
+      version: 'test',
+      now: testClock().now,
+    });
     const res = await downApp.request('/api/health');
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ ok: false, dbReachable: false, version: 'test' });
+  });
+});
+
+describe('the error-code table', () => {
+  it('every server error code in the contract is asserted by an API test over HTTP', () => {
+    const sources = ['app.test.ts', 'limits.test.ts', 'bundle.test.ts']
+      .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
+      .join('\n');
+    const untested = Object.keys(ERROR_CODES).filter((code) => !sources.includes(`'${code}'`));
+    expect(untested).toEqual([]);
   });
 });
