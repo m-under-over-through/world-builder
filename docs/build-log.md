@@ -623,6 +623,210 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 
 ---
 
+## 2026-11-02, Monday. API, 1 of 6: the byte cap counts bytes
+
+### What
+
+- `apps/api/src/body.ts`, new. `readBodyBytes` reads the request body as a stream, chunk by chunk, adds up the bytes, and stops at the first byte over `MAX_REQUEST_BYTES`: the rest of the body is never read, and nothing over the cap is ever held in memory. A `Content-Length` header over the cap is refused before a single byte is read; a header under the cap is not trusted, the count on the stream decides. `parseJsonBytes` decodes the bytes as UTF-8 with `fatal` on and parses JSON; bytes that are not UTF-8 are not JSON (RFC 8259) and answer `REQUEST_INVALID` like any other non-JSON body.
+- `apps/api/src/app.ts`: `readJson` uses the two. The comparison of `text.length` with the cap is gone.
+- Tests. `apps/api/test/body.test.ts`: exactly the cap passes and one byte more does not; three two-byte characters are six bytes; a stream that never ends is stopped at the chunk that crosses the cap; a `Content-Length` over the cap is refused with no read and one under the cap is not believed; a request without a body is zero bytes; chunks are joined in order; bytes that are not UTF-8 or not JSON parse to nothing; multi-byte characters survive. `apps/api/test/app.test.ts`, on join: a `Content-Length` over the cap is 413; a body of two-byte characters, half the cap in length and one byte over it on the wire, is 413; a body of exactly the cap is read and answered by the contract (400); a body larger than its declared `Content-Length` is 413.
+
+### Why
+
+The week-2 gap list: the skeleton compared `text.length` with `MAX_REQUEST_BYTES` after reading the whole body, and a string's length counts UTF-16 units, one to three bytes each on the wire. A body of 600,000 four-byte characters weighed 2.4 MB and passed. The API builder notes in `CLAUDE.md` say to cap the body in bytes before parsing, because a schema can only bound what is already parsed. Item 1 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/body.test.ts apps/api/test/app.test.ts`: 28 tests pass; `npm run check` is green.
+- On the deploy preview of pull request 10, with `curl`. Make a body one byte over the cap, made of two-byte characters, and post it:
+
+  ```
+  node -e 'process.stdout.write(`{"code":"${"é".repeat(499995)}"}`)' > big.json
+  wc -c big.json            # 1000001
+  curl -s -w '\n%{http_code}\n' -X POST -H 'content-type: application/json' --data-binary @big.json \
+    https://deploy-preview-10--worldbuilder-uot.netlify.app/api/rural-manufacturing/join
+  ```
+
+  Expected: `{"error":"REQUEST_TOO_LARGE",...}` and `413`. The same with `"a".repeat(999988)` (one byte each, 999,999 bytes) answers `REQUEST_INVALID` and `400`: under the cap, the contract answers, not the cap. The preview proves the `Content-Length` path, since `curl` sends the header and the function host hands the body over in one piece; the streamed path, where the header is absent or wrong, is proved by the tests.
+
+### Decisions made on the way
+
+- **The reader is its own file with its own tests.** The cap is the one place where the API handles bytes rather than parsed values, and it should be readable on its own: twenty lines, no Hono in them.
+- **A `Content-Length` under the cap is not trusted.** The header is the sender's claim; the stream is what arrived. Refusing early on a header over the cap is a courtesy to the sender, not the guard.
+- **The stream is cancelled, not drained.** Once the cap is crossed the reader tells the stream it wants no more, so an endless body does not keep the function busy.
+- **A body that is not UTF-8 is `REQUEST_INVALID`, not a new code.** The decoder's `fatal` flag makes "not UTF-8" the same failure as "not JSON", which is what it is.
+
+### Open
+
+- The remaining five items of the API brief follow as pull requests, each stacked on the one before.
+
+---
+
+## 2026-11-02, Monday. API, 2 of 6: one log line when a body fails the contract
+
+### What
+
+- `apps/api/src/log.ts`, new. A `Logger` with `warn` and `error` that the app takes as a dependency: the console in deployment (`consoleLogger`), an array in tests, so a test can read what was written and prove what was not. `validationLine` builds the one line for a refused body: the route as written in `ROUTES` (`POST /api/:slug/join`, so never a slug or a wave), the error code, and where in the body the contract was not met, as paths of our own field names and array positions with Zod's issue code. Example: `SYNC_PAYLOAD_INVALID POST /api/:slug/sync: events.2.body (invalid_format), events.2 (unrecognized_keys)`. A body that is not JSON gives `body is not JSON`. More than 20 issues become ", and N more".
+- `apps/api/src/app.ts`: join and sync write the line through `log.warn` before answering `REQUEST_INVALID` or `SYNC_PAYLOAD_INVALID`. `AppDeps.log` is optional; the function and `dev.ts` use the console.
+- Tests. `apps/api/test/log.test.ts`: the line names the route, the code and the field paths with the issue kind and nothing else; an unknown key is pointed at by the object that holds it, never by name (a code hidden in a key and an email address stay out); array positions let the reader count to the bad event; the not-JSON line and the cap. `app.test.ts`: a refused join writes one line, equal to the expected text, carrying neither the code, its hash, the wave text, the extra field's name or value, nor the slug; a non-JSON body writes the one line that says so; a refused sync batch writes one line carrying none of the code, its hash, the session id or seed, the event id or body, the card id, the extra field or its value.
+
+### Why
+
+The runbook's `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` entries tell the reader to look at "the validation issues in the log line", and the gap list found no line. The non-negotiable is that no log line carries a value from a request; the way to keep that true is to decide once what a line may contain (paths of our own names, positions, Zod's issue kinds) and to have a test read every line the app writes. Item 2 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test`: 42 tests pass; `npm run check` is green.
+- On the deploy preview of pull request 11: post a join with an extra field and read the function log.
+
+  ```
+  curl -s -X POST -H 'content-type: application/json' \
+    -d '{"code":"1234567890123456","wave":"wave-1","emailAddress":"x@y.z"}' \
+    https://deploy-preview-11--worldbuilder-uot.netlify.app/api/rural-manufacturing/join
+  ```
+
+  Expected: `{"error":"REQUEST_INVALID",...}`; in Netlify, Deploys, this preview, Functions, `api`: one WARN line `REQUEST_INVALID POST /api/:slug/join: (root) (unrecognized_keys)`, with nothing of the body in it.
+
+### Decisions made on the way
+
+- **Paths and issue kinds, not messages and not keys.** Zod's message for an unknown key quotes the key, and a key is text the client chose: `{"1234567890123456": 1}` would put a code in the log. The line points at the object that holds the unknown key and says `unrecognized_keys`; the reader opens the contract and sees which keys that object allows.
+- **The route pattern, not the path.** `POST /api/:slug/join` is the same text for every workshop; the path would carry the slug and, on the wave route, the wave. Neither is personal, but a line that varies with the request invites a reader to grep for a participant.
+- **The logger is a dependency, not a module import.** Tests that read `console` output are brittle and would see lines from other tests; an array passed in is exact. The function passes nothing and gets the console.
+- **One line, capped.** A batch of 200 events with the same mistake is one line with 20 paths and "and 180 more"; the first path tells the reader what is wrong.
+
+### Open
+
+- Drizzle wraps a failed query in `DrizzleQueryError`, whose message is `Failed query: <sql> params: <params>`, and the params of a failed insert are code hashes and sealed bodies. The `SERVER_ERROR` line still logs the error object. Item 3 tests that line and will make it carry the error's name, the SQL with its placeholders and the stack, never the params.
+
+---
+
+## 2026-11-02, Monday. API, 3 of 6: every row of the error table tested over HTTP; the SERVER_ERROR line without query parameters
+
+### What
+
+- Tests for the rows the table lacked, each named as a behaviour, in `apps/api/test/app.test.ts`: the route table (every entry of `ROUTES` is served; twelve unlisted paths and wrong methods answer 404 with a contract body); a participant of a workshop past its close day gets `WORKSHOP_CLOSED` on sync, me, invites and delete, and the rows stay; `JOIN_WAVE_UNKNOWN`, `JOIN_WAVE_FULL` (a workshop with a cap of one) and `JOIN_INVITE_INVALID` on join; the same batch twice is accepted twice with the same ids and stored once; a sync body over the byte cap is `REQUEST_TOO_LARGE` and nothing of it is stored; a database failure mid-request answers `SERVER_ERROR` with an errorId that matches one log line. A last test reads the test sources and fails if any key of `ERROR_CODES` is asserted nowhere.
+- `apps/api/test/limits.test.ts`, new: one test per bucket, each on its own database, with the 429 body checked against `errorResponseSchema`: health at 60 a minute for everyone; wave opens at 120 a minute per workshop; joins at 30 a minute per workshop, another workshop unaffected; unknown codes at 30 a minute per workshop, a real participant unaffected; an authenticated code at 60 a minute on its own, another code unaffected; the next minute allows again.
+- `apps/api/test/helpers.ts`, new: the real workshop, the test pepper, a clock the test moves by day and by minute, a fresh database with the workshop open, and an app on it whose log lines land in an array.
+- Two code changes. `GET /me` answers `WORKSHOP_CLOSED` past the close day, as sync, invites and delete already did. The `SERVER_ERROR` line is built by `serverErrorLine` in `log.ts` and goes through the Logger: the errorId, the error's class, the SQL with its `$1` placeholders, the cause's message and the stack frames; the parameters of a failed query and the stack's header are cut out.
+
+### Why
+
+The brief's "tests that define done": every row of the error-code table over HTTP. Writing them found the two code changes. The screen map shows a closing screen on `WORKSHOP_CLOSED` and the trust page says the rows can be seen and deleted "any time until 6 December", so `me` past the close day should say closed, as delete did; before, it kept answering the data. And Drizzle's query error carries the query's parameters in its message, which for our queries are code hashes, bucket keys built from them, and sealed bodies; the skeleton logged the error whole, so a database failure in the limiter would have put a hash in the function log. Item 3 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test`: 58 tests; `npm run check` is green.
+- On the deploy preview of pull request 15, `P=https://deploy-preview-15--worldbuilder-uot.netlify.app`:
+  - `curl -s -w '\n%{http_code}\n' -H 'Authorization: Code 1234567890123456' $P/api/rural-manufacturing/me`: `AUTH_CODE_UNKNOWN`, 401, nothing else in the body.
+  - `curl -s -w '\n%{http_code}\n' $P/api/rural-manufacturing/join`: `WORKSHOP_UNKNOWN`, 404; `GET` on join is not a route.
+  - `curl -s $P/api/health`: `ok`, a seven-character `version`, `dbReachable`, `lastBackupAt`, `eventsToday`, `workshops` as slug and status.
+  - A 429 without touching anyone else's bucket: join a test code on the preview, call `me` with it 61 times, read the body of the last call, then delete the code. The exact commands are in the pull request. Do not use health for this: a preview shares the staging database, so its buckets are staging's, and the monitor would see staging's health answer 429 for the rest of the minute.
+
+### Decisions made on the way
+
+- **Drop the table, do not mock the failure.** `db.execute('drop table rate_buckets')` under a running app makes the limiter's upsert fail with a real Drizzle error carrying real parameters, the bucket key built from the hash among them. The test then proves the line has the id and the SQL and not the hash. A mock would prove what the mock was told.
+- **The SQL stays in the line, the parameters go.** The SQL is ours, with placeholders; it tells the reader which query failed. The cause's message stays too: a Postgres primary message names the relation or the constraint and keeps values for its detail field, which is not logged.
+- **One database per limit test.** The clock is fixed inside a test file, so a bucket filled by one test would be full for the next; a fresh PGlite costs a third of a second.
+- **Every code must be asserted somewhere.** The last test is a guard on the table itself: a code added to the contract without an HTTP test fails the suite, the way the runbook test fails on a code without a heading.
+- **The test helpers are a file, not a copy.** Item 4's authorization tests need the same setup; one helpers file keeps the two files about behaviour.
+
+### Open
+
+- Whether `GET /me` should stay readable between the close day and the delete day, for the privacy panel's "what we store": the docs say no, the integrator confirms (pull request 15's report).
+- "Today" is the UTC day, so the window closes at 7 pm Eastern on 6 December: accept, or set `closesDay` a day later. Marco's call; in the report.
+- Two words for the glossary, bucket and budget; the runbook proposals for nine entries; in the report.
+
+---
+
+## 2026-11-02, Monday. API, 4 of 6: the authorization boundary between participants, over HTTP
+
+### What
+
+- `apps/api/test/authorization.test.ts`, new, eight tests on the helpers of item 3. Code A against participant B: A cannot write into B's session through `/sync` (nothing accepted, B unchanged, and the response does not say why); A cannot read B through `/me`; A cannot spend B's invites; A cannot delete B. Invites under replay: an invite spent twice at once is spent once, one join, one `JOIN_INVITE_USED`, one invite paid; a third try is still refused and the guest's rows carry nothing of the issuer. A code from one workshop in another: `AUTH_CODE_UNKNOWN` on me, sync, invites and delete, the home workshop untouched; the same code joined in two workshops is two participants, and deleting one leaves the other.
+- No code changed. The queries already scope every read and write by participant and workshop; `packages/db/test/scoping.test.ts` proved it at the query level, and these tests prove it through the header, the hash and the routes.
+- `main` merged in: the participant texts; the two build-log entries of the day sit in time order.
+- The manual authorization test of the architecture plan, section 12, is written out as `curl` steps with expected answers in pull request 18, proposed for the runbook's Netlify entry.
+
+### Why
+
+Section 12's pre-launch list names "a manual authorization test (code A cannot read, write or delete participant B), invite replay and over-use tests". A test over HTTP is the manual test run on every push; the written sequence is for the day someone wants to see it with their own eyes on staging. Item 4 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/authorization.test.ts`: 8 tests; `npm run check` is green, 164 tests.
+- By hand: the sequence in pull request 18, on staging or on its deploy preview (`https://deploy-preview-18--worldbuilder-uot.netlify.app`, which shares staging's database). In short: join A and B; B stores a session; A's sync into that session answers empty accepted lists; A's `me` shows nothing of it; A's delete leaves B's `me` intact; B's invite used twice gives one join and one `JOIN_INVITE_USED`.
+
+### Decisions made on the way
+
+- **Two joins in flight through `Promise.all`, not one after the other.** PGlite runs one statement at a time, but the two requests interleave at every `await`, so the test exercises the single-statement claim on the invite (`update ... where used = false returning`) that protects Neon too.
+- **The response stays silent on why.** `syncBatch` accepts an id only if the row exists afterwards under this participant, and the response lists what was accepted and nothing more; a reason would tell A that B's session exists. The test asserts the empty lists and nothing else in the body.
+- **The manual test is proposed for the runbook, not added to it.** `docs/runbook.md` is the ops builder's file this week.
+
+### Open
+
+- Whether the runbook gets the sequence as a paragraph in the Netlify entry or as its own heading (a heading with spaces does not trip the one-word-heading test).
+
+---
+
+## 2026-11-02, Monday. API, 5 of 6: the limiter prunes its own rows
+
+### What
+
+- `apps/api/src/app.ts`: every hundredth rate-limit check on a function instance (`PRUNE_EVERY_CHECKS`) deletes the buckets older than an hour in one statement, before the request is answered. A failed prune is logged as `rate_buckets prune failed: <error>` and never fails the request. The nightly job's prune stays as the backstop.
+- `packages/db/src/queries.ts`: `pruneRateBuckets` returns how many rows it deleted; `countRateBuckets`, new, for the tests and later the status command.
+- Tests. `packages/db/test/health-and-rate.test.ts`: pruning removes the buckets older than an hour, keeps the last hour's, says how many went; the pruned minute is allowed again while the kept one still counts. `apps/api/test/limits.test.ts`: every hundredth check deletes the old buckets, so one health call every two minutes for 200 minutes leaves 99 rows before the hundredth call and 31 after it; refused requests count towards the prune too, so a flood of 100 calls with one code (60 allowed, 40 refused) leaves one row and removes the join's rows from 90 minutes earlier.
+
+### Why
+
+The restore drill of 30 October counted 1007 `rate_buckets` rows after a day with no participants, and the build log asked what fills it. The answer: one row per route, subject and minute, from the monitor alone, deleted only at night. The brief offered two ways: prune on the way, or leave it to the job and document the bound. Pruning on the way was recommended and is what landed. **The bound:** a bucket busy for a whole hour owns 60 live rows, and at most 100 rows are written between prunes, so the table holds about 60 rows per bucket busy in the last hour, plus a hundred. A quiet night: about 60 to 160 rows, against 1007. Item 5 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/limits.test.ts packages/db/test/health-and-rate.test.ts`: 10 tests; `npm run check` is green, 166 tests.
+- By hand, on the deploy preview of pull request 21, which shares the staging database: in Neon's SQL editor on the `staging` branch, `select count(*), min(window_start) from rate_buckets;` and note both. Join a test code on the preview and call `me` with it 100 times (60 answer 200, 40 answer 429, all count), then delete the code; the commands are in the pull request. The query again: `min(window_start)` is under an hour old and the count has dropped to the last hour's rows. If not, the hundred calls were spread over more than one function instance; run the loop again.
+
+### Decisions made on the way
+
+- **On the way, with the job as backstop.** The prune is one `delete` on rows the limiter itself wrote, bounded by the request rate, and it keeps the table legible on Neon at any hour. The job still runs because a function instance that handles fewer than a hundred checks before it is recycled never prunes.
+- **Count checks, not requests.** The counter sits in `limited`, which every route calls once or twice; "every hundredth check" is "about every hundredth request" and one place in the code.
+- **Refused requests count too.** A flood that trips the limiter is exactly when the table fills; it should also be when it is cleaned.
+- **A failed prune is a log line, not a failure.** The participant's request has nothing to do with housekeeping; the line names the error and nothing from any request; the job catches up at night.
+- **A count query rather than raw SQL in the test.** `countRateBuckets` is three lines and the operator's status command will want it too.
+
+### Open
+
+- The ops builder's backup job calls `pruneRateBuckets`, which now returns a number; nothing breaks, and the job could log it.
+- Whether the words "bucket" and "budget" enter the glossary (pull request 15's proposal).
+
+---
+
+## 2026-11-02, Monday. API, 6 of 6: joins at 120 a minute; a 429 says how long to wait
+
+### What
+
+- `apps/api/src/app.ts`: `LIMITS.join` is 120 a minute per workshop, with Marco's decision 3 and its reasoning in the comment above the table. Every `RATE_LIMITED` answer carries a `Retry-After` header with the seconds left in the current minute, 1 to 60; the body is unchanged.
+- Tests in `apps/api/test/limits.test.ts`: the 121st join in a minute is refused and another workshop keeps its budget; a newsletter minute (the clock at 12:00:45, 120 readers join, the 121st is refused with `Retry-After: 15`, waits, and joins); 121 joins with the same code cost one participant row (200, 119 times 409, then 429); health's 61st call on the minute says `Retry-After: 60`; every bucket's 429 is checked for a `Retry-After` between 1 and 60.
+
+### Why
+
+Decision 3 of 2 November (`docs/briefs/week-2-plan.md`, section 4): with 30 a minute, the thirty-first reader to open the newsletter in the same minute would have seen an error on the consent screen and had to tap again; with 120 and one retry, nobody sees anything but a pause. The cap of 150 per wave stays the bound on how many join at all; the per-minute number sets the pace. The decision says the client retries "after the server's wait", and the standard way for a server to say how long that is (RFC 9110, `Retry-After`) costs one header and spares the client a guess: it waits until the minute turns, when every bucket starts again. Item 6 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/limits.test.ts`: 9 tests; `npm run check` is green, 168 tests.
+- On the deploy preview of pull request 23: 121 joins with one made-up code within a minute answer `200`, then `409` 119 times (the limiter runs before the body is read, so a refused join counts), then `429` with `retry-after: <1 to 60>`; then `DELETE /me` with that code. The commands are in the pull request. The join budget is per workshop and the preview shares staging's database, so staging's own joins are refused for that minute too; do it when nobody is trying staging.
+
+### Decisions made on the way
+
+- **`Retry-After` on every 429, not only on join.** One line in `fail`, the same header for every bucket, and the sync and health clients can use it too. The value is the rest of the minute, because that is when the bucket resets; the client has nothing to compute.
+- **The scenario is a test.** "120 readers join, the 121st waits 15 seconds and joins" is the sentence of the decision, run against the real app with a clock set to 12:00:45.
+- **The by-hand check uses one code.** 121 joins with distinct codes would leave 120 participant rows on staging; with one code, the limiter still counts every request, and one row is deleted at the end.
+
+### Open
+
+- The UI brief names the silent retry on `JOIN_CODE_TAKEN` but not the one retry on `RATE_LIMITED` with `Retry-After`; the integrator relays it to the UI builder (in the report of pull request 23).
+- The six API pull requests are open: 10, 11, 15, 18, 21, 23, each stacked on the one before. The runbook proposals from all six are in their reports, for the ops builder.
+
 ## 2026-11-02, Monday evening. Ops 3: the runbook describes the code; the services section written
 
 ### What
