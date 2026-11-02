@@ -34,6 +34,7 @@ import {
   type Workshop,
 } from '@wb/db';
 import { codeHash, newInviteToken, tokenHash } from './auth.ts';
+import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
 
 /**
  * The API (architecture plan, sections 6, 9 and 12; CLAUDE.md, API builder notes).
@@ -84,19 +85,15 @@ export function createApp(deps: AppDeps) {
   const limited = async (route: string, subject: string, limitPerMinute: number) =>
     !(await rateLimitAllows(deps.db, { route, subject, limitPerMinute, now: now() }));
 
-  /** Reads the body with a byte cap and parses JSON; returns undefined on either failure. */
+  /**
+   * Reads at most MAX_REQUEST_BYTES of the body, counted in bytes on the wire (body.ts), and
+   * parses JSON; TOO_LARGE past the cap, undefined when the bytes are not JSON.
+   */
   const readJson = async (c: Context): Promise<unknown | undefined> => {
-    const declared = Number(c.req.header('content-length') ?? '0');
-    if (declared > MAX_REQUEST_BYTES) return TOO_LARGE;
-    const text = await c.req.text();
-    if (text.length > MAX_REQUEST_BYTES) return TOO_LARGE;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return undefined;
-    }
+    const bytes = await readBodyBytes(c.req.raw, MAX_REQUEST_BYTES);
+    return bytes === BODY_TOO_LARGE ? TOO_LARGE : parseJsonBytes(bytes);
   };
-  const TOO_LARGE = Symbol('too large');
+  const TOO_LARGE = BODY_TOO_LARGE;
 
   app.onError((error, c) => {
     const errorId = crypto.randomUUID().slice(0, 8);

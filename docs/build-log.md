@@ -574,3 +574,42 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 - Merging during the week: with branch protection on, every pull request waits for the `check` workflow; the integrator merges after the independent review.
 - The Better Stack monitor's definition, to be read in the console.
+
+---
+
+## 2026-11-02, Monday. API, 1 of 6: the byte cap counts bytes
+
+### What
+
+- `apps/api/src/body.ts`, new. `readBodyBytes` reads the request body as a stream, chunk by chunk, adds up the bytes, and stops at the first byte over `MAX_REQUEST_BYTES`: the rest of the body is never read, and nothing over the cap is ever held in memory. A `Content-Length` header over the cap is refused before a single byte is read; a header under the cap is not trusted, the count on the stream decides. `parseJsonBytes` decodes the bytes as UTF-8 with `fatal` on and parses JSON; bytes that are not UTF-8 are not JSON (RFC 8259) and answer `REQUEST_INVALID` like any other non-JSON body.
+- `apps/api/src/app.ts`: `readJson` uses the two. The comparison of `text.length` with the cap is gone.
+- Tests. `apps/api/test/body.test.ts`: exactly the cap passes and one byte more does not; three two-byte characters are six bytes; a stream that never ends is stopped at the chunk that crosses the cap; a `Content-Length` over the cap is refused with no read and one under the cap is not believed; a request without a body is zero bytes; chunks are joined in order; bytes that are not UTF-8 or not JSON parse to nothing; multi-byte characters survive. `apps/api/test/app.test.ts`, on join: a `Content-Length` over the cap is 413; a body of two-byte characters, half the cap in length and one byte over it on the wire, is 413; a body of exactly the cap is read and answered by the contract (400); a body larger than its declared `Content-Length` is 413.
+
+### Why
+
+The week-2 gap list: the skeleton compared `text.length` with `MAX_REQUEST_BYTES` after reading the whole body, and a string's length counts UTF-16 units, one to three bytes each on the wire. A body of 600,000 four-byte characters weighed 2.4 MB and passed. The API builder notes in `CLAUDE.md` say to cap the body in bytes before parsing, because a schema can only bound what is already parsed. Item 1 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/body.test.ts apps/api/test/app.test.ts`: 28 tests pass; `npm run check` is green.
+- On the deploy preview of pull request 8, with `curl`. Make a body one byte over the cap, made of two-byte characters, and post it:
+
+  ```
+  node -e 'process.stdout.write(`{"code":"${"é".repeat(499995)}"}`)' > big.json
+  wc -c big.json            # 1000001
+  curl -s -w '\n%{http_code}\n' -X POST -H 'content-type: application/json' --data-binary @big.json \
+    https://deploy-preview-8--worldbuilder-uot.netlify.app/api/rural-manufacturing/join
+  ```
+
+  Expected: `{"error":"REQUEST_TOO_LARGE",...}` and `413`. The same with `"a".repeat(999990)` (one byte each, 999,999 bytes) answers `REQUEST_INVALID` and `400`: under the cap, the contract answers, not the cap. The preview proves the `Content-Length` path, since `curl` sends the header and the function host hands the body over in one piece; the streamed path, where the header is absent or wrong, is proved by the tests.
+
+### Decisions made on the way
+
+- **The reader is its own file with its own tests.** The cap is the one place where the API handles bytes rather than parsed values, and it should be readable on its own: twenty lines, no Hono in them.
+- **A `Content-Length` under the cap is not trusted.** The header is the sender's claim; the stream is what arrived. Refusing early on a header over the cap is a courtesy to the sender, not the guard.
+- **The stream is cancelled, not drained.** Once the cap is crossed the reader tells the stream it wants no more, so an endless body does not keep the function busy.
+- **A body that is not UTF-8 is `REQUEST_INVALID`, not a new code.** The decoder's `fatal` flag makes "not UTF-8" the same failure as "not JSON", which is what it is.
+
+### Open
+
+- The remaining five items of the API brief follow as pull requests 9 to 13, each on the one before.

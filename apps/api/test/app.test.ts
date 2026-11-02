@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { deckSchema, generateCode, SYNC_MAX_EVENTS, workshopConfigSchema } from '@wb/contracts';
+import {
+  deckSchema,
+  generateCode,
+  MAX_REQUEST_BYTES,
+  SYNC_MAX_EVENTS,
+  workshopConfigSchema,
+} from '@wb/contracts';
 import { ensureWave, setWorkshopStatus, syncWorkshop, type Db } from '@wb/db';
 import { connect } from '@wb/db/connect';
 import { createApp, type App } from '../src/app.ts';
@@ -182,11 +188,48 @@ describe('join', () => {
     expect((await res.json()).error).toBe('JOIN_CODE_TAKEN');
   });
 
-  it('refuses a body over the byte cap before parsing it', async () => {
+  it('refuses a Content-Length over the byte cap before reading the body', async () => {
     const res = await app.request(`/api/${slug}/join`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'content-length': '2000000' },
       body: '{}',
+    });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe('REQUEST_TOO_LARGE');
+  });
+
+  it('refuses a body of multi-byte characters just over the cap, measured in bytes', async () => {
+    // Each é is one UTF-16 unit and two bytes. The string is half the cap in length and two
+    // bytes over it on the wire; the skeleton's text.length check would have let it through.
+    const body = `{"code":"${'é'.repeat((MAX_REQUEST_BYTES - 11) / 2 + 1)}"}`;
+    expect(body.length).toBeLessThan(MAX_REQUEST_BYTES);
+    expect(new TextEncoder().encode(body).byteLength).toBe(MAX_REQUEST_BYTES + 1);
+    const res = await app.request(`/api/${slug}/join`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+    });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe('REQUEST_TOO_LARGE');
+  });
+
+  it('reads a body of exactly the cap and leaves it to the contract', async () => {
+    const body = `{"code":"${'a'.repeat(MAX_REQUEST_BYTES - 11)}"}`;
+    expect(new TextEncoder().encode(body).byteLength).toBe(MAX_REQUEST_BYTES);
+    const res = await app.request(`/api/${slug}/join`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('REQUEST_INVALID');
+  });
+
+  it('a body larger than its declared Content-Length is still refused at the cap', async () => {
+    const res = await app.request(`/api/${slug}/join`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': '2' },
+      body: '{"code":"' + 'a'.repeat(MAX_REQUEST_BYTES) + '"}',
     });
     expect(res.status).toBe(413);
     expect((await res.json()).error).toBe('REQUEST_TOO_LARGE');
