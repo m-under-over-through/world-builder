@@ -60,12 +60,11 @@ export const ERROR_CODES = {
     status: 404,
     meaning: 'The wave in the link does not exist for this workshop.',
   },
-  JOIN_WAVE_CLOSED: { status: 403, meaning: 'The wave link is outside its open window.' },
   JOIN_WAVE_FULL: { status: 403, meaning: 'The wave has reached its cap.' },
   JOIN_INVITE_INVALID: { status: 404, meaning: 'The invite token is unknown.' },
   JOIN_INVITE_USED: { status: 403, meaning: 'The invite token was already used.' },
-  // Join is unauthenticated and this code reveals that a code exists, so join shares the same
-  // rate limit as the authenticated routes. At 10^16 codes that oracle is useless anyway.
+  // Join is unauthenticated and this code reveals that a code exists, so join has its own rate
+  // limit per workshop (ADR 0012). At 10^16 codes that oracle is useless anyway.
   JOIN_CODE_TAKEN: {
     status: 409,
     meaning:
