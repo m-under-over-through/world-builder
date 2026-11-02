@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { healthReport, pruneRateBuckets, rateLimitAllows, recordBackupRun } from '../src/index.ts';
+import {
+  countRateBuckets,
+  healthReport,
+  pruneRateBuckets,
+  rateLimitAllows,
+  recordBackupRun,
+} from '../src/index.ts';
 import { freshDb, seedWorkshop } from './helpers.ts';
 
 describe('health report', () => {
@@ -36,13 +42,23 @@ describe('rate limiting without addresses', () => {
     expect(await rateLimitAllows(db, { ...input, subject: 'workshop-y' })).toBe(true);
   });
 
-  it('pruning removes buckets older than an hour', async () => {
+  it('pruning removes the buckets older than an hour, keeps the last hour, and says how many went', async () => {
     const db = await freshDb();
     const old = new Date('2026-11-16T10:00:00Z');
+    const recent = new Date('2026-11-16T11:30:00Z');
     await rateLimitAllows(db, { route: 'r', subject: 's', limitPerMinute: 1, now: old });
-    await pruneRateBuckets(db, new Date('2026-11-16T12:00:00Z'));
+    await rateLimitAllows(db, { route: 'r', subject: 't', limitPerMinute: 1, now: old });
+    await rateLimitAllows(db, { route: 'r', subject: 's', limitPerMinute: 1, now: recent });
+    expect(await countRateBuckets(db)).toBe(3);
+    expect(await pruneRateBuckets(db, new Date('2026-11-16T12:00:00Z'))).toBe(2);
+    expect(await countRateBuckets(db)).toBe(1);
+    expect(await pruneRateBuckets(db, new Date('2026-11-16T12:00:00Z'))).toBe(0);
+    // The old bucket is gone, so the same minute is allowed again; the recent one still counts.
     expect(
       await rateLimitAllows(db, { route: 'r', subject: 's', limitPerMinute: 1, now: old }),
     ).toBe(true);
+    expect(
+      await rateLimitAllows(db, { route: 'r', subject: 's', limitPerMinute: 1, now: recent }),
+    ).toBe(false);
   });
 });

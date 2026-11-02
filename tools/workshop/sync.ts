@@ -3,7 +3,11 @@
 // deploy; counts and statuses that are already closed are never touched. Runs as the second step
 // of the Netlify build after migrate.ts; with no DATABASE_URL it does nothing.
 //
-//   node tools/workshop/sync.ts
+//   node tools/workshop/sync.ts          no arguments; DATABASE_URL and VITE_WB_ENV from the environment
+//
+// Once a workshop is open it stays open, and a closed, exported or deleted workshop is never
+// reopened by a deploy: only draft becomes open here. The first wave is created once; its counts
+// are never reset.
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +24,12 @@ import {
   syncWorkshop,
 } from '../../packages/db/src/index.ts';
 
+if (process.argv.length > 2) {
+  console.error(
+    `unknown argument "${process.argv[2]}"\nusage: node tools/workshop/sync.ts (no arguments; DATABASE_URL from the environment)`,
+  );
+  process.exit(2);
+}
 const url = process.env.DATABASE_URL;
 if (!url) {
   console.log('sync: DATABASE_URL not set, nothing to do');
