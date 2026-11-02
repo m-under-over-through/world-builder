@@ -15,7 +15,7 @@ A package of pure functions that decides which cards a session shows, in what or
 Exports, from `packages/deck/src/index.ts`, with these names:
 
 - `planSession(input): SessionPlan`. Input: the deck, `warmupsPerSession`, `checkpointsPerSession`, the session's `seed` (a string; the client already generates and stores one), and the participant's history: the set of card ids ever answered, and the list of card ids deferred in the previous session and not answered since, in the order they were deferred. Output: the ordered list of card ids for this session.
-  - Deferred cards come first, in their order, counted against the set they belong to.
+  - Deferred cards come first within their own set, in their order, counted against that set (refined on 2 November, pull request 25: a deferred checkpoint must not jump ahead of the warm-ups, or the session would end after a warm-up).
   - Then warm-ups up to the count, then checkpoints up to the count, each chosen by a seeded shuffle of the set, preferring cards never answered and cycling back to answered ones only when the set's unanswered cards run out.
   - The same inputs give the same output, always. Different seeds give different orders. A deck with fewer cards than the counts gives what it has, never a repeat within a session.
 - `applyDismiss(plan, cardId, dismissedThisSession): { plan, event }`. First dismissal of a card in this session: the card moves to the end of the queue and the event to record is `dismissed`. Second dismissal of the same card in the same session: the card leaves the queue and the event to record is `deferred`. The caller writes the event; the engine never does.
