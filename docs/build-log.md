@@ -595,3 +595,44 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 
 - **"Locked" and "scrambled" instead of "encrypted" and "hashed"** in the participant-facing text, with the real terms one tap away on the trust page.
 - **No promise about hosting logs.** The policy says the hosts may keep technical records under their own policies and that we do not receive them; the trust page's honest limit says why that is the truthful version.
+
+---
+
+## 2026-11-02, Monday afternoon. UI item 1: the component test harness and the copy loader
+
+### What
+
+- **The client reads its words from `copy.md`.** `apps/web/src/lib/copy.ts` parses `workshops/<slug>/copy.md` at build time (a raw import in `lib/workshops.ts`, one `Copy` per workshop folder): one block per `## heading`, looked up by name; `- key: value` lines as the entries of a list; a `[placeholder]` line stripped and remembered; `<!-- notes -->` to the editor never shown; `[word]` slots filled by the app (`fill`). A block the file lacks shows as `[missing: <heading>]` on the screen, never as silence. `App.svelte` has no participant-facing string left in it; every error code reaches the screen through its `Error: <CODE>` line.
+- **`copy.md` grew from 9 blocks to 59**, every one a screen or a row the screen map names: titles, buttons, the three welcome cases, enter code, the card's labels and states, the session end for session 1 and for later sessions, closed and not open yet, the privacy panel's rows and caveat, diagnostics, the data management plan, terms, the privacy policy, the trust page's seven blocks, and one line per error code (17 server, 3 client). Consent, terms, the privacy policy, the trust page and the plan carry the drafts of `docs/participant-texts.md` word for word; everything else is placeholder text. All 58 drafts are marked `[placeholder]`, so `grep -c '^\[placeholder\]' copy.md` says how many blocks still wait for words.
+- **The component test harness.** `@testing-library/svelte`, `@testing-library/user-event` and `jsdom`, development dependencies of the client only (ADR 0012 names the client libraries; a test harness loads nothing at runtime). The root `vitest.config.ts` now runs two projects: `node` for the packages, the API and the tools, as before; `web` for the client, whose own `vite.config.ts` names the Svelte plugin, the DOM and `test/setup.ts` (an in-memory IndexedDB). `apps/web/test/app.test.ts` renders `App.svelte` the way a phone would: the address picks the route, the device store is in memory, the API is a stub.
+- Tests: the parser (headings, notes, paragraphs, lists, placeholders, comments, slots, the missing-block marker); every workshop folder has every heading and list entry the client reads, and a line for every error code; the welcome for a device with no link, a device arriving through a wave link (one `opened` post, the address kept), a wrong address, a code too short (no request), `AUTH_CODE_UNKNOWN` and `RATE_LIMITED` shown in their wording and never as the code, "Not open yet" with the day before the opening day and "closed" after the close day. 144 tests (22 new).
+- `PRODUCT.md` at the root, written from the brief and the two plans as the brief asked (the Impeccable `init` step), without an interview: the facts the design skills read before any visual work.
+
+### Why
+
+The first item of the UI brief, because every later screen is text in a file the partner can edit, and because nothing rendered `App.svelte` in a test until now. Raw error codes in front of participants were a trust failure named in the gap list; they are gone.
+
+### How to verify
+
+```
+npm run check                                  # 144 tests, svelte-check included
+npx vitest run --project web                   # the client's 41 tests alone
+grep -c '^\[placeholder\]' workshops/rural-manufacturing/copy.md   # 58
+```
+
+On the pull request's deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`; "New here" and "I have a code" are there. Tap "I have a code", type 15 digits, Continue: "That is not a 16-digit code yet." Type a sixteenth digit, Continue: "That code is not ours. Check the digits." (no code anywhere on the screen). Back, New here: the consent screen carries the draft from `docs/participant-texts.md`. I understand, answer one card, set aside three: the session end, the masked code, "Come back another day for the next cards.", "Everything is synced." Your privacy: every row's label is from `copy.md`. Open `/nowhere/`: "This address is not a workshop. Use the link you were sent."
+
+### Decisions made on the way
+
+- **Blocks are looked up by heading, and the headings are the client's.** `COPY_TEXT` and `COPY_LISTS` in `lib/copy.ts` are the list of what the client reads; a test fails for any workshop folder that lacks one. Renaming a heading is a code change; rewording a block is not, and no test breaks on it, because the tests read the wording through the same loader.
+- **Notes to the editor are HTML comments**, so the file can say under a heading when a block is shown without the app ever showing that sentence.
+- **The "three cases" on Welcome are read as three blocks of wording**: next to "New here" when a link is remembered; next to "I have a code", always; in place of "New here" when nothing is remembered. A fourth block, "code not accepted", waits for item 9.
+- **Before a workshop is known** ("Loading…", "not a workshop") the first workshop folder's copy serves; those words are the same in every folder.
+- **The root `vitest.config.ts` is edited**, outside the brief's file list, because the Svelte plugin and the DOM have to reach the test runner somewhere; the change is the two-project split and nothing else.
+- **`apps/web/test/deck-and-route.test.ts` reads files by path, not URL**: the client's tests now run in a DOM whose `URL` class is not the one `node:fs` accepts.
+
+### Open
+
+- **The local API refuses joins before 16 November.** `apps/api/dev.ts` does not pass `workshop.staging.json`'s opening day to `syncWorkshop`, so a join on the laptop answers `WORKSHOP_CLOSED` today while the client, which reads the staging day, shows the welcome. The by-hand check above was run against a copy of `dev.ts` with `opensDay: staging.opensDay` added; the file is the API builder's, so the fix is proposed in the pull request's report.
+- The session-end text under "Session end: your code" begins with "That is a session.", which is also the screen's title, so the words appear twice. A wording question for Marco, not a code change.
+- The buttons' labels sit in a `<span>` inside the primary button (a styling habit of the skeleton); the visual pass of item 10 removes it.
