@@ -577,6 +577,18 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 ---
 
+## 2026-11-02, Monday afternoon. Ops 1: the export tool, tested; the key checked first; today's file never replaced silently
+
+### What
+
+- `tools/workshop/export.ts` gains three behaviours and six tests (`tools/workshop/test/export.test.ts`). The key is checked against the workshop before any row is read: the tool seals a probe to the workshop's public key and opens it with the key given, so another workshop's key is refused with `CRYPTO_OPEN_FAILED` and the workshop's fingerprint, and a malformed key file with `CRYPTO_BAD_PRIVATE_KEY`; nothing is written either way. The CSV is created exclusively (`flag: 'wx'`): a second export on the same day is refused with a line that names `--overwrite`, the flag that replaces it on purpose. Pseudonyms are handed out in a random order on every run, so two exports of the same workshop cannot be lined up by them and neither the server's ids nor the order of joining can be read back from the file.
+- Two flags: `--out <dir>` (the tests use it; the default stays `.secrets/exports`) and `--overwrite`. Unknown flags, a bad slug, a missing key and a missing key file are refused with the usage line and exit code 2 before anything is opened.
+- The tests seed a Postgres on disk (PGlite, in a temporary folder) with the real workshop folder sealed to a key made for the test, two or seven participants, an answered and a dismissed event each, then run the tool as the operator would, as a separate process, and read the file back: the eleven columns, every answer opened (one holds a comma, a quote, a newline and an emoji), one pseudonym per participant, `via` as the wave or `invite`, mode 600 on the file and 700 on the folder, no participant id and no code hash anywhere in the file or on the terminal, and no plain answer on the terminal.
+
+### Why
+
+The brief's item 1: the operator's tools must be tested and must not overwrite what they should not. The export is the one place answers are ever readable (ADR 0003), so its mistakes are the expensive ones: an export of the wrong workshop would have been a file of `[could not open]` rows found after the fact; a second run on the same day would have replaced the morning's file, scrub log and all. Fresh pseudonyms are what the architecture plan's section 14 promises in the hand-off package.
+
 ## 2026-11-02, Monday, midday. The participant texts, drafted for the legal review
 
 ### What
@@ -646,8 +658,28 @@ The skeleton picks cards in file order, so every participant sees the same first
 ### How to verify
 
 ```
-npm run check                      # typecheck, 154 tests, formatting
-npx vitest run packages/deck       # the 32 tests of the engine alone
+npm test -- tools/workshop/test/export.test.ts        # 6 tests
+npm run dev:api                                       # once, so .secrets/local-db exists with the workshop loaded
+node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key
+node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key
+```
+
+The first run prints the counts and `written to: .../.secrets/exports/rural-manufacturing-<today>.csv`; the second ends with `refusing to overwrite ... pass --overwrite if you mean to replace today's export` and exit code 1, and the file is as it was. With `--key` pointing at any other key file: `CRYPTO_OPEN_FAILED: this key does not open answers sealed to rural-manufacturing (workshop key de7f-523e-d6db-ad50) ...`, exit code 1, no file.
+
+### Decisions made on the way
+
+- **The key check uses the crypto package's public functions only.** Sealing a probe to the workshop's public key and opening it proves the pair without a "public key from private key" helper, which `@wb/crypto` does not export and which this builder does not add.
+- **Pseudonyms in random order, rows grouped by pseudonym.** The earlier export numbered participants in the order of their server ids, so two exports gave the same mapping. `joined_day` stays a column, so nothing the partner needs is lost; what is lost is the link between exports, on purpose.
+- **`--overwrite` removes the old file and still writes exclusively**, so a symlink planted at the path is removed rather than followed.
+- **Per-row failures stay non-fatal.** Once the key is proved, a single envelope that will not open is a corrupt row, reported in the file and counted on the terminal, not a reason to stop the export.
+
+### Open
+
+- The runbook's `CRYPTO_OPEN_FAILED` and `CRYPTO_BAD_PRIVATE_KEY` entries describe the export's old behaviour (a `[could not open]` row per envelope). They are rewritten in ops item 3 with the rest of the runbook.
+- The README's `tools/workshop` row names `keygen`, `sync` and `export`; the `--out` and `--overwrite` flags change nothing there. A proposal for the integrator comes with item 7.
+  npm run check # typecheck, 154 tests, formatting
+  npx vitest run packages/deck # the 32 tests of the engine alone
+
 ```
 
 The worked example, which the last test pins: a deck of six cards, four warm-ups (`tuesday-night`, `on-tv`, `embarrassing`, `cool`) and two checkpoints (`immigrants`, `rich-poor`), counts 3 and 1, seed `example`, no history. The plan is `cool, on-tv, embarrassing, immigrants`. The same call gives the same plan every time; seed `other` gives `cool, embarrassing, on-tv, rich-poor`. With `tuesday-night`, `on-tv` and `embarrassing` already answered, the plan is `cool` first, then two of the answered three in the seed's order, then the checkpoint. With `cool` and `rich-poor` deferred in the previous session, the plan is `cool, rich-poor, on-tv, embarrassing`: both deferred cards first, and the deferred checkpoint has taken the one checkpoint place.
@@ -688,8 +720,10 @@ Section 8: "Dismiss moves the card to the end of this session's queue. A second 
 ### How to verify
 
 ```
-npm run check                      # typecheck, 175 tests, formatting
-npx vitest run packages/deck       # the 53 tests of the engine alone
+
+npm run check # typecheck, 175 tests, formatting
+npx vitest run packages/deck # the 53 tests of the engine alone
+
 ```
 
 The worked example continued, pinned by the last test. Same deck of six, counts 3 and 1, seed `example`: the plan is `cool, on-tv, embarrassing, immigrants`.
@@ -715,3 +749,4 @@ The worked example continued, pinned by the last test. Same deck of six, counts 
 
 - The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
 - For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.
+```
