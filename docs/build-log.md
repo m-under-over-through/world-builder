@@ -574,3 +574,36 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 - Merging during the week: with branch protection on, every pull request waits for the `check` workflow; the integrator merges after the independent review.
 - The Better Stack monitor's definition, to be read in the console.
+
+---
+
+## 2026-11-02, Monday, late afternoon. Ops 2: pepper, migrate and workshop sync, tested
+
+### What
+
+- Twelve tests across three files, each running the tool as a separate process the way the build or the operator runs it, with a clean environment so the laptop's own variables never leak in.
+- `tools/ops/test/pepper.test.ts`: the file holds 32 bytes in canonical base64 and a newline, mode 600 in a folder of mode 700; two runs give two peppers; the value is never on the terminal; a second run for the same name is refused with `refusing to overwrite` and the file is as it was; an unknown flag, a missing value, a stray word or a bad name is refused with the usage line and nothing written. The tool gains `--out <dir>` for the tests, the way `keygen` has it.
+- `tools/ops/test/migrate.test.ts`: without `DATABASE_URL` it says `nothing to do` and exits 0; the eight wrong shapes (a `psql '...'` command, a `DATABASE_URL='...'` line, single or double quotes, a leading space, `pglite://`, another scheme, a bare word) are refused with the runbook's line `migrate: expected a postgres:// URL in this context`, a second line that says what shape is wanted, exit code 1, and the password in the test string never reaches the terminal; anything on the command line is refused with exit code 2. The tool itself gains the argument check and the second line; the first line stays what the runbook's Netlify entry quotes.
+- `tools/workshop/test/sync.test.ts`: against a Postgres on disk, the staging context stores the staging key, its fingerprint and the early opening day with the folder's closing day and cap, opens the workshop and creates `wave-1`; a second run leaves one row and one `wave-1`; the production context stores the production key and the real opening day; a workshop put back to `draft` becomes `open` again and a `closed` one stays `closed`; a connection string in the wrong shape is refused without printing it; anything on the command line is refused. The tool gains the argument check and a comment on the status rule.
+
+### Why
+
+The brief's item 2. These three run inside the Netlify build (`migrate`, `sync`) or make a secret (`pepper`), and none had a test. The migrate refusal is the one that cost a deploy on 30 October; now its eight shapes are a test, and the build command cannot grow an argument by mistake.
+
+### How to verify
+
+```
+npm test -- tools/ops tools/workshop/test/sync.test.ts     # 12 tests
+DATABASE_URL="psql 'postgresql://x:y@h/db'" node tools/ops/migrate.ts     # refused, exit 1, nothing printed but the two lines
+node tools/ops/pepper.ts demo --out /tmp/wb-pepper && node tools/ops/pepper.ts demo --out /tmp/wb-pepper   # second run refused
+```
+
+### Decisions made on the way
+
+- **A new workshop reports `draft -> open`, not `new -> open`.** The tool reads the row after the upsert, so the row is already there in `draft`; the test says what happens rather than changing the tool to say `new`.
+- **`migrate` prints a second line, not the value.** The shape of a pasted string was the whole diagnosis on 30 October; the line now says "nothing in front of postgresql://, no quotes around it" and nothing else.
+- **Clean environment in the tests.** The tools read `DATABASE_URL` and `VITE_WB_ENV`; a test that inherited the laptop's environment could pass or fail for reasons outside the repository.
+
+### Open
+
+- Nothing from this item.
