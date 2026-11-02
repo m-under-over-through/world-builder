@@ -32,10 +32,6 @@ _Provisional._ Meaning: the workshop is past `closesDay`; joins and events are r
 
 _Provisional._ Meaning: the wave id in the link does not exist for this workshop. Cause: the newsletter link was mistyped or the wave was not created. Check: the waves table for the slug. Fix: create the wave or correct the link before sending. Confirm: opening the link in a browser that has not opened it before increments the wave's opened counter (the client counts once per device).
 
-### JOIN_WAVE_CLOSED
-
-_Provisional._ Meaning: the wave link is outside its open window. Cause: by design; or dates wrong. Check: the wave's dates against today. Fix: extend the window if intended. Confirm: a test join on staging.
-
 ### JOIN_WAVE_FULL
 
 _Provisional._ Meaning: the wave reached its cap. Cause: more joins than expected, or the cap set too low. Check: joined count versus cap. Fix: raise `cap` in `workshop.json` and redeploy, if the partner agrees. Confirm: next join succeeds.
