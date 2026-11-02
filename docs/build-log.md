@@ -512,3 +512,65 @@ A drill is for finding what the runbook got wrong before it matters, and this on
 - `rate_buckets` held 1007 rows after a day with no participants. What fills it, and whether the job's prune keeps it in check, is worth a look next week.
 - Branch protection on `main`, and the walkthrough of the skeleton, still on today's list.
 - The comparison run of the drill, against a live source, on the next drill day.
+
+---
+
+## 2026-10-30, Friday afternoon. The week-2 briefs, from an audit of the skeleton
+
+### What
+
+- `docs/briefs/`, new: a README with the rules every builder follows (from the plan's sections 3, 4 and 7), `week-2-plan.md` with the gap list, the file ownership table, the schedule as planned and a shortened variant, and the eight decisions Marco must take before Monday; and four briefs, one per stream: the deck engine (`packages/deck`, one day, first), the client (`apps/web`, the long pole, ten items in order), the API and database (done by Tuesday, six items), and operations (tools, runbook, scans, drills, eight items).
+- The gap list comes from a read-only audit of `main` at df4a9cb against the plan's "ships by 15 November" list and the screen map, done by a separate agent so the briefs are not written from memory. The short version: the skeleton has the whole path and 122 tests; what is missing is the first-session screens, the deck rules, the wording (every string is hard-coded and errors show as raw codes), the trust page and policy pages, the failure behaviour for an unknown code and for offline join, a set of thin spots in the API's tests, and a runbook that still describes the plan in places rather than the code.
+- The README map gains the `docs/briefs/` row.
+
+### Why
+
+The plan's week 2 is the parallel build, and its cohesion rules say the briefs are what keep parallel work coherent: one owner per file, contracts through the integrator, a test that defines done. Writing them from an audit rather than from the plan's list means they say what is actually missing, including things the plan did not foresee (the byte cap measuring the wrong unit, `JOIN_WAVE_CLOSED` unreachable, `rate_buckets` growing by the minute).
+
+### How to verify
+
+- Read `docs/briefs/README.md`, then `week-2-plan.md`, then the four briefs; the plan's section 4 lists the decisions.
+- Check the gap list against the code where it makes a claim: `grep -rn "JOIN_WAVE_CLOSED" apps/api/src` finds no return; `apps/web/src/App.svelte` is the only component; `packages/deck` does not exist.
+
+### Decisions made on the way
+
+- **The deck engine is its own brief and package**, not part of the UI brief: pure logic with a contract and tests, one day, and the UI builder consumes it on Tuesday. The README has said `packages/deck` since the planning sprint.
+- **The wording pass is the UI builder's first item**, before any new screen: once every string comes from `copy.md`, the partner can change words without a code change, and raw error codes stop reaching participants.
+- **The briefs are written for the planned schedule** and mark what to cut if the timeline shortens, in order and with the cost of each cut; the decision stays with Marco and the partner.
+
+### Open
+
+- The eight decisions in `week-2-plan.md`, section 4, before Monday: timeline, `JOIN_WAVE_CLOSED`, the join limit, the look, who writes the policy texts, HSTS preload, the heartbeat grace, branch protection.
+- The two contract changes the API brief relies on (`JOIN_WAVE_CLOSED` removed, the join comment corrected) are the integrator's and wait for decision 2.
+
+---
+
+## 2026-11-02, Monday. The eight decisions; the week starts
+
+### What
+
+- Marco answered the eight decisions of `docs/briefs/week-2-plan.md`; they are recorded in its section 4. In short: a complete working version for a demo on Friday 6 November, the week after for UX and UI with Marco and the partner, launch unchanged; `JOIN_WAVE_CLOSED` removed (pull request 7); the join limit raised to 120 per minute with a client retry; a designer's pass, warm, creative, informal, with the Impeccable design skills for the UI builder; the integrator drafts consent, terms and the privacy policy for Mechanism's legal review; no HSTS preload; the heartbeat grace at 12 hours (ops pull request 4); branch protection on.
+- Branch protection on `main` in the app repository: pull requests only, the `check` workflow must pass, no force pushes, no deletion, no exception for administrators. GitHub's free plan refuses it on the private ops repository ("Upgrade to GitHub Pro or make this repository public"); the ops repository keeps the habit without the rule.
+- The Impeccable design skills (`docs/services.md`) are installed per working copy, never committed: `.gitignore` and `.prettierignore` learn `.claude/skills` and `.claude/agents`. The UI brief carries the design direction and the commands to use.
+- Better Stack paused the staging health monitor over the weekend "because it was down for too long" while staging answered `"ok":true` throughout and the nightly job ran on both days (six to seven hours late, as every day). The monitor's definition is the suspect, an inverted condition or a keyword that does not match `{"ok":true,`; Marco checks it in the console and unpauses it. The ops brief's Better Stack page gets the lesson once the cause is seen.
+- The four builder sessions start today from the briefs: the deck engine first, the API, operations, and the client on the wording pass.
+
+### Why
+
+HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Transport-Security` header tells a browser that has visited the site once to use HTTPS only for that host for the next year, so a later `http://` link or a downgrade attempt on a public network goes nowhere. That already holds for everyone after their first visit. `preload` goes one step further: the domain is submitted to a list compiled into browsers, so even the very first visit is HTTPS only. The price is that the list takes the registrable domain, `under-over-through.co`, with `includeSubDomains` required, so every present and future subdomain of the company's domain would be bound to HTTPS, and leaving the list takes months. Our app is one subdomain; the newsletter links are `https://` to begin with; so the gain is a first visit from a typed `http://` address, and the cost is a decision about the whole domain. Not worth it for this app. `includeSubDomains` on our own host is free (the app has no subdomains of its own) and goes in.
+
+### How to verify
+
+- `gh api repos/m-under-over-through/world-builder/branches/main/protection` answers with the rules; a push to `main` without a pull request is refused.
+- `docs/briefs/week-2-plan.md`, section 4, has the eight answers.
+- `git status` in a working copy after `npx -y impeccable@4.8.0 install --project --providers=claude-code --no-hooks -y` shows nothing to commit.
+
+### Decisions made on the way
+
+- **The design tooling is not committed.** It is a 60-kilobyte package plus a native binary per platform; each working copy installs it with one command, and the repository stays the app and its docs.
+- **The policy texts are drafted by the integrator, not the UI builder**, in `docs/participant-texts.md`, so that the legal review has one file and the UI lays out whatever that file says.
+
+### Open
+
+- Merging during the week: with branch protection on, every pull request waits for the `check` workflow; the integrator merges after the independent review.
+- The Better Stack monitor's definition, to be read in the console.

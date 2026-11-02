@@ -51,3 +51,7 @@ Running cost: zero a month beyond the vault's ten dollars a year. New accounts t
 - Netlify's and Neon's usage pages checked weekly for the first month; Backblaze's spending cap set.
 - The domain's auto-renew and holding account confirmed in the runbook.
 - A page in the runbook per service: what it does, where the login is, what breaks without it, how to move off it.
+
+## Tooling for the agents, not for the app
+
+- **Impeccable** (`impeccable` on npm, Apache-2.0, by Paul Bakaus): design skills and slash commands for the coding agent (`/impeccable critique`, `polish`, `document` and others). Installed per working copy with `npx -y impeccable@4.8.0 install --project --providers=claude-code --no-hooks -y`, which writes into `.claude/skills` and `.claude/agents`, both ignored by git. Nothing of it reaches the client, the API or the build; its design checker runs in code without an AI service. Added 2 November 2026 at Marco's request for the UI builder's visual pass. Cost 0.
