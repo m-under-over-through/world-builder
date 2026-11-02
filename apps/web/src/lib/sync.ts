@@ -12,8 +12,14 @@ import { localDay, type WorkshopStore } from './store.ts';
 export interface SyncStatus {
   lastResult: 'never' | 'ok' | 'offline' | 'error';
   lastError?: string;
+  /** Events waiting in the outbox. */
   outboxSize: number;
+  /** Sessions waiting in the outbox (a session row goes out before its events). */
+  outboxSessions: number;
 }
+
+/** The setting that holds the day of the last sync the server accepted. */
+export const LAST_SYNC_DAY = 'lastSyncDay';
 
 /** The setting that holds a join the device could not send (docs/screen-map.md, Intro 3). */
 export const PENDING_JOIN = 'pendingJoin';
@@ -63,6 +69,7 @@ async function failed(store: WorkshopStore, res: ApiResult<unknown> & { ok: fals
     lastResult: res.status === 0 ? 'offline' : 'error',
     lastError: res.error,
     outboxSize: remaining.events.length,
+    outboxSessions: remaining.sessions.length,
   } satisfies SyncStatus;
 }
 
@@ -93,8 +100,13 @@ async function pushOutbox(store: WorkshopStore, slug: string, code: string): Pro
       localDay(),
     );
   }
+  await store.set(LAST_SYNC_DAY, localDay());
   const remaining = await store.pending();
-  return { lastResult: 'ok', outboxSize: remaining.events.length };
+  return {
+    lastResult: 'ok',
+    outboxSize: remaining.events.length,
+    outboxSessions: remaining.sessions.length,
+  };
 }
 
 /**
@@ -108,20 +120,20 @@ export async function reconcile(
   slug: string,
   code: string,
   answer?: ApiResult<unknown>,
-): Promise<MeResponse | null> {
+): Promise<{ me: MeResponse | null; error?: string }> {
   const res = answer ?? (await api<unknown>(`/${slug}/me`, { code }));
-  if (!res.ok) return null;
+  if (!res.ok) return { me: null, error: res.error };
   // The boundary is checked here as everywhere else: an answer that is not the contract's shape
   // (a proxy's error page, another version of the API) is treated as no answer, never as "the
   // server lacks everything", which would re-queue every retained event.
   const me = meResponseSchema.safeParse(res.data);
-  if (!me.success) return null;
+  if (!me.success) return { me: null, error: 'CLIENT_SYNC_FAILED' };
   const serverIds = new Set(me.data.events.map((e) => e.id));
   const local = await store.events.where('synced').equals(1).toArray();
   const missing = local.filter((e) => !serverIds.has(e.id)).map((e) => e.id);
   if (missing.length > 0) await store.markUnsynced(missing);
   await store.prune(localDay());
-  return me.data;
+  return { me: me.data };
 }
 
 /**
@@ -135,10 +147,10 @@ export async function syncOnOpen(
   slug: string,
   code: string,
   answer?: ApiResult<unknown>,
-): Promise<{ me: MeResponse | null; sync: SyncStatus }> {
+): Promise<{ me: MeResponse | null; sync: SyncStatus; error?: string }> {
   const joined = await sendPendingJoin(store, slug);
   if (joined && !joined.ok) return { me: null, sync: await failed(store, joined) };
-  const me = await reconcile(store, slug, code, answer);
+  const { me, error } = await reconcile(store, slug, code, answer);
   const sync = await pushOutbox(store, slug, code);
-  return { me, sync };
+  return error === undefined ? { me, sync } : { me, sync, error };
 }

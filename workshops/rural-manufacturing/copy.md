@@ -85,6 +85,7 @@ Add this to your home screen for next time. [per-platform steps]
 - hostname: worldbuilder.under-over-through.co
 - contact: privacy@under-over-through.co
 - key fingerprint: from workshop.json
+- source: https://github.com/m-under-over-through/world-builder
 
 ## Titles (one line each)
 
@@ -233,11 +234,12 @@ This opens on [day]. Keep the link and come back then.
 
 ## Privacy panel
 
-<!-- The labels of the rows. A row shows a live value read from the running app. -->
+<!-- The labels of the rows. A row shows a live value read from the running app. "What we store" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
 
 [placeholder]
 
 - code: Your code
+- code note: This is the only thing that identifies you to us. It is random, and it is yours to keep.
 - no code yet: none yet
 - cookies: Cookies set by this app
 - hosts: Hosts this app has contacted since it opened
@@ -246,13 +248,41 @@ This opens on [day]. Keep the link and come back then.
 - key: Your answers are encrypted to the key
 - stored: What we store about you
 - nothing stored: nothing yet
+- not reachable: could not be read from the server just now
 - stored summary: [sessions] sessions, [events] events, answers sealed
+- show rows: Show every row
+- joined: Joined on
+- came through: Came through
+- an invite: an invite
+- invites left: Invites left
+- sessions: Sessions
+- session row: Session [n], started [day]
+- events: Events
+- event row: [kind], card "[card]", number [seq], on [day], deck [version]
+- sealed body: sealed answer, [chars] characters, unreadable here and on the server
 - waiting: Waiting to sync
-- waiting summary: [n] events
+- outbox summary: [events] events in [sessions] sessions
 - last sync: Last sync
+- last sync day: on [day]
 - last error: Last error
 - no error: none
 - version: Version
+- source: The source code at this version
+- plan: How your answers are handled
+- another device: Have a code from another device?
+- delete: Delete
+
+## Event kinds
+
+<!-- What the server records for a card, in plain words. -->
+
+[placeholder]
+
+- shown: shown
+- answered: answered
+- dismissed: set aside
+- deferred: put off to another session
+- revisited: revisited
 
 ## Privacy panel: caveat (under 50 words)
 

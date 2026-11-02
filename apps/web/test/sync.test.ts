@@ -47,7 +47,7 @@ describe('a join made offline is sent before the first sync', () => {
       '/api/rural-manufacturing/sync',
     ]);
     expect(calls[0]!.body).toEqual({ code: CODE, wave: 'wave-1' });
-    expect(status).toEqual({ lastResult: 'ok', outboxSize: 0 });
+    expect(status).toEqual({ lastResult: 'ok', outboxSize: 0, outboxSessions: 0 });
     expect(await pendingJoin(store)).toBeNull();
   });
 
@@ -69,7 +69,12 @@ describe('a join made offline is sent before the first sync', () => {
     await store.events.put(event);
     stubApi([() => ({ status: 403, body: { error: 'JOIN_INVITE_USED' } })]);
     const status = await syncNow(store, 'rural-manufacturing', CODE);
-    expect(status).toEqual({ lastResult: 'error', lastError: 'JOIN_INVITE_USED', outboxSize: 1 });
+    expect(status).toEqual({
+      lastResult: 'error',
+      lastError: 'JOIN_INVITE_USED',
+      outboxSize: 1,
+      outboxSessions: 0,
+    });
   });
 
   it('reads a damaged queued join as none and forgets it, so it is not read again on every open', async () => {
@@ -109,7 +114,7 @@ describe('the sync on open', () => {
       '/sync',
     ]);
     expect(me?.participant.wave).toBe('wave-1');
-    expect(sync).toEqual({ lastResult: 'ok', outboxSize: 0 });
+    expect(sync).toEqual({ lastResult: 'ok', outboxSize: 0, outboxSessions: 0 });
   });
 
   it('asks nothing else while the join cannot go out', async () => {
@@ -120,7 +125,12 @@ describe('the sync on open', () => {
     const { me, sync } = await syncOnOpen(store, 'rural-manufacturing', CODE);
     expect(calls).toHaveLength(1);
     expect(me).toBeNull();
-    expect(sync).toEqual({ lastResult: 'offline', lastError: 'CLIENT_SYNC_FAILED', outboxSize: 1 });
+    expect(sync).toEqual({
+      lastResult: 'offline',
+      lastError: 'CLIENT_SYNC_FAILED',
+      outboxSize: 1,
+      outboxSessions: 0,
+    });
   });
 
   it("an answer to GET /me that is not the contract's shape re-queues nothing", async () => {

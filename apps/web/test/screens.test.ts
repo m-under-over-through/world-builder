@@ -225,7 +225,10 @@ describe('the screens render the words of copy.md', () => {
 
   it('the session end with answers waiting: the count in its wording', () => {
     render(SessionEnd, {
-      app: state({ code: '1234567890123456', sync: { lastResult: 'offline', outboxSize: 3 } }),
+      app: state({
+        code: '1234567890123456',
+        sync: { lastResult: 'offline', outboxSize: 3, outboxSessions: 0 },
+      }),
     });
     expect(
       screen.getByText(fill(copy.item('Session end', 'waiting to sync'), { n: 3 })),
@@ -268,11 +271,133 @@ describe('the screens render the words of copy.md', () => {
     render(PrivacyPanel, {
       app: state({
         code: '1234567890123456',
-        sync: { lastResult: 'error', lastError: 'CLIENT_SYNC_FAILED', outboxSize: 2 },
+        lastError: 'CLIENT_SYNC_FAILED',
+        sync: {
+          lastResult: 'error',
+          lastError: 'CLIENT_SYNC_FAILED',
+          outboxSize: 2,
+          outboxSessions: 1,
+        },
       }),
     });
     expect(screen.getByText(MASKED_CODE)).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'delete') })).toBeTruthy();
-    expect(screen.getByText('CLIENT_SYNC_FAILED', { exact: false })).toBeTruthy();
+    expect(screen.getByText('CLIENT_SYNC_FAILED')).toBeTruthy();
+    expect(screen.getByText(copy.error('CLIENT_SYNC_FAILED'), { exact: false })).toBeTruthy();
+    expect(
+      screen.getByText(
+        fill(copy.item('Privacy panel', 'outbox summary'), { events: 2, sessions: 1 }),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(copy.item('Privacy panel', 'code note'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
+  });
+
+  const ME = {
+    workshop: {
+      slug: 'rural-manufacturing',
+      name: 'x',
+      closesDay: '2026-12-06',
+      deleteDay: '2027-02-05',
+    },
+    participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 1 },
+    sessions: [
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        sessionNo: 1,
+        startedDay: '2026-11-16',
+        deckVersion: '0.1',
+        seed: '0123456789abcdef',
+      },
+    ],
+    events: [
+      {
+        id: '10000000-0000-4000-8000-000000000001',
+        sessionId: '00000000-0000-4000-8000-000000000001',
+        cardId: 'cool',
+        seq: 0,
+        kind: 'shown' as const,
+        createdDay: '2026-11-16',
+        deckVersion: '0.1',
+      },
+      {
+        id: '10000000-0000-4000-8000-000000000002',
+        sessionId: '00000000-0000-4000-8000-000000000001',
+        cardId: 'cool',
+        seq: 1,
+        kind: 'answered' as const,
+        body: 'v1.' + 'Q'.repeat(80),
+        createdDay: '2026-11-16',
+        deckVersion: '0.1',
+      },
+      {
+        id: '10000000-0000-4000-8000-000000000003',
+        sessionId: '00000000-0000-4000-8000-000000000001',
+        cardId: 'on-tv',
+        seq: 2,
+        kind: 'deferred' as const,
+        createdDay: '2026-11-17',
+        deckVersion: '0.1',
+      },
+    ],
+  };
+
+  it('the privacy panel: what we store, row by row and in plain words, the sealed body shown as sealed', () => {
+    render(PrivacyPanel, {
+      app: state({ code: '1234567890123456', me: ME, lastSyncDay: '2026-11-17' }),
+    });
+    const panel = copy.sections.get('Privacy panel')!.items;
+    expect(
+      screen.getByText(fill(panel['stored summary']!, { sessions: 1, events: 3 }), {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText(fill(panel['session row']!, { n: 1, day: '2026-11-16' }))).toBeTruthy();
+    const text = document.body.textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain(
+      fill(panel['event row']!, {
+        kind: copy.item('Event kinds', 'deferred'),
+        card: 'on-tv',
+        seq: 2,
+        day: '2026-11-17',
+        version: '0.1',
+      }),
+    );
+    expect(text).toContain(fill(panel['sealed body']!, { chars: 83 }));
+    expect(text).not.toContain('QQQQ');
+    expect(text).toContain(`${panel['joined']} 2026-11-16`);
+    expect(text).toContain(`${panel['came through']} wave-1`);
+    expect(text).toContain(`${panel['invites left']} 3`);
+    expect(text).toContain(fill(panel['last sync day']!, { day: '2026-11-17' }));
+    expect(screen.getByText(copy.text('Data management plan'))).toBeTruthy();
+    expect(screen.getByText(copy.text('Privacy panel: caveat'))).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
+    ).toBeTruthy();
+  });
+
+  it('the privacy panel links to the source at the running version', () => {
+    render(PrivacyPanel, { app: state() });
+    const link = screen.getByRole('link', {
+      name: copy.item('Privacy panel', 'source'),
+    }) as HTMLAnchorElement;
+    expect(link.href).toContain(copy.item('Trust page variables', 'source'));
+  });
+
+  it('the privacy panel, a code the server could not be asked about: "could not be read"', () => {
+    render(PrivacyPanel, { app: state({ code: '1234567890123456', me: null }) });
+    expect(screen.getByText(copy.item('Privacy panel', 'not reachable'))).toBeTruthy();
+  });
+
+  it('the privacy panel, delete in two steps: the question with "yes" and "keep" only after the first tap', () => {
+    const { unmount } = render(PrivacyPanel, { app: state({ code: '1234567890123456' }) });
+    expect(screen.queryByText(copy.text('Privacy panel: delete confirm'))).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'yes delete') })).toBeNull();
+    unmount();
+    render(PrivacyPanel, { app: state({ code: '1234567890123456', confirmingDelete: true }) });
+    expect(screen.getByText(copy.text('Privacy panel: delete confirm'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'yes delete') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'keep') })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'delete') })).toBeNull();
   });
 });

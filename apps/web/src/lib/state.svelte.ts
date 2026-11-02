@@ -43,9 +43,16 @@ import {
   type LiveSession,
 } from './session.ts';
 import { localDay, WorkshopStore } from './store.ts';
-import { queueJoin, reconcile, syncNow, syncOnOpen, type SyncStatus } from './sync.ts';
+import {
+  LAST_SYNC_DAY,
+  queueJoin,
+  reconcile,
+  syncNow,
+  syncOnOpen,
+  type SyncStatus,
+} from './sync.ts';
 import { truncateCodePoints } from './text.ts';
-import { defaultCopy, findWorkshop, type Workshop } from './workshops.ts';
+import { defaultCopy, findWorkshop, VERSION, type Workshop } from './workshops.ts';
 
 /**
  * The state of the client and everything that changes it, in one place a reader can follow from
@@ -129,7 +136,13 @@ export class AppState {
   cardState = $state<CardState>('fresh');
   joining = $state(false);
   hintOpen = $state(false);
-  sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0 });
+  sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0, outboxSessions: 0 });
+  /** The last error code of any kind, server or client, for the panel's diagnostics. */
+  lastError = $state('');
+  /** The day of the last sync the server accepted, for the panel; empty when there was none. */
+  lastSyncDay = $state('');
+  /** The two-step delete: the question is on the screen, with "yes" and "keep". */
+  confirmingDelete = $state(false);
   /** The sync in flight, so two never run at once (one after a save, one after a set-aside). */
   private syncing: Promise<SyncStatus> | null = null;
   /** Where the session end stands: the code first on session 1, then the install prompt, then "come back". */
@@ -145,6 +158,19 @@ export class AppState {
   cookies = $state(0);
   /** The screen the panel was opened from, to go back to. */
   private before: Screen = 'loading';
+
+  /** Show an error on this screen, and remember it for the panel's diagnostics. */
+  private fail(code: string): void {
+    this.error = code;
+    this.lastError = code;
+  }
+
+  /** A sync status as it comes back: kept, and its error, if any, remembered for the diagnostics. */
+  private note(status: SyncStatus): SyncStatus {
+    this.sync = status;
+    if (status.lastError) this.lastError = status.lastError;
+    return status;
+  }
 
   /** 1 for the participant's first session: the demo card and the hint show only then. */
   get sessionNo(): number {
@@ -224,7 +250,7 @@ export class AppState {
     }
     if (route.page === 'panel') {
       // The sync on open has just read GET /me; the panel shows it rather than asking again.
-      this.showPanel();
+      await this.showPanel();
       return;
     }
     await this.land();
@@ -281,9 +307,15 @@ export class AppState {
    */
   private async syncOnOpen(answer?: ApiResult<unknown>): Promise<void> {
     if (!this.store || !this.workshop) return;
-    const { me, sync } = await syncOnOpen(this.store, this.workshop.config.slug, this.code, answer);
+    const { me, sync, error } = await syncOnOpen(
+      this.store,
+      this.workshop.config.slug,
+      this.code,
+      answer,
+    );
     this.me = me;
-    this.sync = sync;
+    if (error) this.lastError = error;
+    this.note(sync);
   }
 
   /**
@@ -437,7 +469,7 @@ export class AppState {
         }
         if (!res.ok && res.status !== 0) {
           if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
-          else this.error = res.error;
+          else this.fail(res.error);
           return;
         }
         if (!res.ok) await queueJoin(this.store, body);
@@ -466,7 +498,7 @@ export class AppState {
     const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code: typed });
     if (!res.ok) {
       if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
-      else this.error = res.error;
+      else this.fail(res.error);
       return;
     }
     this.code = typed;
@@ -506,7 +538,7 @@ export class AppState {
     } catch {
       // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
       // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
-      this.error = 'CLIENT_SEAL_FAILED';
+      this.fail('CLIENT_SEAL_FAILED');
       return false;
     }
     this.cardState = 'saving';
@@ -545,8 +577,7 @@ export class AppState {
   private requestSync(): Promise<SyncStatus> {
     const run = async () => {
       if (!this.store || !this.workshop) return this.sync;
-      this.sync = await syncNow(this.store, this.workshop.config.slug, this.code);
-      return this.sync;
+      return this.note(await syncNow(this.store, this.workshop.config.slug, this.code));
     };
     const next = (this.syncing ?? Promise.resolve()).then(run, run);
     this.syncing = next;
@@ -559,12 +590,18 @@ export class AppState {
   /** "Your privacy" from any screen: a fresh GET /me, so the rows are what the server holds now. */
   async openPanel(): Promise<void> {
     if (!this.store || !this.workshop) return;
-    if (this.code) this.me = await reconcile(this.store, this.workshop.config.slug, this.code);
-    this.showPanel();
+    if (this.code) {
+      const { me, error } = await reconcile(this.store, this.workshop.config.slug, this.code);
+      this.me = me;
+      if (error) this.lastError = error;
+    }
+    await this.showPanel();
   }
 
-  private showPanel(): void {
+  private async showPanel(): Promise<void> {
     this.before = this.screen;
+    this.confirmingDelete = false;
+    this.lastSyncDay = (await this.store?.get(LAST_SYNC_DAY)) ?? '';
     this.cookies = document.cookie.split(';').filter((c) => c.trim()).length;
     const seen = new Set<string>([location.host]);
     // The browser's own record of every resource this page fetched; absent in a test DOM.
@@ -595,19 +632,34 @@ export class AppState {
     else await this.land();
   }
 
+  /** "Delete everything about me": the question first; nothing is sent until "yes". */
+  askDelete(): void {
+    this.confirmingDelete = true;
+  }
+
+  keepAnswers(): void {
+    this.confirmingDelete = false;
+  }
+
+  /** The second step: DELETE /me, then the device wiped, then the workshop's home. */
   async deleteMe(): Promise<void> {
-    if (!this.store || !this.workshop) return;
-    if (!confirm(this.copy.text('Privacy panel: delete confirm'))) return;
+    if (!this.store || !this.workshop || !this.confirmingDelete) return;
     const res = await api(`/${this.workshop.config.slug}/me`, {
       method: 'DELETE',
       code: this.code,
     });
     if (!res.ok) {
-      this.error = res.error;
+      this.fail(res.error);
       return;
     }
     await this.store.wipe();
-    location.href = `/${this.workshop.config.slug}/`;
+    this.go(pageHref(this.workshop.config.slug));
+  }
+
+  /** The source at the commit that is running, for the panel and the trust page. */
+  get sourceHref(): string {
+    const source = this.copy.item('Trust page variables', 'source');
+    return VERSION === 'local' ? source : `${source}/tree/${VERSION}`;
   }
 
   async copyCode(): Promise<void> {

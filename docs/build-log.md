@@ -1374,3 +1374,39 @@ On the deploy preview on a phone: finish the first session (four cards). "That i
 
 - `theme_color` and the icon's colours are the visual pass's first tokens (item 10); the manifest and the icons will follow them.
 - The worker's own update: `registerType: 'autoUpdate'` swaps the files on the next open after a deploy. No "a new version is ready" line yet; the panel's version row says which commit is running.
+
+---
+
+## 2026-11-03, Tuesday, small hours, later. UI item 7: the privacy panel in full
+
+### What
+
+- **What we store, row by row** (`apps/web/src/screens/PrivacyPanel.svelte`). The rows of `GET /me` as they are, in plain words: the participant (joined on which day, came through which wave or an invite, invites left), every session (number and day), every event (kind in the words of the new "Event kinds" list, the card, the number in the session, the day, the deck version), and a sealed body shown as "sealed answer, N characters, unreadable here and on the server", never its text (ADR 0007). The summary line stays; the rows open under "Show every row". A code the server could not be asked about reads "could not be read from the server just now".
+- **Diagnostics.** The last sync result with the day of the last sync the server accepted (`lastSyncDay` in the device's settings, set by every successful push); what waits in the outbox as events in sessions; the last error code of any kind, server or client, with its one-line wording from `copy.md`. `AppState.lastError` is set wherever an error is shown or a sync or `GET /me` fails; it is the one place the code itself is shown to a participant, as the map says.
+- **The code** with Reveal, Hide and Copy (groups of four) and the line "this is the only thing that identifies you to us"; **the version** with a link to the source at the running commit; **the data management plan** and **the caveat** from section 13; **"I have a code"** from the panel, to `/continue`.
+- **Delete in two steps.** "Delete everything about me" shows the question on the screen with "Yes, delete everything" and "Keep my answers"; nothing is sent until "yes". Then `DELETE /me`, the device wiped, the workshop's home. The browser's `confirm()` dialog is gone.
+- `copy.md`: the "Privacy panel" list grows to 33 labels (rows, the summary, the outbox, the source, the plan, "another device"), a new "Event kinds" list, and `source` under "Trust page variables". `SyncStatus` counts sessions as well as events. Tests: every row from a `GET /me` fixture, the body shown as sealed and never its text; the last error with its line; the last sync day; the outbox counts; the source link at the version; "could not be read"; the two-step delete on the screen and in the rendered app (the first tap sends nothing, "keep" cancels, "yes" sends `DELETE /me` and wipes the device); "I have a code" from the panel; the copy button; a failed `GET /me` as the last error. 150 client tests, 373 in the repository (8 new).
+
+### Why
+
+Item 7 of the UI brief; architecture plan, section 13 (the panel is the live version of the trust page) and ADR 0007 (sealed bodies shown as sealed).
+
+### How to verify
+
+```
+npm run check                       # 373 tests
+```
+
+On the deploy preview with a code: "Your privacy". Reveal shows the digits, Copy puts them on the clipboard. "Show every row" lists the participant, the sessions and the events, each answer as "sealed answer, N characters". "Last sync: ok, on <today>"; "Waiting to sync: 0 events in 0 sessions"; "Last error: none" (turn on airplane mode, answer a card, open the panel again: `CLIENT_SYNC_FAILED` with its line). The version links to the commit on GitHub. "Delete": the question, "Keep my answers" closes it; "Delete", "Yes, delete everything": the welcome, and "I have a code" with the old code says it is not ours.
+
+### Decisions made on the way
+
+- **The rows are listed, not tabulated.** A phone is narrow; one line per row with the fields in words reads better than a table and needs no horizontal scroll. The summary line comes first and the rows open on request.
+- **The error code is shown as a code only here**, with its participant wording beside it, so the runbook lookup and the plain meaning sit together.
+- **`lastError` is separate from the screen's `error`.** A screen's error clears when the screen changes; the diagnostics remember the last one until the next.
+- **The two steps live on the panel**, not in a browser dialog: a dialog's words cannot come from `copy.md`, and the installed app on iOS shows system dialogs poorly.
+
+### Open
+
+- The runbook's `CLIENT_SEAL_FAILED` entry says the client shows the crypto package's own code; since the review fixes it shows `CLIENT_SEAL_FAILED` for every sealing failure. The ops builder's file; a line for the integrator.
+- A participant with hundreds of events gets a long list under "Show every row"; fine for this workshop's four cards a session, worth a page size the week after launch.

@@ -53,7 +53,7 @@ async function open(pathname: string, wait?: AppState['wait']): Promise<AppState
   const app = new AppState();
   app.wait = wait ?? (async () => {});
   render(App, { app });
-  await screen.findByRole('heading');
+  await screen.findAllByRole('heading');
   return app;
 }
 
@@ -423,6 +423,78 @@ describe('the first session', () => {
     expect((calls[1]!.body as { code: string }).code).toBe(
       (calls[2]!.body as { code: string }).code,
     );
+  });
+});
+
+describe('the privacy panel', () => {
+  async function withACode() {
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', '1234567890123456');
+    store.close();
+  }
+
+  it('"Delete everything about me" asks first, "Keep my answers" sends nothing, "Yes" deletes and wipes the device', async () => {
+    await withACode();
+    const calls = stubRoutes({
+      [`/api/${SLUG}/me`]: [() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } })],
+    });
+    const user = userEvent.setup();
+    const gone: string[] = [];
+    const app = await open(`/${SLUG}/panel`);
+    app.go = (href) => gone.push(href);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'delete') }));
+    expect(await screen.findByText(copy.text('Privacy panel: delete confirm'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'keep') }));
+    await waitFor(() =>
+      expect(screen.queryByText(copy.text('Privacy panel: delete confirm'))).toBeNull(),
+    );
+    expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'delete') }));
+    await user.click(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'yes delete') }),
+    );
+    await waitFor(() => expect(gone).toEqual([`/${SLUG}/`]));
+    expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.path)).toEqual([
+      `/api/${SLUG}/me`,
+    ]);
+    const store = new WorkshopStore(SLUG);
+    expect(await store.get('code')).toBeUndefined();
+    store.close();
+  });
+
+  it('"I have a code" from the panel opens enter code at /continue', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/panel`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
+    expect(await screen.findByText(copy.text('Enter code'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/continue`);
+  });
+
+  it('the last error of a failed sync is shown in the diagnostics with its one line', async () => {
+    await withACode();
+    stubRoutes({
+      [`/api/${SLUG}/me`]: [() => ({ status: 500, body: { error: 'SERVER_ERROR' } })],
+    });
+    await open(`/${SLUG}/panel`);
+    expect(screen.getByText('SERVER_ERROR')).toBeTruthy();
+    expect(screen.getByText(copy.error('SERVER_ERROR'), { exact: false })).toBeTruthy();
+    expect(screen.getByText(copy.item('Privacy panel', 'not reachable'))).toBeTruthy();
+  });
+
+  it('the copy button puts the code on the clipboard in groups of four', async () => {
+    await withACode();
+    stubRoutes({
+      [`/api/${SLUG}/me`]: [() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } })],
+    });
+    // userEvent.setup() lends the test DOM a clipboard; what the button wrote is read back from it.
+    const user = userEvent.setup();
+    await open(`/${SLUG}/panel`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'copy') }));
+    expect(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'copied') }),
+    ).toBeTruthy();
+    expect(await navigator.clipboard.readText()).toBe('1234 5678 9012 3456');
   });
 });
 
