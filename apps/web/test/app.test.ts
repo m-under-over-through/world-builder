@@ -197,3 +197,111 @@ describe('the pages a participant can open directly', () => {
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
   });
 });
+
+/** A stub that answers by path, in order of the calls to the same path. */
+function stubRoutes(
+  routes: Record<string, (() => { status: number; body: unknown } | 'offline')[]>,
+) {
+  const calls: { path: string; body: unknown }[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: string | URL | Request, init: RequestInit = {}) => {
+      const path = String(input);
+      calls.push({ path, body: init.body ? JSON.parse(String(init.body)) : undefined });
+      const queue = routes[path] ?? [];
+      const answer = (queue.shift() ?? (() => ({ status: 200, body: {} })))();
+      if (answer === 'offline') throw new TypeError('Failed to fetch');
+      return new Response(JSON.stringify(answer.body), { status: answer.status });
+    }),
+  );
+  return calls;
+}
+
+const JOINED = () => ({ status: 200, body: { ok: true } });
+const SYNCED = () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [] } });
+
+describe('the first session', () => {
+  async function throughTheIntro(user: ReturnType<typeof userEvent.setup>) {
+    await open(`/${SLUG}/join/wave-1`);
+    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }));
+    expect(screen.getByText(copy.text('Intro 1'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
+    expect(screen.getByText(copy.text('Intro 2'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(screen.getByText(copy.text('Intro 1'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
+    expect(screen.getByText(copy.text('Intro 3, consent'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
+  }
+
+  it('intro 1, intro 2 with Back, consent, then the demo card, then the first card with the hint', async () => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0',
+      configurable: true,
+    });
+    const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
+    expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }));
+    expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+  });
+
+  it('a taken code is retried once, silently, with a fresh code', async () => {
+    const calls = stubRoutes({
+      [`/api/${SLUG}/join`]: [() => ({ status: 409, body: { error: 'JOIN_CODE_TAKEN' } }), JOINED],
+      [`/api/${SLUG}/sync`]: [SYNCED],
+    });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
+    const joins = calls.filter((c) => c.path.endsWith('/join'));
+    expect(joins).toHaveLength(2);
+    expect((joins[0]!.body as { code: string }).code).not.toBe(
+      (joins[1]!.body as { code: string }).code,
+    );
+    expect(screen.queryByText(copy.error('JOIN_CODE_TAKEN'))).toBeNull();
+  });
+
+  it('a second taken code is shown in its wording', async () => {
+    const taken = () => ({ status: 409, body: { error: 'JOIN_CODE_TAKEN' } });
+    stubRoutes({ [`/api/${SLUG}/join`]: [taken, taken] });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.error('JOIN_CODE_TAKEN'))).toBeTruthy();
+  });
+
+  it('a full wave is shown in its wording on the consent screen', async () => {
+    stubRoutes({
+      [`/api/${SLUG}/join`]: [() => ({ status: 403, body: { error: 'JOIN_WAVE_FULL' } })],
+    });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.error('JOIN_WAVE_FULL'))).toBeTruthy();
+    expect(screen.queryByText('JOIN_WAVE_FULL')).toBeNull();
+  });
+
+  it('offline, the join is queued, the session starts, and the join goes out with the first sync', async () => {
+    const calls = stubRoutes({
+      [`/api/${SLUG}/join`]: [() => 'offline', JOINED],
+      [`/api/${SLUG}/sync`]: [SYNCED],
+    });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
+    await screen.findByText(copy.item('Card states', 'synced'));
+    const paths = calls.map((c) => c.path.replace(`/api/${SLUG}`, ''));
+    expect(paths).toEqual(['/waves/wave-1/opened', '/join', '/join', '/sync']);
+    expect((calls[1]!.body as { code: string }).code).toBe(
+      (calls[2]!.body as { code: string }).code,
+    );
+  });
+});

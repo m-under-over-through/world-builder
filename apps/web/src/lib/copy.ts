@@ -169,7 +169,11 @@ export const COPY_LISTS = {
   Titles: [
     'not a workshop',
     'enter code',
+    'intro 1',
+    'intro 2',
     'consent',
+    'demo card',
+    'dictation hint',
     'session end',
     'closed',
     'not open yet',

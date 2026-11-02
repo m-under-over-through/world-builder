@@ -17,7 +17,7 @@
 {#if canJoin}
   <section>
     <p>{app.copy.text('Welcome: new here')}</p>
-    <button class="primary" onclick={() => (app.screen = 'consent')}
+    <button class="primary" onclick={() => (app.screen = 'intro-1')}
       ><span>{app.copy.item('Buttons', 'new here')}</span></button
     >
   </section>

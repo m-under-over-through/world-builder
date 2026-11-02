@@ -702,3 +702,39 @@ On the deploy preview, in a fresh browser: open `/rural-manufacturing/` (no link
 ### Open
 
 - Nothing for the integrator. Item 4 (the intro, the demo card, the dictation hint) is next; item 5 waits for `packages/deck`.
+
+---
+
+## 2026-11-02, Monday evening. UI item 4: the first session
+
+### What
+
+- **The intro.** `apps/web/src/screens/Intro.svelte` shows Intro 1 and Intro 2 (copy, Back and Next) and Intro 3, the consent, with "I understand" and Back. Back on Intro 1 is the welcome. The consent-only screen of item 2 is folded in.
+- **The join is sturdier.** `JOIN_CODE_TAKEN` is retried once, silently, with a fresh code; a second refusal is shown in its wording. Offline, the join is queued on the device (`pendingJoin` in the settings, the request as the contract spells it) and the session starts anyway; `syncNow` sends the queued join before anything else and forgets it once the server accepts it, so no event is ever sent for a code the server does not know. A queued join the server refuses later (a wave that filled meanwhile) stays queued and shows as the sync error.
+- **The demo card** (`DemoCard.svelte`) opens the first session: the "Demo card" block in a card, "Got it", nothing recorded. Returning sessions skip it.
+- **The dictation hint.** `lib/platform.ts` picks the platform from the browser's user agent string, on the device, for this one choice: iPhone and iPad (an iPad that calls itself a Mac is told apart by its touch points), Android, Mac, Windows, ChromeOS; nothing on Linux and unknown. On the first card of the first session the hint for that platform opens by itself, dismissible with "Got it"; "Prefer to talk?" on every card opens it again. On a platform with no hint neither appears.
+- `copy.md`: five entries in the Titles list (intro 1, intro 2, demo card, dictation hint, and consent stays). Tests: platform detection (eight user agents); the queued join (sent first, kept while offline, refused, damaged); the intro's three screens, the demo card and the hint on their own; the first session end to end in the rendered app, with Back, the demo card, the hint, "Got it" and "Prefer to talk?"; the retry on a taken code (two joins, two codes, nothing shown); a second taken code and a full wave shown in their wording; offline: the session starts and the join goes out before the first sync with the same code. 186 tests (18 new).
+
+### Why
+
+Item 4 of the UI brief. The 8.1 intro of the architecture plan, and the two failure paths of the consent screen the gap list named: a taken code and no network.
+
+### How to verify
+
+```
+npm run check            # 186 tests
+```
+
+On the deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`, "New here": Intro 1 with Next and Back; Next: Intro 2; Back and Next again; Next: the consent; "I understand": the demo card; "Got it": card 1 of 4 with the hint for your platform ("Press Windows + H" on Windows, "Tap the microphone on your keyboard" on a phone); "Got it" hides it; "Prefer to talk?" shows it again; set the card aside: the next card has no hint and still "Prefer to talk?". Offline (airplane mode after the intro loads): "I understand" still reaches the demo card; back online, the first Save or Set aside shows "Synced." and the privacy panel's "what we store" counts the session.
+
+### Decisions made on the way
+
+- **The queued join lives in the sync**, not in the join: the join only writes the record, and the first `syncNow` sends it, so one function owns the order "join, then events".
+- **The platform is read from the user agent string on the device and forgotten.** Nothing of it is stored, sent or logged; the CSP and the non-negotiables are untouched.
+- **The demo card and the hint key off the session number**, which the state already had to compute: session 1 and nothing else.
+- **The hint closes when the card changes**, so it reads as "the first card's hint"; "Prefer to talk?" brings it back anywhere.
+
+### Open
+
+- The demo card's swipe (item 5) is only described; the card is tapped away with "Got it" until the swipe exists.
+- When the server refuses a queued join after the fact, the participant sees the sync error line and the diagnostics; nothing else can be done on the device. Noted in the report.

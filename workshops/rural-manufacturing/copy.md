@@ -78,7 +78,11 @@ Add this to your home screen for next time. [per-platform steps]
 
 - not a workshop: World Builder
 - enter code: Your code
+- intro 1: What this is
+- intro 2: How it works
 - consent: Before you start
+- demo card: Try a card
+- dictation hint: Prefer to talk?
 - session end: That is a session.
 - closed: This workshop has closed.
 - not open yet: Not open yet.

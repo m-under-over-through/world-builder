@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import Card from '../src/screens/Card.svelte';
 import Closed from '../src/screens/Closed.svelte';
-import Consent from '../src/screens/Consent.svelte';
+import DemoCard from '../src/screens/DemoCard.svelte';
 import EnterCode from '../src/screens/EnterCode.svelte';
+import Intro from '../src/screens/Intro.svelte';
 import NotAWorkshop from '../src/screens/NotAWorkshop.svelte';
 import PrivacyPanel from '../src/screens/PrivacyPanel.svelte';
 import SessionEnd from '../src/screens/SessionEnd.svelte';
@@ -69,11 +70,55 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('textbox')).toBeTruthy();
   });
 
-  it('consent, with an error in its wording', () => {
-    render(Consent, { app: state({ error: 'RATE_LIMITED' }) });
+  it('intro 1 and intro 2: the copy, Next and Back', () => {
+    render(Intro, { app: state({ screen: 'intro-1' }) });
+    expect(screen.getByText(copy.text('Intro 1'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'next') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
+    render(Intro, { app: state({ screen: 'intro-2' }) });
+    expect(screen.getByText(copy.text('Intro 2'))).toBeTruthy();
+  });
+
+  it('intro 3, consent: the draft, "I understand", Back, and an error in its wording', () => {
+    render(Intro, { app: state({ screen: 'consent', error: 'RATE_LIMITED' }) });
     expect(screen.getByText(copy.text('Intro 3, consent'))).toBeTruthy();
     expect(screen.getByText(copy.error('RATE_LIMITED'))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
+  });
+
+  it('the demo card: the explanation and "Got it"', () => {
+    render(DemoCard, { app: state({ screen: 'demo' }) });
+    expect(screen.getByText(copy.text('Demo card'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
+  });
+
+  it('the card with the dictation hint open: the hint for this platform and "Got it"', () => {
+    const cards = workshop.deck.cards.slice(0, 1);
+    render(Card, { app: state({ cards, platform: 'Windows', hintOpen: true }) });
+    expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    ).toBeNull();
+  });
+
+  it('the card with the hint closed: "Prefer to talk?" on a platform that has dictation', () => {
+    const cards = workshop.deck.cards.slice(0, 1);
+    render(Card, { app: state({ cards, platform: 'Android', hintOpen: false }) });
+    expect(
+      screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    ).toBeTruthy();
+    expect(screen.queryByText(copy.item('Dictation hint', 'Android'))).toBeNull();
+  });
+
+  it('the card on a platform with no dictation: no hint and no "Prefer to talk?"', () => {
+    const cards = workshop.deck.cards.slice(0, 1);
+    render(Card, { app: state({ cards, platform: null, hintOpen: true }) });
+    expect(
+      screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'got it') })).toBeNull();
   });
 
   it('the card: the question, the nudge, the position, and the sync line', () => {

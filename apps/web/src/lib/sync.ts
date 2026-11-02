@@ -1,5 +1,10 @@
-import type { MeResponse, SyncResponse } from '@wb/contracts';
-import { api } from './api.ts';
+import {
+  joinRequestSchema,
+  type JoinRequest,
+  type MeResponse,
+  type SyncResponse,
+} from '@wb/contracts';
+import { api, type ApiResult } from './api.ts';
 import { makeBatches } from './batches.ts';
 import { localDay, type WorkshopStore } from './store.ts';
 
@@ -9,12 +14,56 @@ export interface SyncStatus {
   outboxSize: number;
 }
 
+/** The setting that holds a join the device could not send (docs/screen-map.md, Intro 3). */
+export const PENDING_JOIN = 'pendingJoin';
+
+/**
+ * A join made offline waits on the device and goes out before the first sync: the session
+ * starts anyway, with the code the device generated, and the server learns of the participant
+ * when the network is back. Nothing is lost; the server refuses events for a code it does not
+ * know, so the join has to land first.
+ */
+export async function queueJoin(store: WorkshopStore, join: JoinRequest): Promise<void> {
+  await store.set(PENDING_JOIN, JSON.stringify(join));
+}
+
+export async function pendingJoin(store: WorkshopStore): Promise<JoinRequest | null> {
+  const stored = await store.get(PENDING_JOIN);
+  if (!stored) return null;
+  try {
+    return joinRequestSchema.parse(JSON.parse(stored));
+  } catch {
+    return null;
+  }
+}
+
+/** Send the queued join, if any. Null when there was nothing to send. */
+export async function sendPendingJoin(
+  store: WorkshopStore,
+  slug: string,
+): Promise<ApiResult<unknown> | null> {
+  const join = await pendingJoin(store);
+  if (!join) return null;
+  const res = await api(`/${slug}/join`, { body: join });
+  if (res.ok) await store.settings.delete(PENDING_JOIN);
+  return res;
+}
+
 /** Push the outbox in batches. Idempotent on the server, so a retry can never duplicate. */
 export async function syncNow(
   store: WorkshopStore,
   slug: string,
   code: string,
 ): Promise<SyncStatus> {
+  const joined = await sendPendingJoin(store, slug);
+  if (joined && !joined.ok) {
+    const remaining = await store.pending();
+    return {
+      lastResult: joined.status === 0 ? 'offline' : 'error',
+      lastError: joined.error,
+      outboxSize: remaining.events.length,
+    };
+  }
   const { sessions, events } = await store.pending();
   for (const batch of makeBatches(sessions, events)) {
     const res = await api<SyncResponse>(`/${slug}/sync`, { body: batch, code });

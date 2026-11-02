@@ -5,6 +5,7 @@ import {
   codeSchema,
   MAX_ANSWER_CHARS,
   type Card,
+  type JoinRequest,
   type MeResponse,
 } from '@wb/contracts';
 import { sealAnswer } from '@wb/crypto';
@@ -12,6 +13,7 @@ import { api } from './api.ts';
 import type { Copy } from './copy.ts';
 import { sessionCards, truncateCodePoints } from './deck.ts';
 import { dayStatus } from './days.ts';
+import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
   pageHref,
@@ -21,7 +23,7 @@ import {
   type Page,
 } from './route.ts';
 import { localDay, WorkshopStore } from './store.ts';
-import { reconcile, syncNow, type SyncStatus } from './sync.ts';
+import { queueJoin, reconcile, syncNow, type SyncStatus } from './sync.ts';
 import { defaultCopy, findWorkshop, type Workshop } from './workshops.ts';
 
 /**
@@ -38,7 +40,10 @@ export type Screen =
   | 'no-workshop'
   | 'welcome'
   | 'enter-code'
+  | 'intro-1'
+  | 'intro-2'
   | 'consent'
+  | 'demo'
   | 'card'
   | 'session-end'
   | 'panel'
@@ -58,13 +63,19 @@ export class AppState {
   error = $state('');
   /** Not an error code: the one local refusal, a code that is not 16 digits yet. */
   tooShort = $state(false);
+  /** The platform whose dictation hint applies, or null when there is none (Linux, unknown). */
+  platform = $state<Platform | null>(null);
 
   // the session
   cards = $state.raw<Card[]>([]);
   index = $state(0);
   sessionId = '';
+  /** 1 for the participant's first session: the demo card and the hint show only then. */
+  sessionNo = $state(0);
   seq = 0;
   saving = $state(false);
+  joining = $state(false);
+  hintOpen = $state(false);
   sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0 });
 
   // the panel
@@ -98,6 +109,7 @@ export class AppState {
       return;
     }
     this.copy = this.workshop.copy;
+    this.platform = detectPlatform(navigator.userAgent, navigator.maxTouchPoints);
     this.store = new WorkshopStore(route.slug);
     const saved = await this.store.get('code');
     const stored = parseArrival(await this.store.get('arrival'));
@@ -179,40 +191,61 @@ export class AppState {
     this.index = 0;
     this.seq = 0;
     this.sessionId = crypto.randomUUID();
-    const sessionNo =
-      Math.max(await this.store.sessions.count(), this.me?.sessions.length ?? 0) + 1;
+    this.sessionNo = Math.max(await this.store.sessions.count(), this.me?.sessions.length ?? 0) + 1;
     const seed = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
       b.toString(16).padStart(2, '0'),
     ).join('');
     await this.store.sessions.put({
       id: this.sessionId,
-      sessionNo,
+      sessionNo: this.sessionNo,
       startedDay: localDay(),
       deckVersion: this.workshop.deck.version,
       seed,
       synced: 0,
     });
-    this.screen = this.cards.length ? 'card' : 'session-end';
+    // The first session opens with the demo card and the dictation hint (architecture plan, 8.1).
+    this.hintOpen = this.sessionNo === 1 && this.platform !== null;
+    if (!this.cards.length) this.screen = 'session-end';
+    else this.screen = this.sessionNo === 1 ? 'demo' : 'card';
   }
 
-  /** Consent: generate the code, create the participant, start the first session. */
+  dismissDemo(): void {
+    this.screen = 'card';
+  }
+
+  /**
+   * Consent: generate the code, create the participant, start the first session.
+   * A taken code (JOIN_CODE_TAKEN, astronomically unlikely) is retried once, silently, with a
+   * fresh code. Offline, the join is queued on the device and the session starts anyway; the join
+   * goes out before the first sync (lib/sync.ts). The server's other refusals are shown.
+   */
   async join(): Promise<void> {
-    if (!this.store || !this.workshop) return;
+    if (!this.store || !this.workshop || this.joining) return;
+    this.joining = true;
     this.error = '';
-    const fresh = generateCode();
-    const body = this.arrival.invite
-      ? { code: fresh, invite: this.arrival.invite }
-      : { code: fresh, wave: this.arrival.wave ?? 'wave-1' };
-    const res = await api(`/${this.workshop.config.slug}/join`, { body });
-    if (!res.ok) {
-      if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
-      else this.error = res.error;
-      return;
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const fresh = generateCode();
+        const body: JoinRequest = this.arrival.invite
+          ? { code: fresh, invite: this.arrival.invite }
+          : { code: fresh, wave: this.arrival.wave ?? 'wave-1' };
+        const res = await api(`/${this.workshop.config.slug}/join`, { body });
+        if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && attempt === 0) continue;
+        if (!res.ok && res.status !== 0) {
+          if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
+          else this.error = res.error;
+          return;
+        }
+        if (!res.ok) await queueJoin(this.store, body);
+        this.code = fresh;
+        await this.store.set('code', this.code);
+        await this.store.set('consent', localDay());
+        await this.startSession();
+        return;
+      }
+    } finally {
+      this.joining = false;
     }
-    this.code = fresh;
-    await this.store.set('code', this.code);
-    await this.store.set('consent', localDay());
-    await this.startSession();
   }
 
   /** Enter code: the typed digits, checked here, then asked of the server. */
@@ -280,6 +313,7 @@ export class AppState {
 
   private async next(): Promise<void> {
     if (!this.store || !this.workshop) return;
+    this.hintOpen = false;
     this.sync = await syncNow(this.store, this.workshop.config.slug, this.code);
     if (this.index + 1 < this.cards.length) this.index += 1;
     else this.screen = 'session-end';

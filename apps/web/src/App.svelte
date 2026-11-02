@@ -3,8 +3,9 @@
   import { AppState } from './lib/state.svelte.ts';
   import Card from './screens/Card.svelte';
   import Closed from './screens/Closed.svelte';
-  import Consent from './screens/Consent.svelte';
+  import DemoCard from './screens/DemoCard.svelte';
   import EnterCode from './screens/EnterCode.svelte';
+  import Intro from './screens/Intro.svelte';
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
   import PrivacyPanel from './screens/PrivacyPanel.svelte';
   import SessionEnd from './screens/SessionEnd.svelte';
@@ -38,8 +39,10 @@
     <Welcome {app} />
   {:else if app.screen === 'enter-code'}
     <EnterCode {app} />
-  {:else if app.screen === 'consent'}
-    <Consent {app} />
+  {:else if app.screen === 'intro-1' || app.screen === 'intro-2' || app.screen === 'consent'}
+    <Intro {app} />
+  {:else if app.screen === 'demo'}
+    <DemoCard {app} />
   {:else if app.screen === 'card'}
     <Card {app} />
   {:else if app.screen === 'session-end'}
