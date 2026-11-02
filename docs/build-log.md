@@ -595,3 +595,36 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 
 - **"Locked" and "scrambled" instead of "encrypted" and "hashed"** in the participant-facing text, with the real terms one tap away on the trust page.
 - **No promise about hosting logs.** The policy says the hosts may keep technical records under their own policies and that we do not receive them; the trust page's honest limit says why that is the truthful version.
+
+---
+
+## 2026-11-02, Monday evening. Ops 3: the runbook describes the code; the services section written
+
+### What
+
+- Every one of the eighteen entries that said _Provisional_ was read against `apps/api/src/app.ts`, `netlify/functions/api.mts`, `apps/web/src` and `packages/crypto`, and rewritten to say what the code does today. Where the code does not yet do what the plan says, the entry says so and names the builder's item that changes it, so the runbook never describes a behaviour that cannot be seen. The mark is gone from the file; the introduction now says when the check was made.
+- The six entries the brief singled out: `WORKSHOP_UNKNOWN` no longer points at a `/api/<slug>/health` route that does not exist (the health listing of slugs does the job, and any unknown path answers this code); `WORKSHOP_CLOSED` covers both ends of the window and the status, and the staging file's earlier day; `JOIN_WAVE_UNKNOWN` says the deploy creates `wave-1` only; `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` say nothing is logged today and name the API builder's log line; `CLIENT_STORAGE_UNAVAILABLE` says the client does not produce it yet and names the UI builder's item 9.
+- The rest: `REQUEST_TOO_LARGE` (the two checks, the unit the API builder changes), `JOIN_WAVE_FULL` (the cap can be exceeded by one or two), `JOIN_INVITE_INVALID` and `JOIN_INVITE_USED` (hashes compared as strings; one statement claims an invite), `JOIN_CODE_TAKEN` (no log line; the client's retry is the UI builder's item 4; an invite is spent by the collision), `AUTH_CODE_MISSING` (what the header must look like, which routes carry it), `AUTH_CODE_UNKNOWN` (after a reset or a restore; the per-workshop limit on unknown codes; what the client does today with a stored code), `SYNC_BATCH_TOO_LARGE` (the numbers, checked before validation), `INVITES_EXHAUSTED` (existing participants are not topped up), `RATE_LIMITED` (the five buckets with their numbers, decision 3 pending in the API builder's item 6, the rows in `rate_buckets`), `SERVER_ERROR` (the log line's shape and where to read it within the day), `CLIENT_SEAL_FAILED` (a crypto error shows its own code; this one is for everything else), `CLIENT_SYNC_FAILED` (`offline` against `error`, Netlify's own 502 page), `CRYPTO_BAD_PRIVATE_KEY` and `CRYPTO_OPEN_FAILED` (the export's key check of ops item 1). The Netlify build entry mentions migrate's second line (ops item 2).
+- The services section replaces "To be written" with an introduction and one entry per service: Netlify and Neon lose their mark and gain their cost, login, failure and ops page; Backblaze, Better Stack, GitHub, Bitwarden and Google Workspace are new, each with where the login is, what it costs, what breaks without it, how to move off it, and its page in the ops repository. The three pages that did not exist, `runbook/github.md`, `runbook/bitwarden.md` and `runbook/google-workspace.md`, are an ops pull request of the same evening.
+
+### Why
+
+The brief's item 3: the runbook must describe the code as it is, not as it was planned. Half the entries were written on 23 October before any handler existed; four of them told the reader to look for a log line or a route that is not there. An operator following those on a bad night would have lost time on the runbook itself.
+
+### How to verify
+
+- `npm test -- packages/contracts/test/runbook.test.ts` (every code has a heading); `grep -c Provisional docs/runbook.md` prints 0.
+- Pick an entry and check its claim against the file it names, for example `RATE_LIMITED` against `LIMITS` in `apps/api/src/app.ts`, or `CLIENT_SYNC_FAILED` against `apps/web/src/lib/api.ts` and `sync.ts`.
+- On the deploy preview: `curl -s https://deploy-preview-<n>--worldbuilder-uot.netlify.app/api/nope` answers `WORKSHOP_UNKNOWN`, as the entry now says; `curl -s -X POST .../api/rural-manufacturing/join -H 'content-type: application/json' -d '{}'` answers `REQUEST_INVALID` with no log line in the function's log.
+
+### Decisions made on the way
+
+- **An entry names the builder's item when the code lags the plan**, instead of describing the plan as if it were built or leaving the behaviour out. Three such places: the validation log line (API item 2), the byte cap's unit (API item 1), the storage fallback and the stored-code behaviour (UI item 9). When those land, the sentence is removed; the API and UI builders' reports propose the wording and the ops builder applies it.
+- **The join limit is written as the code has it (30) with decision 3 next to it (120)**, because the number in the file is the number participants meet until the API builder's change merges.
+- **Vendor pages for GitHub, the vault and the mail** rather than longer runbook entries: the public runbook says what and why, the private page names the identifiers, as the other vendors already do.
+- **Three forward references** (`runbook/scans.md`, `runbook/staging-reset.md`, `runbook/laptop-is-gone.md` in the ops repository) are left in, since items 4, 5 and 6 create them this week; the pull request says so.
+
+### Open
+
+- The API builder's and UI builder's runbook proposals, from their reports, are applied when the integrator passes them on.
+- Better Stack's paused staging monitor: the cause goes on `runbook/betterstack.md` once seen in the console.
