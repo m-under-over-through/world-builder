@@ -78,6 +78,14 @@ describe('applyDismiss: what "Set aside" does', () => {
     expect(after.plan.queue.at(-1)).toBe('tuesday-night');
   });
 
+  it('dismissedThisSession means "before this call": adding the id first turns a first dismissal into deferred', () => {
+    const plan = queueOf('a', 'b', 'c');
+    // Right: the set as it stood before this dismissal. The card goes to the end.
+    expect(applyDismiss(plan, 'a', []).event).toBe('dismissed');
+    // Wrong: the id added before the call. The engine reads a second dismissal and defers at once.
+    expect(applyDismiss(plan, 'a', ['a']).event).toBe('deferred');
+  });
+
   it('dismissedThisSession accepts a set or an array', () => {
     expect(applyDismiss(queueOf('a', 'b'), 'a', new Set(['a'])).event).toBe('deferred');
     expect(applyDismiss(queueOf('a', 'b'), 'a', ['a']).event).toBe('deferred');

@@ -20,7 +20,11 @@ export const AUTH_SCHEME = 'Code';
 export const ROUTES = {
   /** No auth. Counts an opened wave link. Called by the join page when it loads. */
   waveOpened: { method: 'POST', path: '/api/:slug/waves/:wave/opened' },
-  /** No auth. Creates the participant for a new code, through a wave or an invite. */
+  /**
+   * No auth. Creates the participant for a new code, through a wave or an invite. Budgeted at 120
+   * a minute per workshop (ADR 0012); a RATE_LIMITED answer carries Retry-After in seconds, and the
+   * client retries once after it.
+   */
   join: { method: 'POST', path: '/api/:slug/join' },
   /** Stores sessions and events; safe to retry. */
   sync: { method: 'POST', path: '/api/:slug/sync' },
@@ -54,7 +58,8 @@ export const ERROR_CODES = {
   WORKSHOP_UNKNOWN: { status: 404, meaning: 'No workshop with this slug.' },
   WORKSHOP_CLOSED: {
     status: 403,
-    meaning: 'The workshop is past its close day; it no longer accepts joins or events.',
+    meaning:
+      'The workshop is not open: before its opening day or past its close day. No joins, events, invites, reading or deletion; the client shows the closing screen.',
   },
   JOIN_WAVE_UNKNOWN: {
     status: 404,
@@ -90,7 +95,8 @@ export const ERROR_CODES = {
   INVITES_EXHAUSTED: { status: 403, meaning: 'The participant has no invites left.' },
   RATE_LIMITED: {
     status: 429,
-    meaning: 'Too many requests for this code or this route; the client waits and retries.',
+    meaning:
+      'Too many requests for this code or this route; the answer carries Retry-After in seconds, and the client waits that long and retries.',
   },
   SERVER_ERROR: {
     status: 500,
