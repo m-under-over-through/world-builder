@@ -6,23 +6,15 @@
 
   /**
    * The card (docs/screen-map.md, Core loop): the question, the answer field, Save and Set aside,
-   * and the line that says where the answer is. The answer lives here until `app.save` has
-   * sealed it; the limit is counted in code points so an emoji is never cut in half.
+   * and the line that says where the answer is. The answer being written is `app.draft`, kept in
+   * the state rather than here, so it survives "Your privacy" and Back; the limit is counted in
+   * code points so an emoji is never cut in half.
    *
    * The dictation hint (architecture plan, section 7) opens by itself on the first card of the
    * first session, on platforms that have dictation, and from "Prefer to talk?" on every card.
    */
   let { app }: { app: AppState } = $props();
-  let answer = $state('');
-  const remaining = $derived(MAX_ANSWER_CHARS - codePoints(answer));
-
-  async function save() {
-    if (await app.save(answer)) answer = '';
-  }
-  async function setAside() {
-    answer = '';
-    await app.setAside();
-  }
+  const remaining = $derived(MAX_ANSWER_CHARS - codePoints(app.draft));
 </script>
 
 {#if app.card}
@@ -32,7 +24,7 @@
   <div class="card">
     <p class="question">{app.card.text}</p>
     <textarea
-      bind:value={answer}
+      bind:value={app.draft}
       placeholder={app.copy.item('Card labels', 'placeholder')}
       aria-label={app.card.text}></textarea>
     <p class="muted">
@@ -46,11 +38,11 @@
     <div class="row">
       <button
         class="primary"
-        onclick={save}
-        disabled={app.saving || !answer.trim() || remaining < 0}
+        onclick={() => app.save()}
+        disabled={app.saving || !app.draft.trim() || remaining < 0}
         ><span>{app.copy.item('Buttons', 'save')}</span></button
       >
-      <button onclick={setAside}>{app.copy.item('Buttons', 'set aside')}</button>
+      <button onclick={() => app.setAside()}>{app.copy.item('Buttons', 'set aside')}</button>
       {#if app.platform && !app.hintOpen}
         <button onclick={() => (app.hintOpen = true)}
           >{app.copy.item('Buttons', 'prefer to talk')}</button
@@ -59,7 +51,8 @@
     </div>
   </div>
   {#if app.platform && app.hintOpen}
-    <aside class="hint" aria-label={app.copy.item('Titles', 'dictation hint')}>
+    <aside class="hint">
+      <h2>{app.copy.item('Titles', 'dictation hint')}</h2>
       <p>{app.copy.item('Dictation hint', app.platform)}</p>
       <button onclick={() => (app.hintOpen = false)}>{app.copy.item('Buttons', 'got it')}</button>
     </aside>

@@ -1,5 +1,6 @@
 import {
   joinRequestSchema,
+  meResponseSchema,
   type JoinRequest,
   type MeResponse,
   type SyncResponse,
@@ -18,21 +19,27 @@ export interface SyncStatus {
 export const PENDING_JOIN = 'pendingJoin';
 
 /**
- * A join made offline waits on the device and goes out before the first sync: the session
+ * A join made offline waits on the device and goes out before anything else: the session
  * starts anyway, with the code the device generated, and the server learns of the participant
- * when the network is back. Nothing is lost; the server refuses events for a code it does not
- * know, so the join has to land first.
+ * when the network is back. Nothing is lost; the server refuses events, and GET /me, for a code
+ * it does not know, so the join has to land first.
  */
 export async function queueJoin(store: WorkshopStore, join: JoinRequest): Promise<void> {
   await store.set(PENDING_JOIN, JSON.stringify(join));
 }
 
+/**
+ * The queued join, or null. A stored value that is not a join as the contract spells it (a
+ * damaged row, an older shape) is forgotten on the spot, so it is not read and ignored on every
+ * open from then on.
+ */
 export async function pendingJoin(store: WorkshopStore): Promise<JoinRequest | null> {
   const stored = await store.get(PENDING_JOIN);
   if (!stored) return null;
   try {
     return joinRequestSchema.parse(JSON.parse(stored));
   } catch {
+    await store.settings.delete(PENDING_JOIN);
     return null;
   }
 }
@@ -49,6 +56,16 @@ export async function sendPendingJoin(
   return res;
 }
 
+/** The status after a request that failed: offline when nothing answered, otherwise the server's code. */
+async function failed(store: WorkshopStore, res: ApiResult<unknown> & { ok: false }) {
+  const remaining = await store.pending();
+  return {
+    lastResult: res.status === 0 ? 'offline' : 'error',
+    lastError: res.error,
+    outboxSize: remaining.events.length,
+  } satisfies SyncStatus;
+}
+
 /** Push the outbox in batches. Idempotent on the server, so a retry can never duplicate. */
 export async function syncNow(
   store: WorkshopStore,
@@ -56,25 +73,15 @@ export async function syncNow(
   code: string,
 ): Promise<SyncStatus> {
   const joined = await sendPendingJoin(store, slug);
-  if (joined && !joined.ok) {
-    const remaining = await store.pending();
-    return {
-      lastResult: joined.status === 0 ? 'offline' : 'error',
-      lastError: joined.error,
-      outboxSize: remaining.events.length,
-    };
-  }
+  if (joined && !joined.ok) return failed(store, joined);
+  return pushOutbox(store, slug, code);
+}
+
+async function pushOutbox(store: WorkshopStore, slug: string, code: string): Promise<SyncStatus> {
   const { sessions, events } = await store.pending();
   for (const batch of makeBatches(sessions, events)) {
     const res = await api<SyncResponse>(`/${slug}/sync`, { body: batch, code });
-    if (!res.ok) {
-      const remaining = await store.pending();
-      return {
-        lastResult: res.status === 0 ? 'offline' : 'error',
-        lastError: res.error,
-        outboxSize: remaining.events.length,
-      };
-    }
+    if (!res.ok) return failed(store, res);
     await store.markSynced(res.data.acceptedSessionIds, res.data.acceptedEventIds, localDay());
   }
   const remaining = await store.pending();
@@ -91,12 +98,35 @@ export async function reconcile(
   slug: string,
   code: string,
 ): Promise<MeResponse | null> {
-  const res = await api<MeResponse>(`/${slug}/me`, { code });
+  const res = await api<unknown>(`/${slug}/me`, { code });
   if (!res.ok) return null;
-  const serverIds = new Set(res.data.events.map((e) => e.id));
+  // The boundary is checked here as everywhere else: an answer that is not the contract's shape
+  // (a proxy's error page, another version of the API) is treated as no answer, never as "the
+  // server lacks everything", which would re-queue every retained event.
+  const me = meResponseSchema.safeParse(res.data);
+  if (!me.success) return null;
+  const serverIds = new Set(me.data.events.map((e) => e.id));
   const local = await store.events.where('synced').equals(1).toArray();
   const missing = local.filter((e) => !serverIds.has(e.id)).map((e) => e.id);
   if (missing.length > 0) await store.markUnsynced(missing);
   await store.prune(localDay());
-  return res.data;
+  return me.data;
+}
+
+/**
+ * Everything a device with a code does when it opens, in the one order that works: the queued
+ * join first, since the server answers AUTH_CODE_UNKNOWN to everything else for a code it has
+ * not met; then the comparison with GET /me; then the outbox. While the join cannot go out,
+ * nothing else is asked, and the panel's "what we store" stays empty rather than wrong.
+ */
+export async function syncOnOpen(
+  store: WorkshopStore,
+  slug: string,
+  code: string,
+): Promise<{ me: MeResponse | null; sync: SyncStatus }> {
+  const joined = await sendPendingJoin(store, slug);
+  if (joined && !joined.ok) return { me: null, sync: await failed(store, joined) };
+  const me = await reconcile(store, slug, code);
+  const sync = await pushOutbox(store, slug, code);
+  return { me, sync };
 }

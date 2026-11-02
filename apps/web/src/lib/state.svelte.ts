@@ -9,7 +9,7 @@ import {
   type MeResponse,
 } from '@wb/contracts';
 import { sealAnswer } from '@wb/crypto';
-import { api } from './api.ts';
+import { api, DEFAULT_RETRY_AFTER_SECONDS } from './api.ts';
 import type { Copy } from './copy.ts';
 import { sessionCards, truncateCodePoints } from './deck.ts';
 import { dayStatus } from './days.ts';
@@ -23,7 +23,7 @@ import {
   type Page,
 } from './route.ts';
 import { localDay, WorkshopStore } from './store.ts';
-import { queueJoin, reconcile, syncNow, type SyncStatus } from './sync.ts';
+import { queueJoin, reconcile, syncNow, syncOnOpen, type SyncStatus } from './sync.ts';
 import { defaultCopy, findWorkshop, type Workshop } from './workshops.ts';
 
 /**
@@ -65,6 +65,22 @@ export class AppState {
   tooShort = $state(false);
   /** The platform whose dictation hint applies, or null when there is none (Linux, unknown). */
   platform = $state<Platform | null>(null);
+
+  /**
+   * The answer being written on the current card. It lives here, not in the card component, so
+   * opening "Your privacy" and coming back finds it where it was (review of item 4).
+   */
+  draft = $state('');
+  /** True while a refused join waits out the server's Retry-After before its one retry. */
+  retrying = $state(false);
+  /** How the join waits; a test replaces it so the wait is instant. */
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  /**
+   * The address this device arrived at, put back in the address bar whenever no page is shown.
+   * A wave link stays there, so the page can be shared or carried to another device from the
+   * address bar at any point (docs/screen-map.md, Entry); an invite is replaced by the home.
+   */
+  private home = '';
 
   // the session
   cards = $state.raw<Card[]>([]);
@@ -113,11 +129,13 @@ export class AppState {
     this.store = new WorkshopStore(route.slug);
     const saved = await this.store.get('code');
     const stored = parseArrival(await this.store.get('arrival'));
+    this.home = pageHref(route.slug);
     if (route.wave) {
       // A wave is not a secret, so the address stays as it is: a copied address, the share sheet
       // and Safari's tabs from other devices all still join. The open is counted once per device,
       // the first time this device arrives through this wave (lib/route.ts, countsAsOpen).
       this.arrival = { wave: route.wave };
+      this.home = `/${route.slug}/join/${route.wave}`;
       if (countsAsOpen(stored, route.wave)) {
         await this.store.set('arrival', JSON.stringify(this.arrival));
         void api(`/${route.slug}/waves/${route.wave}/opened`, { method: 'POST', body: {} });
@@ -131,13 +149,19 @@ export class AppState {
     } else {
       this.arrival = stored;
     }
-    if (saved) this.code = saved;
+    if (saved) {
+      // With a stored code the device syncs on every open, before any screen: opened at /panel
+      // or /continue as much as at the home, so nothing waits for Back.
+      this.code = saved;
+      await this.syncOnOpen();
+    }
     if (route.page === 'continue') {
       this.screen = 'enter-code';
       return;
     }
     if (route.page === 'panel') {
-      await this.openPanel();
+      // The sync on open has just read GET /me; the panel shows it rather than asking again.
+      this.showPanel();
       return;
     }
     await this.land();
@@ -146,12 +170,13 @@ export class AppState {
   /**
    * Move to a page a participant can open directly, and put its address in the address bar
    * (docs/screen-map.md, Entry): "I have a code" is /<slug>/continue; Back from it, or no page,
-   * is /<slug>/ and where the device lands. The address is replaced, not pushed, so the
-   * browser's back goes to wherever the person came from, never to a stale screen.
+   * is the address the device arrived at and where the device lands. The address is replaced,
+   * not pushed, so the browser's back goes to wherever the person came from, never to a stale
+   * screen.
    */
   async navigate(page?: Page): Promise<void> {
     if (!this.workshop) return;
-    history.replaceState(null, '', pageHref(this.workshop.config.slug, page));
+    history.replaceState(null, '', page ? pageHref(this.workshop.config.slug, page) : this.home);
     this.error = '';
     this.tooShort = false;
     if (page === 'continue') this.screen = 'enter-code';
@@ -159,26 +184,31 @@ export class AppState {
     else await this.land();
   }
 
-  /** Where a device lands after the arrival is known: the next card, or welcome, or closed. */
+  /**
+   * Where a device lands after the arrival is known and the sync on open is done: the next card
+   * with a code, welcome without, closed outside the workshop's days. The days are judged on the
+   * device before any request, so the screen does not depend on the API answering.
+   */
   private async land(): Promise<void> {
-    if (this.code) {
-      await this.afterCode();
-    } else {
-      // A new arrival outside the workshop's days is told so here, before any request, so the
-      // screen does not depend on the API answering (it may not, before hardening week).
-      this.screen = this.today() === 'open' ? 'welcome' : 'closed';
-    }
+    if (this.today() !== 'open') this.screen = 'closed';
+    else if (this.code) await this.startSession();
+    else this.screen = 'welcome';
+  }
+
+  /**
+   * The sync on open (lib/sync.ts, syncOnOpen): the queued join, then GET /me, then the outbox.
+   * Also what a code typed on "I have a code" goes through before its first card.
+   */
+  private async syncOnOpen(): Promise<void> {
+    if (!this.store || !this.workshop) return;
+    const { me, sync } = await syncOnOpen(this.store, this.workshop.config.slug, this.code);
+    this.me = me;
+    this.sync = sync;
   }
 
   async afterCode(): Promise<void> {
-    if (!this.store || !this.workshop) return;
-    this.me = await reconcile(this.store, this.workshop.config.slug, this.code);
-    this.sync = await syncNow(this.store, this.workshop.config.slug, this.code);
-    if (this.today() !== 'open') {
-      this.screen = 'closed';
-      return;
-    }
-    await this.startSession();
+    await this.syncOnOpen();
+    await this.land();
   }
 
   async startSession(): Promise<void> {
@@ -216,7 +246,9 @@ export class AppState {
   /**
    * Consent: generate the code, create the participant, start the first session.
    * A taken code (JOIN_CODE_TAKEN, astronomically unlikely) is retried once, silently, with a
-   * fresh code. Offline, the join is queued on the device and the session starts anyway; the join
+   * fresh code. A join refused for the minute's budget (RATE_LIMITED, a newsletter landing all at
+   * once) waits as long as the server's Retry-After says and is retried once; a second refusal
+   * is shown. Offline, the join is queued on the device and the session starts anyway; the join
    * goes out before the first sync (lib/sync.ts). The server's other refusals are shown.
    */
   async join(): Promise<void> {
@@ -224,13 +256,25 @@ export class AppState {
     this.joining = true;
     this.error = '';
     try {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      let retriedTaken = false;
+      let waited = false;
+      for (;;) {
         const fresh = generateCode();
         const body: JoinRequest = this.arrival.invite
           ? { code: fresh, invite: this.arrival.invite }
           : { code: fresh, wave: this.arrival.wave ?? 'wave-1' };
         const res = await api(`/${this.workshop.config.slug}/join`, { body });
-        if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && attempt === 0) continue;
+        if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && !retriedTaken) {
+          retriedTaken = true;
+          continue;
+        }
+        if (!res.ok && res.error === 'RATE_LIMITED' && !waited) {
+          waited = true;
+          this.retrying = true;
+          await this.wait((res.retryAfter ?? DEFAULT_RETRY_AFTER_SECONDS) * 1000);
+          this.retrying = false;
+          continue;
+        }
         if (!res.ok && res.status !== 0) {
           if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
           else this.error = res.error;
@@ -245,6 +289,7 @@ export class AppState {
       }
     } finally {
       this.joining = false;
+      this.retrying = false;
     }
   }
 
@@ -285,28 +330,32 @@ export class AppState {
     await this.store.events.put(event);
   }
 
-  /** Seal the answer, write the outbox, move on. Returns whether the answer was taken. */
-  async save(answer: string): Promise<boolean> {
+  /** Seal the draft, write the outbox, move on. Returns whether the answer was taken. */
+  async save(answer = this.draft): Promise<boolean> {
     if (!this.workshop || this.saving) return false;
     this.saving = true;
     this.error = '';
     try {
-      const sealed = sealAnswer(
-        this.workshop.publicKey,
-        truncateCodePoints(answer, MAX_ANSWER_CHARS),
-      );
+      let sealed: string;
+      try {
+        sealed = sealAnswer(this.workshop.publicKey, truncateCodePoints(answer, MAX_ANSWER_CHARS));
+      } catch {
+        // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
+        // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
+        this.error = 'CLIENT_SEAL_FAILED';
+        return false;
+      }
       await this.record('answered', sealed);
+      this.draft = '';
       await this.next();
       return true;
-    } catch (e) {
-      this.error = (e as { code?: string }).code ?? 'CLIENT_SEAL_FAILED';
-      return false;
     } finally {
       this.saving = false;
     }
   }
 
   async setAside(): Promise<void> {
+    this.draft = '';
     await this.record('dismissed');
     await this.next();
   }
@@ -319,8 +368,14 @@ export class AppState {
     else this.screen = 'session-end';
   }
 
+  /** "Your privacy" from any screen: a fresh GET /me, so the rows are what the server holds now. */
   async openPanel(): Promise<void> {
     if (!this.store || !this.workshop) return;
+    if (this.code) this.me = await reconcile(this.store, this.workshop.config.slug, this.code);
+    this.showPanel();
+  }
+
+  private showPanel(): void {
     this.before = this.screen;
     this.cookies = document.cookie.split(';').filter((c) => c.trim()).length;
     const seen = new Set<string>([location.host]);
@@ -333,14 +388,23 @@ export class AppState {
       }
     }
     this.hosts = [...seen];
-    if (this.code) this.me = await reconcile(this.store, this.workshop.config.slug, this.code);
     this.screen = 'panel';
   }
 
-  /** Back from the panel: to the screen it was opened from, or, opened directly, where the device lands. */
+  /**
+   * Back from the panel: to the screen it was opened from, or, opened directly at /panel, where
+   * the device lands. The address bar follows, so a reload shows that screen and not the panel.
+   */
   async closePanel(): Promise<void> {
-    if (this.before === 'loading' || this.before === 'panel') await this.land();
-    else this.screen = this.before;
+    if (!this.workshop) return;
+    const back = this.before === 'loading' || this.before === 'panel' ? undefined : this.before;
+    history.replaceState(
+      null,
+      '',
+      back === 'enter-code' ? pageHref(this.workshop.config.slug, 'continue') : this.home,
+    );
+    if (back) this.screen = back;
+    else await this.land();
   }
 
   async deleteMe(): Promise<void> {

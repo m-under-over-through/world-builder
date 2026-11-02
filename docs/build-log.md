@@ -245,6 +245,8 @@ node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manuf
 - The backup job, the Better Stack heartbeat, drills: Thursday and Friday.
 - Branch protection on `main`: Friday, after this lands.
 
+---
+
 ## 2026-10-28, Wednesday evening. Staging secrets set; the first deploy failed at the function; the function is now bundled
 
 ### What
@@ -287,6 +289,8 @@ Then the staging deploy: the Netlify deploy log has the line `bundle-api: wrote 
 - One thing the panel got wrong: "Version: local". Vite only exposes variables that start with `VITE_`, and Netlify's commit is `COMMIT_REF`. `apps/web/vite.config.ts` now defines `import.meta.env.VITE_COMMIT_REF` from it at build time, so the panel and `/api/health` report the same commit; on a laptop the panel still says "local". Verified on staging at commit `e87d838`: the panel and `/api/health` show the same version, and a reload of the page found the saved code and the four sealed events.
 - Staging verified after the redeploy, about 45 seconds after the push: `https://staging--worldbuilder-uot.netlify.app/api/health` answered 200 with `ok: true`, `version: fbec63f` (the pushed commit), `dbReachable: true`, no backup yet, and `rural-manufacturing` as `open`. The API answers with HSTS and no cookie; the client page carries the self-only Content Security Policy.
 
+---
+
 ## 2026-10-29, Thursday. The skeleton is on main; production serves the client; two gaps the production deploy showed, closed
 
 ### What
@@ -321,6 +325,8 @@ The last line prints the log line `SERVER_NOT_CONFIGURED DATABASE_URL is not set
 
 - Thursday's monitor in Better Stack goes on staging's health endpoint until production has its secrets; on production it would alert for a known reason, and `SERVER_NOT_CONFIGURED` is now the body it would see.
 - Next, per the plan: the backup job in the ops repository, the Backblaze application key, the monitor. Friday: restore and decrypt drills, branch protection on `main`, the walkthrough.
+
+---
 
 ## 2026-10-29, Thursday afternoon. The nightly backup job; Marco's first phone test
 
@@ -577,18 +583,6 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 ---
 
-## 2026-11-02, Monday afternoon. Ops 1: the export tool, tested; the key checked first; today's file never replaced silently
-
-### What
-
-- `tools/workshop/export.ts` gains three behaviours and six tests (`tools/workshop/test/export.test.ts`). The key is checked against the workshop before any row is read: the tool seals a probe to the workshop's public key and opens it with the key given, so another workshop's key is refused with `CRYPTO_OPEN_FAILED` and the workshop's fingerprint, and a malformed key file with `CRYPTO_BAD_PRIVATE_KEY`; nothing is written either way. The CSV is created exclusively (`flag: 'wx'`): a second export on the same day is refused with a line that names `--overwrite`, the flag that replaces it on purpose. Pseudonyms are handed out in a random order on every run, so two exports of the same workshop cannot be lined up by them and neither the server's ids nor the order of joining can be read back from the file.
-- Two flags: `--out <dir>` (the tests use it; the default stays `.secrets/exports`) and `--overwrite`. Unknown flags, a bad slug, a missing key and a missing key file are refused with the usage line and exit code 2 before anything is opened.
-- The tests seed a Postgres on disk (PGlite, in a temporary folder) with the real workshop folder sealed to a key made for the test, two or seven participants, an answered and a dismissed event each, then run the tool as the operator would, as a separate process, and read the file back: the eleven columns, every answer opened (one holds a comma, a quote, a newline and an emoji), one pseudonym per participant, `via` as the wave or `invite`, mode 600 on the file and 700 on the folder, no participant id and no code hash anywhere in the file or on the terminal, and no plain answer on the terminal.
-
-### Why
-
-The brief's item 1: the operator's tools must be tested and must not overwrite what they should not. The export is the one place answers are ever readable (ADR 0003), so its mistakes are the expensive ones: an export of the wrong workshop would have been a file of `[could not open]` rows found after the fact; a second run on the same day would have replaced the morning's file, scrub log and all. Fresh pseudonyms are what the architecture plan's section 14 promises in the hand-off package.
-
 ## 2026-11-02, Monday, midday. The participant texts, drafted for the legal review
 
 ### What
@@ -610,50 +604,6 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 
 ---
 
-## 2026-11-02, Monday afternoon. UI item 1: the component test harness and the copy loader
-
-### What
-
-- **The client reads its words from `copy.md`.** `apps/web/src/lib/copy.ts` parses `workshops/<slug>/copy.md` at build time (a raw import in `lib/workshops.ts`, one `Copy` per workshop folder): one block per `## heading`, looked up by name; `- key: value` lines as the entries of a list; a `[placeholder]` line stripped and remembered; `<!-- notes -->` to the editor never shown; `[word]` slots filled by the app (`fill`). A block the file lacks shows as `[missing: <heading>]` on the screen, never as silence. `App.svelte` has no participant-facing string left in it; every error code reaches the screen through its `Error: <CODE>` line.
-- **`copy.md` grew from 9 blocks to 59**, every one a screen or a row the screen map names: titles, buttons, the three welcome cases, enter code, the card's labels and states, the session end for session 1 and for later sessions, closed and not open yet, the privacy panel's rows and caveat, diagnostics, the data management plan, terms, the privacy policy, the trust page's seven blocks, and one line per error code (17 server, 3 client). Consent, terms, the privacy policy, the trust page and the plan carry the drafts of `docs/participant-texts.md` word for word; everything else is placeholder text. All 58 drafts are marked `[placeholder]`, so `grep -c '^\[placeholder\]' copy.md` says how many blocks still wait for words.
-- **The component test harness.** `@testing-library/svelte`, `@testing-library/user-event` and `jsdom`, development dependencies of the client only (ADR 0012 names the client libraries; a test harness loads nothing at runtime). The root `vitest.config.ts` now runs two projects: `node` for the packages, the API and the tools, as before; `web` for the client, whose own `vite.config.ts` names the Svelte plugin, the DOM and `test/setup.ts` (an in-memory IndexedDB). `apps/web/test/app.test.ts` renders `App.svelte` the way a phone would: the address picks the route, the device store is in memory, the API is a stub.
-- Tests: the parser (headings, notes, paragraphs, lists, placeholders, comments, slots, the missing-block marker); every workshop folder has every heading and list entry the client reads, and a line for every error code; the welcome for a device with no link, a device arriving through a wave link (one `opened` post, the address kept), a wrong address, a code too short (no request), `AUTH_CODE_UNKNOWN` and `RATE_LIMITED` shown in their wording and never as the code, "Not open yet" with the day before the opening day and "closed" after the close day. 144 tests (22 new).
-- `PRODUCT.md` at the root, written from the brief and the two plans as the brief asked (the Impeccable `init` step), without an interview: the facts the design skills read before any visual work.
-
-### Why
-
-The first item of the UI brief, because every later screen is text in a file the partner can edit, and because nothing rendered `App.svelte` in a test until now. Raw error codes in front of participants were a trust failure named in the gap list; they are gone.
-## 2026-11-02, Monday evening. Ops 3: the runbook describes the code; the services section written
-
-### What
-
-- Every one of the eighteen entries that said _Provisional_ was read against `apps/api/src/app.ts`, `netlify/functions/api.mts`, `apps/web/src` and `packages/crypto`, and rewritten to say what the code does today. Where the code does not yet do what the plan says, the entry says so and names the builder's item that changes it, so the runbook never describes a behaviour that cannot be seen. The mark is gone from the file; the introduction now says when the check was made.
-- The six entries the brief singled out: `WORKSHOP_UNKNOWN` no longer points at a `/api/<slug>/health` route that does not exist (the health listing of slugs does the job, and any unknown path answers this code); `WORKSHOP_CLOSED` covers both ends of the window and the status, and the staging file's earlier day; `JOIN_WAVE_UNKNOWN` says the deploy creates `wave-1` only; `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` say nothing is logged today and name the API builder's log line; `CLIENT_STORAGE_UNAVAILABLE` says the client does not produce it yet and names the UI builder's item 9.
-- The rest: `REQUEST_TOO_LARGE` (the two checks, the unit the API builder changes), `JOIN_WAVE_FULL` (the cap can be exceeded by one or two), `JOIN_INVITE_INVALID` and `JOIN_INVITE_USED` (hashes compared as strings; one statement claims an invite), `JOIN_CODE_TAKEN` (no log line; the client's retry is the UI builder's item 4; an invite is spent by the collision), `AUTH_CODE_MISSING` (what the header must look like, which routes carry it), `AUTH_CODE_UNKNOWN` (after a reset or a restore; the per-workshop limit on unknown codes; what the client does today with a stored code), `SYNC_BATCH_TOO_LARGE` (the numbers, checked before validation), `INVITES_EXHAUSTED` (existing participants are not topped up), `RATE_LIMITED` (the five buckets with their numbers, decision 3 pending in the API builder's item 6, the rows in `rate_buckets`), `SERVER_ERROR` (the log line's shape and where to read it within the day), `CLIENT_SEAL_FAILED` (a crypto error shows its own code; this one is for everything else), `CLIENT_SYNC_FAILED` (`offline` against `error`, Netlify's own 502 page), `CRYPTO_BAD_PRIVATE_KEY` and `CRYPTO_OPEN_FAILED` (the export's key check of ops item 1). The Netlify build entry mentions migrate's second line (ops item 2).
-- The services section replaces "To be written" with an introduction and one entry per service: Netlify and Neon lose their mark and gain their cost, login, failure and ops page; Backblaze, Better Stack, GitHub, Bitwarden and Google Workspace are new, each with where the login is, what it costs, what breaks without it, how to move off it, and its page in the ops repository. The three pages that did not exist, `runbook/github.md`, `runbook/bitwarden.md` and `runbook/google-workspace.md`, are an ops pull request of the same evening.
-
-### Why
-
-The brief's item 3: the runbook must describe the code as it is, not as it was planned. Half the entries were written on 23 October before any handler existed; four of them told the reader to look for a log line or a route that is not there. An operator following those on a bad night would have lost time on the runbook itself.
-
-### How to verify
-
-- `npm test -- packages/contracts/test/runbook.test.ts` (every code has a heading); `grep -c Provisional docs/runbook.md` prints 0.
-- Pick an entry and check its claim against the file it names, for example `RATE_LIMITED` against `LIMITS` in `apps/api/src/app.ts`, or `CLIENT_SYNC_FAILED` against `apps/web/src/lib/api.ts` and `sync.ts`.
-- On the deploy preview: `curl -s https://deploy-preview-<n>--worldbuilder-uot.netlify.app/api/nope` answers `WORKSHOP_UNKNOWN`, as the entry now says; `curl -s -X POST .../api/rural-manufacturing/join -H 'content-type: application/json' -d '{}'` answers `REQUEST_INVALID` with no log line in the function's log.
-
-### Decisions made on the way
-
-- **An entry names the builder's item when the code lags the plan**, instead of describing the plan as if it were built or leaving the behaviour out. Three such places: the validation log line (API item 2), the byte cap's unit (API item 1), the storage fallback and the stored-code behaviour (UI item 9). When those land, the sentence is removed; the API and UI builders' reports propose the wording and the ops builder applies it.
-- **The join limit is written as the code has it (30) with decision 3 next to it (120)**, because the number in the file is the number participants meet until the API builder's change merges.
-- **Vendor pages for GitHub, the vault and the mail** rather than longer runbook entries: the public runbook says what and why, the private page names the identifiers, as the other vendors already do.
-- **Three forward references** (`runbook/scans.md`, `runbook/staging-reset.md`, `runbook/laptop-is-gone.md` in the ops repository) are left in, since items 4, 5 and 6 create them this week; the pull request says so.
-
-### Open
-
-- The API builder's and UI builder's runbook proposals, from their reports, are applied when the integrator passes them on.
-- Better Stack's paused staging monitor: the cause goes on `runbook/betterstack.md` once seen in the console.
-
 ## 2026-11-02, Monday, early afternoon. The deck engine, item 1: the session plan and the seeded shuffle
 
 ### What
@@ -671,46 +621,25 @@ The skeleton picks cards in file order, so every participant sees the same first
 ### How to verify
 
 ```
-npm run check                                  # 144 tests, svelte-check included
-npx vitest run --project web                   # the client's 41 tests alone
-grep -c '^\[placeholder\]' workshops/rural-manufacturing/copy.md   # 58
+npm test -- tools/ops tools/workshop/test/sync.test.ts     # 12 tests
+DATABASE_URL="psql 'postgresql://x:y@h/db'" node tools/ops/migrate.ts     # refused, exit 1, nothing printed but the two lines
+node tools/ops/pepper.ts demo --out /tmp/wb-pepper && node tools/ops/pepper.ts demo --out /tmp/wb-pepper   # second run refused
 ```
-
-On the pull request's deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`; "New here" and "I have a code" are there. Tap "I have a code", type 15 digits, Continue: "That is not a 16-digit code yet." Type a sixteenth digit, Continue: "That code is not ours. Check the digits." (no code anywhere on the screen). Back, New here: the consent screen carries the draft from `docs/participant-texts.md`. I understand, answer one card, set aside three: the session end, the masked code, "Come back another day for the next cards.", "Everything is synced." Your privacy: every row's label is from `copy.md`. Open `/nowhere/`: "This address is not a workshop. Use the link you were sent."
 
 ### Decisions made on the way
 
-- **Blocks are looked up by heading, and the headings are the client's.** `COPY_TEXT` and `COPY_LISTS` in `lib/copy.ts` are the list of what the client reads; a test fails for any workshop folder that lacks one. Renaming a heading is a code change; rewording a block is not, and no test breaks on it, because the tests read the wording through the same loader.
-- **Notes to the editor are HTML comments**, so the file can say under a heading when a block is shown without the app ever showing that sentence.
-- **The "three cases" on Welcome are read as three blocks of wording**: next to "New here" when a link is remembered; next to "I have a code", always; in place of "New here" when nothing is remembered. A fourth block, "code not accepted", waits for item 9.
-- **Before a workshop is known** ("Loading…", "not a workshop") the first workshop folder's copy serves; those words are the same in every folder.
-- **The root `vitest.config.ts` is edited**, outside the brief's file list, because the Svelte plugin and the DOM have to reach the test runner somewhere; the change is the two-project split and nothing else.
-- **`apps/web/test/deck-and-route.test.ts` reads files by path, not URL**: the client's tests now run in a DOM whose `URL` class is not the one `node:fs` accepts.
+- **A new workshop reports `draft -> open`, not `new -> open`.** The tool reads the row after the upsert, so the row is already there in `draft`; the test says what happens rather than changing the tool to say `new`.
+- **`migrate` prints a second line, not the value.** The shape of a pasted string was the whole diagnosis on 30 October; the line now says "nothing in front of postgresql://, no quotes around it" and nothing else.
+- **Clean environment in the tests.** The tools read `DATABASE_URL` and `VITE_WB_ENV`; a test that inherited the laptop's environment could pass or fail for reasons outside the repository.
 
 ### Open
 
-- **The local API refuses joins before 16 November.** `apps/api/dev.ts` does not pass `workshop.staging.json`'s opening day to `syncWorkshop`, so a join on the laptop answers `WORKSHOP_CLOSED` today while the client, which reads the staging day, shows the welcome. The by-hand check above was run against a copy of `dev.ts` with `opensDay: staging.opensDay` added; the file is the API builder's, so the fix is proposed in the pull request's report.
-- The session-end text under "Session end: your code" begins with "That is a session.", which is also the screen's title, so the words appear twice. A wording question for Marco, not a code change.
-- The buttons' labels sit in a `<span>` inside the primary button (a styling habit of the skeleton); the visual pass of item 10 removes it.
+- Nothing from this item.
+  npm test -- tools/workshop/test/export.test.ts # 6 tests
+  npm run dev:api # once, so .secrets/local-db exists with the workshop loaded
+  node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key
+  node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key
 
----
-
-## 2026-11-02, Monday afternoon, later. UI item 2: one component per screen, the state in one place, the router
-
-### What
-
-- **`App.svelte` is split.** `apps/web/src/screens/` holds one component per screen of the map that the skeleton had: `NotAWorkshop`, `Welcome`, `EnterCode`, `Consent` (Intro 3), `Card`, `SessionEnd` (with the code reveal), `Closed` (closed and not open yet), `PrivacyPanel`. Each renders what it is given and calls one function; what is local to a screen (the digits being typed, the answer being written, whether the code is revealed) stays in the screen.
-- **The state is one class, `AppState` in `apps/web/src/lib/state.svelte.ts`**, read top to bottom: which screen, the workshop and its copy, the code, the arrival, the session (cards, index, sync status), the panel's rows, and the functions that change them (`open`, `join`, `continueWithCode`, `save`, `setAside`, `openPanel`, `closePanel`, `deleteMe`). The fields are reactive, so a screen re-renders when one changes. `App.svelte` is now the frame: the nav, and the screen the state names.
-- **The router knows the pages a participant can open directly.** `lib/route.ts` reads `/<slug>/continue`, `/<slug>/panel` and `/<slug>/trust` (`PAGES`), and `pageHref` writes them. `/continue` lands on enter code; `/panel` lands on the privacy panel, and Back from there goes where the device would have landed (the next card with a code, the welcome without); `/trust` is read and waits for item 8's screen. Nothing else changes: the tests of item 1 pass unchanged.
-- Tests: every screen renders on its own from a state set up by hand (`test/screens.test.ts`, 14 tests: the three welcome cases, enter code with both lines, consent with an error, the card with its position, the nudge, each sync line and a sealing failure, the session end with and without answers waiting, closed, the panel with and without a code); the three pages and `pageHref` (`deck-and-route.test.ts`); `/continue`, `/panel` and Back from the panel in the rendered app (`app.test.ts`). 163 tests (19 new).
-
-### Why
-
-Item 2 of the UI brief: the next eight items each add a screen or a rule, and a 400-line component is not a place to add either. One class the operator can read answers "what does the app do when I tap this" for every tap.
-npm test -- tools/workshop/test/export.test.ts        # 6 tests
-npm run dev:api                                       # once, so .secrets/local-db exists with the workshop loaded
-node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key
-node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manufacturing.private-key
 ```
 
 The first run prints the counts and `written to: .../.secrets/exports/rural-manufacturing-<today>.csv`; the second ends with `refusing to overwrite ... pass --overwrite if you mean to replace today's export` and exit code 1, and the file is as it was. With `--key` pointing at any other key file: `CRYPTO_OPEN_FAILED: this key does not open answers sealed to rural-manufacturing (workshop key de7f-523e-d6db-ad50) ...`, exit code 1, no file.
@@ -753,6 +682,61 @@ Nothing to see in the browser yet; the client still uses the skeleton's file ord
 
 ---
 
+## 2026-11-02, Monday afternoon. Ops 1: the export tool, tested; the key checked first; today's file never replaced silently
+
+### What
+
+- `tools/workshop/export.ts` gains three behaviours and six tests (`tools/workshop/test/export.test.ts`). The key is checked against the workshop before any row is read: the tool seals a probe to the workshop's public key and opens it with the key given, so another workshop's key is refused with `CRYPTO_OPEN_FAILED` and the workshop's fingerprint, and a malformed key file with `CRYPTO_BAD_PRIVATE_KEY`; nothing is written either way. The CSV is created exclusively (`flag: 'wx'`): a second export on the same day is refused with a line that names `--overwrite`, the flag that replaces it on purpose. Pseudonyms are handed out in a random order on every run, so two exports of the same workshop cannot be lined up by them and neither the server's ids nor the order of joining can be read back from the file.
+- Two flags: `--out <dir>` (the tests use it; the default stays `.secrets/exports`) and `--overwrite`. Unknown flags, a bad slug, a missing key and a missing key file are refused with the usage line and exit code 2 before anything is opened.
+- The tests seed a Postgres on disk (PGlite, in a temporary folder) with the real workshop folder sealed to a key made for the test, two or seven participants, an answered and a dismissed event each, then run the tool as the operator would, as a separate process, and read the file back: the eleven columns, every answer opened (one holds a comma, a quote, a newline and an emoji), one pseudonym per participant, `via` as the wave or `invite`, mode 600 on the file and 700 on the folder, no participant id and no code hash anywhere in the file or on the terminal, and no plain answer on the terminal.
+
+### Why
+
+The brief's item 1: the operator's tools must be tested and must not overwrite what they should not. The export is the one place answers are ever readable (ADR 0003), so its mistakes are the expensive ones: an export of the wrong workshop would have been a file of `[could not open]` rows found after the fact; a second run on the same day would have replaced the morning's file, scrub log and all. Fresh pseudonyms are what the architecture plan's section 14 promises in the hand-off package.
+
+---
+
+## 2026-11-02, Monday afternoon. UI item 1: the component test harness and the copy loader
+
+### What
+
+- **The client reads its words from `copy.md`.** `apps/web/src/lib/copy.ts` parses `workshops/<slug>/copy.md` at build time (a raw import in `lib/workshops.ts`, one `Copy` per workshop folder): one block per `## heading`, looked up by name; `- key: value` lines as the entries of a list; a `[placeholder]` line stripped and remembered; `<!-- notes -->` to the editor never shown; `[word]` slots filled by the app (`fill`). A block the file lacks shows as `[missing: <heading>]` on the screen, never as silence. `App.svelte` has no participant-facing string left in it; every error code reaches the screen through its `Error: <CODE>` line.
+- **`copy.md` grew from 9 blocks to 59**, every one a screen or a row the screen map names: titles, buttons, the three welcome cases, enter code, the card's labels and states, the session end for session 1 and for later sessions, closed and not open yet, the privacy panel's rows and caveat, diagnostics, the data management plan, terms, the privacy policy, the trust page's seven blocks, and one line per error code (17 server, 3 client). Consent, terms, the privacy policy, the trust page and the plan carry the drafts of `docs/participant-texts.md` word for word; everything else is placeholder text. All 58 drafts are marked `[placeholder]`, so `grep -c '^\[placeholder\]' copy.md` says how many blocks still wait for words.
+- **The component test harness.** `@testing-library/svelte`, `@testing-library/user-event` and `jsdom`, development dependencies of the client only (ADR 0012 names the client libraries; a test harness loads nothing at runtime). The root `vitest.config.ts` now runs two projects: `node` for the packages, the API and the tools, as before; `web` for the client, whose own `vite.config.ts` names the Svelte plugin, the DOM and `test/setup.ts` (an in-memory IndexedDB). `apps/web/test/app.test.ts` renders `App.svelte` the way a phone would: the address picks the route, the device store is in memory, the API is a stub.
+- Tests: the parser (headings, notes, paragraphs, lists, placeholders, comments, slots, the missing-block marker); every workshop folder has every heading and list entry the client reads, and a line for every error code; the welcome for a device with no link, a device arriving through a wave link (one `opened` post, the address kept), a wrong address, a code too short (no request), `AUTH_CODE_UNKNOWN` and `RATE_LIMITED` shown in their wording and never as the code, "Not open yet" with the day before the opening day and "closed" after the close day. 144 tests (22 new).
+- `PRODUCT.md` at the root, written from the brief and the two plans as the brief asked (the Impeccable `init` step), without an interview: the facts the design skills read before any visual work.
+
+### Why
+
+The first item of the UI brief, because every later screen is text in a file the partner can edit, and because nothing rendered `App.svelte` in a test until now. Raw error codes in front of participants were a trust failure named in the gap list; they are gone.
+
+### How to verify
+
+```
+npm run check                                  # 144 tests, svelte-check included
+npx vitest run --project web                   # the client's 41 tests alone
+grep -c '^\[placeholder\]' workshops/rural-manufacturing/copy.md   # 58
+```
+
+On the pull request's deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`; "New here" and "I have a code" are there. Tap "I have a code", type 15 digits, Continue: "That is not a 16-digit code yet." Type a sixteenth digit, Continue: "That code is not ours. Check the digits." (no code anywhere on the screen). Back, New here: the consent screen carries the draft from `docs/participant-texts.md`. I understand, answer one card, set aside three: the session end, the masked code, "Come back another day for the next cards.", "Everything is synced." Your privacy: every row's label is from `copy.md`. Open `/nowhere/`: "This address is not a workshop. Use the link you were sent."
+
+### Decisions made on the way
+
+- **Blocks are looked up by heading, and the headings are the client's.** `COPY_TEXT` and `COPY_LISTS` in `lib/copy.ts` are the list of what the client reads; a test fails for any workshop folder that lacks one. Renaming a heading is a code change; rewording a block is not, and no test breaks on it, because the tests read the wording through the same loader.
+- **Notes to the editor are HTML comments**, so the file can say under a heading when a block is shown without the app ever showing that sentence.
+- **The "three cases" on Welcome are read as three blocks of wording**: next to "New here" when a link is remembered; next to "I have a code", always; in place of "New here" when nothing is remembered. A fourth block, "code not accepted", waits for item 9.
+- **Before a workshop is known** ("Loading…", "not a workshop") the first workshop folder's copy serves; those words are the same in every folder.
+- **The root `vitest.config.ts` is edited**, outside the brief's file list, because the Svelte plugin and the DOM have to reach the test runner somewhere; the change is the two-project split and nothing else.
+- **`apps/web/test/deck-and-route.test.ts` reads files by path, not URL**: the client's tests now run in a DOM whose `URL` class is not the one `node:fs` accepts.
+
+### Open
+
+- **The local API refuses joins before 16 November.** `apps/api/dev.ts` does not pass `workshop.staging.json`'s opening day to `syncWorkshop`, so a join on the laptop answers `WORKSHOP_CLOSED` today while the client, which reads the staging day, shows the welcome. The by-hand check above was run against a copy of `dev.ts` with `opensDay: staging.opensDay` added; the file is the API builder's, so the fix is proposed in the pull request's report.
+- The session-end text under "Session end: your code" begins with "That is a session.", which is also the screen's title, so the words appear twice. A wording question for Marco, not a code change.
+- The buttons' labels sit in a `<span>` inside the primary button (a styling habit of the skeleton); the visual pass of item 10 removes it.
+
+---
+
 ## 2026-11-02, Monday, afternoon. The deck engine, item 2: dismiss, defer and the end of a session
 
 ### What
@@ -765,6 +749,58 @@ Nothing to see in the browser yet; the client still uses the skeleton's file ord
 ### Why
 
 Section 8: "Dismiss moves the card to the end of this session's queue. A second dismiss defers it to a future session", and "A session ends after the checkpoints". The skeleton's "Set aside" writes `dismissed` and moves on, so a set-aside card is gone for the session and never comes back. The UI builder's item 5 replaces that with these two functions.
+
+### How to verify
+
+```
+
+npm run check # typecheck, 175 tests, formatting
+npx vitest run packages/deck # the 53 tests of the engine alone
+
+```
+
+The worked example continued, pinned by the last test. Same deck of six, counts 3 and 1, seed `example`: the plan is `cool, on-tv, embarrassing, immigrants`.
+
+| Step                                                                   | Queue after                             | Event       |
+| ---------------------------------------------------------------------- | --------------------------------------- | ----------- |
+| the participant sets `cool` aside                                      | `on-tv, embarrassing, immigrants, cool` | `dismissed` |
+| they answer the other three; `isSessionOver` with those three answered | the same                                | not over    |
+| `cool` comes round again and they set it aside a second time           | `on-tv, embarrassing, immigrants`       | `deferred`  |
+| `isSessionOver` with the three answered                                |                                         | over        |
+| next session, with `cool` in the deferred list                         | `cool` first, then three more           |             |
+
+### Decisions made on the way
+
+- **The engine names the event, it does not build it.** An event has an id, a session id, a seq, a day and a deck version, all of which belong to the client; the engine answers "which kind", `dismissed` or `deferred`, typed from the contract, and the client builds the event the way it already builds `answered`.
+- **The engine is stateless; the caller keeps `dismissedThisSession`.** The set is this session's `dismissed` events, so a resumed session remembers which cards have had their first chance. A dismissal in an earlier session does not count: a deferred card that comes back starts fresh and gets its two chances again.
+- **"After the last checkpoint" is read as "the queue is exhausted"**, as the brief says in so many words. The two agree unless a warm-up was dismissed once, in which case it sits after the checkpoint and the session waits for it. The alternative, ending the session at the checkpoint and leaving the dismissed card unresolved, would lose the second dismissal that makes a card `deferred`.
+- **A deferred card leaves the queue, and `isSessionOver` also accepts its id in the done set.** The client can hold the latest plan or the first plan plus the done set; both give the same answer. Nothing depends on which bookkeeping the UI builder picks.
+- **The no-op returns the same plan object**, so a caller can see by identity that nothing changed.
+- **Resuming is replay, not storage.** The client stores the seed and the events, never the queue. On resume it calls `planSession` with the history as it stood when the session started, which is every answer from other sessions and the previous session's deferrals, then replays this session's `dismissed` and `deferred` events through `applyDismiss` in `seq` order. Two tests show the recipe and the pitfall: this session's own answers must not be fed back as history mid-session, or the plan changes under the participant.
+
+### Open
+
+- The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
+- For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.
+
+```
+
+```
+
+---
+
+## 2026-11-02, Monday afternoon, later. UI item 2: one component per screen, the state in one place, the router
+
+### What
+
+- **`App.svelte` is split.** `apps/web/src/screens/` holds one component per screen of the map that the skeleton had: `NotAWorkshop`, `Welcome`, `EnterCode`, `Consent` (Intro 3), `Card`, `SessionEnd` (with the code reveal), `Closed` (closed and not open yet), `PrivacyPanel`. Each renders what it is given and calls one function; what is local to a screen (the digits being typed, the answer being written, whether the code is revealed) stays in the screen.
+- **The state is one class, `AppState` in `apps/web/src/lib/state.svelte.ts`**, read top to bottom: which screen, the workshop and its copy, the code, the arrival, the session (cards, index, sync status), the panel's rows, and the functions that change them (`open`, `join`, `continueWithCode`, `save`, `setAside`, `openPanel`, `closePanel`, `deleteMe`). The fields are reactive, so a screen re-renders when one changes. `App.svelte` is now the frame: the nav, and the screen the state names.
+- **The router knows the pages a participant can open directly.** `lib/route.ts` reads `/<slug>/continue`, `/<slug>/panel` and `/<slug>/trust` (`PAGES`), and `pageHref` writes them. `/continue` lands on enter code; `/panel` lands on the privacy panel, and Back from there goes where the device would have landed (the next card with a code, the welcome without); `/trust` is read and waits for item 8's screen. Nothing else changes: the tests of item 1 pass unchanged.
+- Tests: every screen renders on its own from a state set up by hand (`test/screens.test.ts`, 14 tests: the three welcome cases, enter code with both lines, consent with an error, the card with its position, the nudge, each sync line and a sealing failure, the session end with and without answers waiting, closed, the panel with and without a code); the three pages and `pageHref` (`deck-and-route.test.ts`); `/continue`, `/panel` and Back from the panel in the rendered app (`app.test.ts`). 163 tests (19 new).
+
+### Why
+
+Item 2 of the UI brief: the next eight items each add a screen or a rule, and a 400-line component is not a place to add either. One class the operator can read answers "what does the app do when I tap this" for every tap.
 
 ### How to verify
 
@@ -784,6 +820,21 @@ On the deploy preview: the flow of item 1 behaves the same; `/rural-manufacturin
 ### Open
 
 - Every open of the app with a code creates a session row, with or without events (known since the skeleton; the panel on a much-reloaded laptop says "17 sessions, 4 events"). Item 5 can create the row at the first event instead; noted in the pull request's report.
+
+---
+
+## 2026-11-02, Monday, late afternoon. Ops 2: pepper, migrate and workshop sync, tested
+
+### What
+
+- Twelve tests across three files, each running the tool as a separate process the way the build or the operator runs it, with a clean environment so the laptop's own variables never leak in.
+- `tools/ops/test/pepper.test.ts`: the file holds 32 bytes in canonical base64 and a newline, mode 600 in a folder of mode 700; two runs give two peppers; the value is never on the terminal; a second run for the same name is refused with `refusing to overwrite` and the file is as it was; an unknown flag, a missing value, a stray word or a bad name is refused with the usage line and nothing written. The tool gains `--out <dir>` for the tests, the way `keygen` has it.
+- `tools/ops/test/migrate.test.ts`: without `DATABASE_URL` it says `nothing to do` and exits 0; the eight wrong shapes (a `psql '...'` command, a `DATABASE_URL='...'` line, single or double quotes, a leading space, `pglite://`, another scheme, a bare word) are refused with the runbook's line `migrate: expected a postgres:// URL in this context`, a second line that says what shape is wanted, exit code 1, and the password in the test string never reaches the terminal; anything on the command line is refused with exit code 2. The tool itself gains the argument check and the second line; the first line stays what the runbook's Netlify entry quotes.
+- `tools/workshop/test/sync.test.ts`: against a Postgres on disk, the staging context stores the staging key, its fingerprint and the early opening day with the folder's closing day and cap, opens the workshop and creates `wave-1`; a second run leaves one row and one `wave-1`; the production context stores the production key and the real opening day; a workshop put back to `draft` becomes `open` again and a `closed` one stays `closed`; a connection string in the wrong shape is refused without printing it; anything on the command line is refused. The tool gains the argument check and a comment on the status rule.
+
+### Why
+
+The brief's item 2. These three run inside the Netlify build (`migrate`, `sync`) or make a secret (`pepper`), and none had a test. The migrate refusal is the one that cost a deploy on 30 October; now its eight shapes are a test, and the build command cannot grow an argument by mistake.
 
 ---
 
@@ -816,6 +867,39 @@ On the deploy preview, in a fresh browser: open `/rural-manufacturing/` (no link
 ### Open
 
 - Nothing for the integrator. Item 4 (the intro, the demo card, the dictation hint) is next; item 5 waits for `packages/deck`.
+
+---
+
+## 2026-11-02, Monday evening. Ops 3: the runbook describes the code; the services section written
+
+### What
+
+- Every one of the eighteen entries that said _Provisional_ was read against `apps/api/src/app.ts`, `netlify/functions/api.mts`, `apps/web/src` and `packages/crypto`, and rewritten to say what the code does today. Where the code does not yet do what the plan says, the entry says so and names the builder's item that changes it, so the runbook never describes a behaviour that cannot be seen. The mark is gone from the file; the introduction now says when the check was made.
+- The six entries the brief singled out: `WORKSHOP_UNKNOWN` no longer points at a `/api/<slug>/health` route that does not exist (the health listing of slugs does the job, and any unknown path answers this code); `WORKSHOP_CLOSED` covers both ends of the window and the status, and the staging file's earlier day; `JOIN_WAVE_UNKNOWN` says the deploy creates `wave-1` only; `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` say nothing is logged today and name the API builder's log line; `CLIENT_STORAGE_UNAVAILABLE` says the client does not produce it yet and names the UI builder's item 9.
+- The rest: `REQUEST_TOO_LARGE` (the two checks, the unit the API builder changes), `JOIN_WAVE_FULL` (the cap can be exceeded by one or two), `JOIN_INVITE_INVALID` and `JOIN_INVITE_USED` (hashes compared as strings; one statement claims an invite), `JOIN_CODE_TAKEN` (no log line; the client's retry is the UI builder's item 4; an invite is spent by the collision), `AUTH_CODE_MISSING` (what the header must look like, which routes carry it), `AUTH_CODE_UNKNOWN` (after a reset or a restore; the per-workshop limit on unknown codes; what the client does today with a stored code), `SYNC_BATCH_TOO_LARGE` (the numbers, checked before validation), `INVITES_EXHAUSTED` (existing participants are not topped up), `RATE_LIMITED` (the five buckets with their numbers, decision 3 pending in the API builder's item 6, the rows in `rate_buckets`), `SERVER_ERROR` (the log line's shape and where to read it within the day), `CLIENT_SEAL_FAILED` (a crypto error shows its own code; this one is for everything else), `CLIENT_SYNC_FAILED` (`offline` against `error`, Netlify's own 502 page), `CRYPTO_BAD_PRIVATE_KEY` and `CRYPTO_OPEN_FAILED` (the export's key check of ops item 1). The Netlify build entry mentions migrate's second line (ops item 2).
+- The services section replaces "To be written" with an introduction and one entry per service: Netlify and Neon lose their mark and gain their cost, login, failure and ops page; Backblaze, Better Stack, GitHub, Bitwarden and Google Workspace are new, each with where the login is, what it costs, what breaks without it, how to move off it, and its page in the ops repository. The three pages that did not exist, `runbook/github.md`, `runbook/bitwarden.md` and `runbook/google-workspace.md`, are an ops pull request of the same evening.
+
+### Why
+
+The brief's item 3: the runbook must describe the code as it is, not as it was planned. Half the entries were written on 23 October before any handler existed; four of them told the reader to look for a log line or a route that is not there. An operator following those on a bad night would have lost time on the runbook itself.
+
+### How to verify
+
+- `npm test -- packages/contracts/test/runbook.test.ts` (every code has a heading); `grep -c Provisional docs/runbook.md` prints 0.
+- Pick an entry and check its claim against the file it names, for example `RATE_LIMITED` against `LIMITS` in `apps/api/src/app.ts`, or `CLIENT_SYNC_FAILED` against `apps/web/src/lib/api.ts` and `sync.ts`.
+- On the deploy preview: `curl -s https://deploy-preview-<n>--worldbuilder-uot.netlify.app/api/nope` answers `WORKSHOP_UNKNOWN`, as the entry now says; `curl -s -X POST .../api/rural-manufacturing/join -H 'content-type: application/json' -d '{}'` answers `REQUEST_INVALID` with no log line in the function's log.
+
+### Decisions made on the way
+
+- **An entry names the builder's item when the code lags the plan**, instead of describing the plan as if it were built or leaving the behaviour out. Three such places: the validation log line (API item 2), the byte cap's unit (API item 1), the storage fallback and the stored-code behaviour (UI item 9). When those land, the sentence is removed; the API and UI builders' reports propose the wording and the ops builder applies it.
+- **The join limit is written as the code has it (30) with decision 3 next to it (120)**, because the number in the file is the number participants meet until the API builder's change merges.
+- **Vendor pages for GitHub, the vault and the mail** rather than longer runbook entries: the public runbook says what and why, the private page names the identifiers, as the other vendors already do.
+- **Three forward references** (`runbook/scans.md`, `runbook/staging-reset.md`, `runbook/laptop-is-gone.md` in the ops repository) are left in, since items 4, 5 and 6 create them this week; the pull request says so.
+
+### Open
+
+- The API builder's and UI builder's runbook proposals, from their reports, are applied when the integrator passes them on.
+- Better Stack's paused staging monitor: the cause goes on `runbook/betterstack.md` once seen in the console.
 
 ---
 
@@ -853,32 +937,44 @@ On the deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-
 - The demo card's swipe (item 5) is only described; the card is tapped away with "Got it" until the swipe exists.
 - When the server refuses a queued join after the fact, the participant sees the sync error line and the diagnostics; nothing else can be done on the device. Noted in the report.
 
-npm run check # typecheck, 175 tests, formatting
-npx vitest run packages/deck # the 53 tests of the engine alone
+---
+
+## 2026-11-02, Monday, late evening. UI review fixes on items 1 to 4
+
+### What
+
+The independent reviewer's findings on the stack of pull requests 17, 20, 22 and 24, fixed on one branch on top of item 4, with a test for each. The build log of `main` and of the stack were merged by hand into one list in time order; no entry was lost.
+
+- **The draft survives "Your privacy".** The answer being written is `app.draft` in `lib/state.svelte.ts`, not a variable of `Card.svelte`; opening the panel unmounts the card, and Back now finds the words where they were. Save clears it on success, Set aside clears it; a sealing failure keeps it.
+- **The arrival address is restored.** `AppState` keeps `home`, the address the device arrived at (`/<slug>/join/<wave>` for a wave; `/<slug>/` otherwise, an invite having been replaced on purpose). `navigate()` without a page and Back from the panel put it back, so from a wave landing "I have a code" then Back leaves the wave in the address bar, as decided, and the page can still be shared. Back from the panel to enter code restores `/continue`; opened directly at `/panel`, Back restores the home, so a reload no longer reopens the panel.
+- **The sync on open happens before any screen.** `syncOnOpen` in `lib/sync.ts` is the one order that works: the queued join first (the server answers `AUTH_CODE_UNKNOWN` to everything else for a code it has not met), then `GET /me` and the re-queue of what the server lacks, then the outbox. With a stored code it runs on every open, opened at `/panel` or `/continue` as much as at the home; before, it waited for Back, and `reconcile` ran before the queued join, so the first online open after an offline consent was refused. `GET /me` is now checked against the contract's schema before it is believed: an answer of another shape re-queues nothing.
+- **A sealing failure is one thing to a participant.** `save` shows `CLIENT_SEAL_FAILED` and its wording whatever the crypto package threw; before, `CRYPTO_BAD_TEXT` reached the card as `[missing: Error: CRYPTO_BAD_TEXT]`.
+- **A damaged queued join is forgotten**, not read and ignored on every open.
+- **A join refused for the minute waits and tries once more.** `lib/api.ts` reads `Retry-After` on every 429 (seconds, read as 1 to 60; 5 when the header is missing); `join` waits that long, once, with the line "App labels: retrying" on the consent screen, then sends the join again. A second refusal is shown in `RATE_LIMITED`'s wording. The API builder's item 6 sends the header; until it merges the client waits its five seconds.
+- **The hint says "Prefer to talk?" once.** Its title is a visible heading inside the hint; the five lines under "Dictation hint" in `copy.md` no longer start with it (placeholders, structure only).
+- **Tests.** `test/helpers.ts` holds what the client's tests share, including `pretendUserAgent` and `restoreUserAgent`: the Windows test of item 4 redefined `navigator.userAgent` for every test after it; it is restored after each test, and a test proves the test DOM's own browser gets no hint. `test/setup.ts` makes Node's `TextEncoder` and the test DOM's `Uint8Array` agree, which they did not: sealing an answer failed in every test and nowhere else, which is why no test of the stack ever saved an answer. 21 tests new or extended; 266 in the repository.
+
+### Why
+
+The reviewer's findings on items 1 to 4, in order of weight: two medium (the draft, the address), the rest low. The integrator asked for one pull request for all of them on top of the stack.
+
+### How to verify
 
 ```
+npm run check                       # 266 tests
+npx vitest run --project web        # the client's 104
+```
 
-The worked example continued, pinned by the last test. Same deck of six, counts 3 and 1, seed `example`: the plan is `cool, on-tv, embarrassing, immigrants`.
-
-| Step                                                                   | Queue after                             | Event       |
-| ---------------------------------------------------------------------- | --------------------------------------- | ----------- |
-| the participant sets `cool` aside                                      | `on-tv, embarrassing, immigrants, cool` | `dismissed` |
-| they answer the other three; `isSessionOver` with those three answered | the same                                | not over    |
-| `cool` comes round again and they set it aside a second time           | `on-tv, embarrassing, immigrants`       | `deferred`  |
-| `isSessionOver` with the three answered                                |                                         | over        |
-| next session, with `cool` in the deferred list                         | `cool` first, then three more           |             |
+On the deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`, "I have a code", Back: the address bar reads `/rural-manufacturing/join/wave-1` again. Through the intro to the first card, type half an answer, "Your privacy", Back: the words are still in the field. Open `/rural-manufacturing/panel` on a device with a code: "what we store" is filled without tapping Back; Back: the address is `/rural-manufacturing/join/wave-1` (or `/rural-manufacturing/`), and a reload shows the card, not the panel.
 
 ### Decisions made on the way
 
-- **The engine names the event, it does not build it.** An event has an id, a session id, a seq, a day and a deck version, all of which belong to the client; the engine answers "which kind", `dismissed` or `deferred`, typed from the contract, and the client builds the event the way it already builds `answered`.
-- **The engine is stateless; the caller keeps `dismissedThisSession`.** The set is this session's `dismissed` events, so a resumed session remembers which cards have had their first chance. A dismissal in an earlier session does not count: a deferred card that comes back starts fresh and gets its two chances again.
-- **"After the last checkpoint" is read as "the queue is exhausted"**, as the brief says in so many words. The two agree unless a warm-up was dismissed once, in which case it sits after the checkpoint and the session waits for it. The alternative, ending the session at the checkpoint and leaving the dismissed card unresolved, would lose the second dismissal that makes a card `deferred`.
-- **A deferred card leaves the queue, and `isSessionOver` also accepts its id in the done set.** The client can hold the latest plan or the first plan plus the done set; both give the same answer. Nothing depends on which bookkeeping the UI builder picks.
-- **The no-op returns the same plan object**, so a caller can see by identity that nothing changed.
-- **Resuming is replay, not storage.** The client stores the seed and the events, never the queue. On resume it calls `planSession` with the history as it stood when the session started, which is every answer from other sessions and the previous session's deferrals, then replays this session's `dismissed` and `deferred` events through `applyDismiss` in `seq` order. Two tests show the recipe and the pitfall: this session's own answers must not be fed back as history mid-session, or the plan changes under the participant.
+- **The address bar follows the screen, not the other way round.** `home` is set once on open from the route; every return to "no page" writes it. Pages (`/continue`, `/panel`) write their own address while they show.
+- **The panel opened directly does not ask `GET /me` twice.** The sync on open has just read it; `showPanel` renders it. "Your privacy" from a screen still asks afresh, so the rows are live.
+- **`GET /me` is validated before use** (Zod, as at every boundary). Treating a strange answer as "the server lacks everything" would have re-queued every retained event.
+- **`CLIENT_SEAL_FAILED` for every sealing failure.** The crypto package's codes name the cause for the operator (they stay in the thrown error); the participant needs one sentence.
 
 ### Open
 
-- The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
-- For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.
-```
+- The two `GET /me` calls on "I have a code" (one to check the code, one in the sync on open) could be one; left as is, it is one extra request per typed code.
+- Without the API's `Retry-After` the five-second default usually falls in the same minute's budget, so the retry is refused too and shown; with the header (API item 6) it waits for the next minute.

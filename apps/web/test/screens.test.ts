@@ -83,8 +83,20 @@ describe('the screens render the words of copy.md', () => {
     render(Intro, { app: state({ screen: 'consent', error: 'RATE_LIMITED' }) });
     expect(screen.getByText(copy.text('Intro 3, consent'))).toBeTruthy();
     expect(screen.getByText(copy.error('RATE_LIMITED'))).toBeTruthy();
+    expect(screen.queryByText(copy.item('App labels', 'retrying'))).toBeNull();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') })).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
+  });
+
+  it('intro 3 while a refused join waits for its retry: the "trying again" line', () => {
+    render(Intro, { app: state({ screen: 'consent', retrying: true, joining: true }) });
+    expect(screen.getByText(copy.item('App labels', 'retrying'))).toBeTruthy();
+  });
+
+  it('the card keeps the draft the state holds', () => {
+    const cards = workshop.deck.cards.slice(0, 1);
+    render(Card, { app: state({ cards, draft: 'Half an answer' }) });
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Half an answer');
   });
 
   it('the demo card: the explanation and "Got it"', () => {
@@ -93,9 +105,13 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
   });
 
-  it('the card with the dictation hint open: the hint for this platform and "Got it"', () => {
+  it('the card with the dictation hint open: its title once, the line for this platform, and "Got it"', () => {
     const cards = workshop.deck.cards.slice(0, 1);
     render(Card, { app: state({ cards, platform: 'Windows', hintOpen: true }) });
+    expect(
+      screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
+    ).toBeTruthy();
+    expect(screen.getAllByText(copy.item('Titles', 'dictation hint'))).toHaveLength(1);
     expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
     expect(

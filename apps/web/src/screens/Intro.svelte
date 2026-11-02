@@ -38,6 +38,7 @@
   <h1>{app.copy.item('Titles', 'consent')}</h1>
   <p>{app.copy.text('Intro 3, consent')}</p>
   {#if app.error}<p>{app.copy.error(app.error)}</p>{/if}
+  {#if app.retrying}<p class="muted">{app.copy.item('App labels', 'retrying')}</p>{/if}
   <div class="row">
     <button class="primary" onclick={() => app.join()} disabled={app.joining}
       ><span>{app.copy.item('Buttons', 'i understand')}</span></button

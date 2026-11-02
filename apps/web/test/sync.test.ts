@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkshopStore } from '../src/lib/store.ts';
-import { pendingJoin, queueJoin, syncNow } from '../src/lib/sync.ts';
+import { pendingJoin, queueJoin, syncNow, syncOnOpen } from '../src/lib/sync.ts';
 
 /** The API as a stub: each call answers what the test says, and the calls are recorded in order. */
 function stubApi(answers: ((path: string) => { status: number; body: unknown } | 'offline')[]) {
@@ -72,9 +72,80 @@ describe('a join made offline is sent before the first sync', () => {
     expect(status).toEqual({ lastResult: 'error', lastError: 'JOIN_INVITE_USED', outboxSize: 1 });
   });
 
-  it('reads a damaged queued join as none', async () => {
+  it('reads a damaged queued join as none and forgets it, so it is not read again on every open', async () => {
     const store = new WorkshopStore(`t-${Math.random()}`);
     await store.set('pendingJoin', '{"code":"short"}');
     expect(await pendingJoin(store)).toBeNull();
+    expect(await store.get('pendingJoin')).toBeUndefined();
+  });
+});
+
+describe('the sync on open', () => {
+  const ME = {
+    workshop: {
+      slug: 'rural-manufacturing',
+      name: 'x',
+      closesDay: '2026-12-06',
+      deleteDay: '2027-02-05',
+    },
+    participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 0 },
+    sessions: [],
+    events: [],
+  };
+
+  it('sends the queued join before GET /me, so the first online open after an offline consent is not refused', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await queueJoin(store, { code: CODE, wave: 'wave-1' });
+    await store.events.put(event);
+    const calls = stubApi([
+      () => ({ status: 200, body: { ok: true } }),
+      () => ({ status: 200, body: ME }),
+      () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [event.id] } }),
+    ]);
+    const { me, sync } = await syncOnOpen(store, 'rural-manufacturing', CODE);
+    expect(calls.map((c) => c.path.replace('/api/rural-manufacturing', ''))).toEqual([
+      '/join',
+      '/me',
+      '/sync',
+    ]);
+    expect(me?.participant.wave).toBe('wave-1');
+    expect(sync).toEqual({ lastResult: 'ok', outboxSize: 0 });
+  });
+
+  it('asks nothing else while the join cannot go out', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await queueJoin(store, { code: CODE, wave: 'wave-1' });
+    await store.events.put(event);
+    const calls = stubApi([() => 'offline']);
+    const { me, sync } = await syncOnOpen(store, 'rural-manufacturing', CODE);
+    expect(calls).toHaveLength(1);
+    expect(me).toBeNull();
+    expect(sync).toEqual({ lastResult: 'offline', lastError: 'CLIENT_SYNC_FAILED', outboxSize: 1 });
+  });
+
+  it("an answer to GET /me that is not the contract's shape re-queues nothing", async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await store.events.put({ ...event, synced: 1, syncedDay: '2026-11-16' });
+    stubApi([
+      () => ({ status: 200, body: { unexpected: true } }),
+      () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [] } }),
+    ]);
+    const { me } = await syncOnOpen(store, 'rural-manufacturing', CODE);
+    expect(me).toBeNull();
+    expect((await store.pending()).events).toHaveLength(0);
+  });
+
+  it('with no join waiting: GET /me, then the outbox', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await store.events.put(event);
+    const calls = stubApi([
+      () => ({ status: 200, body: ME }),
+      () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [event.id] } }),
+    ]);
+    await syncOnOpen(store, 'rural-manufacturing', CODE);
+    expect(calls.map((c) => c.path.replace('/api/rural-manufacturing', ''))).toEqual([
+      '/me',
+      '/sync',
+    ]);
   });
 });

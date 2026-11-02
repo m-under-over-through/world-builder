@@ -1,11 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import Dexie from 'dexie';
-import { IDBFactory } from 'fake-indexeddb';
 import App from '../src/App.svelte';
 import { fill } from '../src/lib/copy.ts';
+import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
+import {
+  freshIndexedDb,
+  JOINED,
+  pretendUserAgent,
+  restoreUserAgent,
+  stubRoutes,
+  SYNCED,
+} from './helpers.ts';
 
 /**
  * The client rendered in a test DOM, the way a phone would render it: the address decides the
@@ -43,15 +50,12 @@ async function open(pathname: string) {
 }
 
 // A fresh in-memory IndexedDB per test, so nothing one test stored (a code, an arrival) reaches the next.
-beforeEach(() => {
-  const fresh = new IDBFactory();
-  vi.stubGlobal('indexedDB', fresh);
-  Dexie.dependencies.indexedDB = fresh;
-});
+beforeEach(freshIndexedDb);
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  restoreUserAgent();
 });
 
 describe('a device with no link and no code', () => {
@@ -98,6 +102,19 @@ describe('entering a code', () => {
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/`);
+  });
+
+  it('from a wave landing, "I have a code" then Back puts the wave link back in the address bar', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/join/wave-1`);
+    await user.click(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'i have a code') }),
+    );
+    expect(location.pathname).toBe(`/${SLUG}/continue`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
   });
 
   it('groups the digits by four as they are typed and takes no more than sixteen', async () => {
@@ -185,6 +202,62 @@ describe('the pages a participant can open directly', () => {
     expect(calls).toEqual([]);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/`);
+  });
+
+  it('/panel with a stored code syncs on open, before Back is tapped', async () => {
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', '1234567890123456');
+    await store.events.put({
+      id: '10000000-0000-4000-8000-000000000001',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      cardId: 'cool',
+      seq: 0,
+      kind: 'dismissed',
+      createdDay: '2026-11-16',
+      deckVersion: '0.1',
+      synced: 0,
+    });
+    store.close();
+    const calls = stubRoutes({
+      [`/api/${SLUG}/me`]: [
+        () => ({
+          status: 200,
+          body: {
+            workshop: {
+              slug: SLUG,
+              name: 'x',
+              closesDay: '2026-12-06',
+              deleteDay: '2027-02-05',
+            },
+            participant: {
+              createdDay: '2026-11-16',
+              invitesLeft: 3,
+              wave: 'wave-1',
+              sessionsCount: 1,
+            },
+            sessions: [],
+            events: [],
+          },
+        }),
+      ],
+      [`/api/${SLUG}/sync`]: [
+        () => ({
+          status: 200,
+          body: {
+            acceptedSessionIds: [],
+            acceptedEventIds: ['10000000-0000-4000-8000-000000000001'],
+          },
+        }),
+      ],
+    });
+    await open(`/${SLUG}/panel`);
+    expect(screen.getByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
+    const paths = calls.map((c) => `${c.method} ${c.path.replace(`/api/${SLUG}`, '')}`);
+    expect(paths.slice(0, 2)).toEqual(['GET /me', 'POST /sync']);
+    expect(document.body.textContent).toMatch(
+      new RegExp(`${copy.item('Diagnostics', 'last sync')}\\s+${copy.item('Diagnostics', 'ok')}`),
+    );
   });
 
   it('the panel opened from the welcome goes back to the welcome', async () => {
@@ -197,28 +270,6 @@ describe('the pages a participant can open directly', () => {
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
   });
 });
-
-/** A stub that answers by path, in order of the calls to the same path. */
-function stubRoutes(
-  routes: Record<string, (() => { status: number; body: unknown } | 'offline')[]>,
-) {
-  const calls: { path: string; body: unknown }[] = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: string | URL | Request, init: RequestInit = {}) => {
-      const path = String(input);
-      calls.push({ path, body: init.body ? JSON.parse(String(init.body)) : undefined });
-      const queue = routes[path] ?? [];
-      const answer = (queue.shift() ?? (() => ({ status: 200, body: {} })))();
-      if (answer === 'offline') throw new TypeError('Failed to fetch');
-      return new Response(JSON.stringify(answer.body), { status: answer.status });
-    }),
-  );
-  return calls;
-}
-
-const JOINED = () => ({ status: 200, body: { ok: true } });
-const SYNCED = () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [] } });
 
 describe('the first session', () => {
   async function throughTheIntro(user: ReturnType<typeof userEvent.setup>) {
@@ -236,10 +287,7 @@ describe('the first session', () => {
   }
 
   it('intro 1, intro 2 with Back, consent, then the demo card, then the first card with the hint', async () => {
-    Object.defineProperty(navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0',
-      configurable: true,
-    });
+    pretendUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0');
     const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
     const user = userEvent.setup();
     await throughTheIntro(user);
@@ -247,10 +295,41 @@ describe('the first session', () => {
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
     expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+    // The open hint says "Prefer to talk?" once, as its title; the line under it does not repeat it.
+    expect(screen.getAllByText(copy.item('Titles', 'dictation hint'))).toHaveLength(1);
+    expect(
+      screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
+    ).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
     expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }));
     expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+  });
+
+  it('a browser the app does not know gets no hint and no "Prefer to talk?" (the pretended platform of the last test is gone)', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
+    expect(screen.getByRole('textbox')).toBeTruthy();
+    expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    ).toBeNull();
+  });
+
+  it('the answer being written survives "Your privacy" and Back', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
+    await user.type(screen.getByRole('textbox'), 'Half an answer');
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'privacy') }));
+    expect(await screen.findByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(((await screen.findByRole('textbox')) as HTMLTextAreaElement).value).toBe(
+      'Half an answer',
+    );
   });
 
   it('a taken code is retried once, silently, with a fresh code', async () => {
@@ -285,6 +364,21 @@ describe('the first session', () => {
     await throughTheIntro(user);
     expect(await screen.findByText(copy.error('JOIN_WAVE_FULL'))).toBeTruthy();
     expect(screen.queryByText('JOIN_WAVE_FULL')).toBeNull();
+  });
+
+  it('a join refused for the minute (RATE_LIMITED) is retried once after Retry-After, and a second refusal is shown', async () => {
+    const limited = () => ({
+      status: 429,
+      body: { error: 'RATE_LIMITED' },
+      headers: { 'retry-after': '1' },
+    });
+    const calls = stubRoutes({ [`/api/${SLUG}/join`]: [limited, limited] });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.item('App labels', 'retrying'))).toBeTruthy();
+    expect(await screen.findByText(copy.error('RATE_LIMITED'), {}, { timeout: 3000 })).toBeTruthy();
+    expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(2);
+    expect(screen.queryByText(copy.item('App labels', 'retrying'))).toBeNull();
   });
 
   it('offline, the join is queued, the session starts, and the join goes out with the first sync', async () => {

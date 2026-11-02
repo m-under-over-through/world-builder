@@ -203,7 +203,7 @@ export const COPY_LISTS = {
     'prefer to talk',
     'trust page',
   ],
-  'App labels': ['loading', 'app name'],
+  'App labels': ['loading', 'app name', 'retrying'],
   'Card labels': ['position', 'placeholder', 'counter', 'could not save'],
   'Card states': ['saving', 'saved', 'synced', 'offline', 'sync problem'],
   'Session end': ['come back', 'waiting to sync', 'all synced'],

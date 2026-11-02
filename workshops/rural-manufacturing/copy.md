@@ -38,11 +38,13 @@ Tap the card to answer. Swipe it away to set it aside. Come back any time; a ses
 
 [placeholder]
 
-- iPhone and iPad: Prefer to talk? Tap the microphone on your keyboard.
-- Android: Prefer to talk? Tap the microphone on your keyboard.
-- Mac: Prefer to talk? Press the microphone key twice, or Edit > Start Dictation.
-- Windows: Prefer to talk? Press Windows + H.
-- ChromeOS: Prefer to talk? Press Search + D.
+<!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
+
+- iPhone and iPad: Tap the microphone on your keyboard.
+- Android: Tap the microphone on your keyboard.
+- Mac: Press the microphone key twice, or Edit > Start Dictation.
+- Windows: Press Windows + H.
+- ChromeOS: Press Search + D.
 
 ## Card nudge (under 15 words)
 
@@ -121,6 +123,7 @@ Add this to your home screen for next time. [per-platform steps]
 
 - loading: Loading…
 - app name: World Builder
+- retrying: Busy at the moment. Trying again in a moment.
 
 ## Not a workshop (under 30 words)
 
