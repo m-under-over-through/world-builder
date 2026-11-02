@@ -94,14 +94,28 @@ describe('planSession: the cards of a session', () => {
     expect(distinct(queue)).toBe(true);
   });
 
-  it('a deferred card is shown first next session', () => {
+  it('a deferred warm-up is shown first next session', () => {
     const { queue } = plan({ deferredIds: ['warmup-5'] });
     expect(queue[0]).toBe('warmup-5');
   });
 
-  it('deferred cards keep the order they were deferred in, before anything fresh', () => {
+  it('a deferred checkpoint is shown first among the checkpoints, after the warm-ups', () => {
+    const { queue } = plan({ deferredIds: ['checkpoint-3'], checkpointsPerSession: 2 });
+    expect(setsOf(sixAndFour, queue)).toEqual([
+      'warmup',
+      'warmup',
+      'warmup',
+      'checkpoint',
+      'checkpoint',
+    ]);
+    expect(queue[3]).toBe('checkpoint-3');
+  });
+
+  it('deferred cards keep the order they were deferred in, each at the start of its set', () => {
     const { queue } = plan({ deferredIds: ['warmup-5', 'checkpoint-3', 'warmup-2'] });
-    expect(queue.slice(0, 3)).toEqual(['warmup-5', 'checkpoint-3', 'warmup-2']);
+    expect(queue.slice(0, 2)).toEqual(['warmup-5', 'warmup-2']);
+    expect(setsOf(sixAndFour, queue)).toEqual(['warmup', 'warmup', 'warmup', 'checkpoint']);
+    expect(queue[3]).toBe('checkpoint-3');
   });
 
   it('a deferred warm-up takes one of the W warm-up places', () => {
@@ -111,11 +125,30 @@ describe('planSession: the cards of a session', () => {
     expect(distinct(queue)).toBe(true);
   });
 
-  it('a deferred checkpoint takes the C checkpoint place and comes before the warm-ups', () => {
+  it('a deferred checkpoint takes the C checkpoint place, so the session still ends on a checkpoint', () => {
     const { queue } = plan({ deferredIds: ['checkpoint-3'] });
     expect(queue).toHaveLength(4);
-    expect(setsOf(sixAndFour, queue)).toEqual(['checkpoint', 'warmup', 'warmup', 'warmup']);
-    expect(queue[0]).toBe('checkpoint-3');
+    expect(setsOf(sixAndFour, queue)).toEqual(['warmup', 'warmup', 'warmup', 'checkpoint']);
+    expect(queue[3]).toBe('checkpoint-3');
+  });
+
+  it('the last card of a session is a checkpoint, whatever was deferred', () => {
+    // Section 8: a session ends after the checkpoints. Deferred cards must not change that.
+    const deferrals = [
+      ['checkpoint-1'],
+      ['checkpoint-2', 'warmup-1'],
+      ['warmup-3', 'checkpoint-4', 'checkpoint-1'],
+      ['checkpoint-1', 'checkpoint-2', 'checkpoint-3', 'checkpoint-4'],
+    ];
+    for (let s = 0; s < 20; s++) {
+      for (const deferredIds of deferrals) {
+        const { queue } = plan({ seed: `seed-${s}`, deferredIds });
+        expect(setsOf(sixAndFour, queue).at(-1)).toBe('checkpoint');
+        expect(setsOf(sixAndFour, queue).indexOf('checkpoint')).toBe(
+          setsOf(sixAndFour, queue).lastIndexOf('warmup') + 1,
+        );
+      }
+    }
   });
 
   it('more deferred cards than the count are all shown, and nothing fresh of that set is added', () => {
@@ -238,14 +271,12 @@ describe('planSession: the cards of a session', () => {
         { id: 'rich-poor', set: 'checkpoint', text: 'Who gets richer, or poorer? How?' },
       ],
     });
-    const { queue } = planSession({
-      deck,
-      warmupsPerSession: 3,
-      checkpointsPerSession: 1,
-      seed: 'example',
-      answeredIds: [],
-      deferredIds: [],
-    });
-    expect(queue).toEqual(['cool', 'on-tv', 'embarrassing', 'immigrants']);
+    const session = { deck, warmupsPerSession: 3, checkpointsPerSession: 1, seed: 'example' };
+    const fresh = planSession({ ...session, answeredIds: [], deferredIds: [] });
+    expect(fresh.queue).toEqual(['cool', 'on-tv', 'embarrassing', 'immigrants']);
+    // With "cool" and "rich-poor" deferred last session: each leads its own set, and the deferred
+    // checkpoint takes the one checkpoint place, so the session still ends on a checkpoint.
+    const owed = planSession({ ...session, answeredIds: [], deferredIds: ['cool', 'rich-poor'] });
+    expect(owed.queue).toEqual(['cool', 'on-tv', 'embarrassing', 'rich-poor']);
   });
 });
