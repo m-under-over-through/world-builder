@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import App from '../src/App.svelte';
 import { fill } from '../src/lib/copy.ts';
+import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import {
@@ -43,10 +44,26 @@ function stubApi(answer: Stub) {
   return calls;
 }
 
-async function open(pathname: string) {
+/**
+ * Render the app at an address. Its waits (the beat after "Synced.", the Retry-After) are instant
+ * unless a test holds one: `held()` gives a wait that resolves when the test says.
+ */
+async function open(pathname: string, wait?: AppState['wait']): Promise<AppState> {
   history.replaceState(null, '', pathname);
-  render(App);
+  const app = new AppState();
+  app.wait = wait ?? (async () => {});
+  render(App, { app });
   await screen.findByRole('heading');
+  return app;
+}
+
+function held(): { wait: AppState['wait']; release: () => void } {
+  let release = () => {};
+  const wait = () =>
+    new Promise<void>((resolve) => {
+      release = resolve;
+    });
+  return { wait, release: () => release() };
 }
 
 // A fresh in-memory IndexedDB per test, so nothing one test stored (a code, an arrival) reaches the next.
@@ -272,8 +289,11 @@ describe('the pages a participant can open directly', () => {
 });
 
 describe('the first session', () => {
-  async function throughTheIntro(user: ReturnType<typeof userEvent.setup>) {
-    await open(`/${SLUG}/join/wave-1`);
+  async function throughTheIntro(
+    user: ReturnType<typeof userEvent.setup>,
+    wait?: AppState['wait'],
+  ) {
+    const app = await open(`/${SLUG}/join/wave-1`, wait);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }));
     expect(screen.getByText(copy.text('Intro 1'))).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
@@ -284,6 +304,7 @@ describe('the first session', () => {
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
     expect(screen.getByText(copy.text('Intro 3, consent'))).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
+    return app;
   }
 
   it('intro 1, intro 2 with Back, consent, then the demo card, then the first card with the hint', async () => {
@@ -294,7 +315,7 @@ describe('the first session', () => {
     expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
-    expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+    expect(await screen.findByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
     // The open hint says "Prefer to talk?" once, as its title; the line under it does not repeat it.
     expect(screen.getAllByText(copy.item('Titles', 'dictation hint'))).toHaveLength(1);
     expect(
@@ -311,7 +332,7 @@ describe('the first session', () => {
     const user = userEvent.setup();
     await throughTheIntro(user);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
-    expect(screen.getByRole('textbox')).toBeTruthy();
+    expect(await screen.findByRole('textbox')).toBeTruthy();
     expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
     expect(
       screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
@@ -323,7 +344,7 @@ describe('the first session', () => {
     const user = userEvent.setup();
     await throughTheIntro(user);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
-    await user.type(screen.getByRole('textbox'), 'Half an answer');
+    await user.type(await screen.findByRole('textbox'), 'Half an answer');
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'privacy') }));
     expect(await screen.findByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
@@ -374,9 +395,12 @@ describe('the first session', () => {
     });
     const calls = stubRoutes({ [`/api/${SLUG}/join`]: [limited, limited] });
     const user = userEvent.setup();
-    await throughTheIntro(user);
+    const { wait, release } = held();
+    await throughTheIntro(user, wait);
     expect(await screen.findByText(copy.item('App labels', 'retrying'))).toBeTruthy();
-    expect(await screen.findByText(copy.error('RATE_LIMITED'), {}, { timeout: 3000 })).toBeTruthy();
+    expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
+    release();
+    expect(await screen.findByText(copy.error('RATE_LIMITED'))).toBeTruthy();
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(2);
     expect(screen.queryByText(copy.item('App labels', 'retrying'))).toBeNull();
   });
@@ -390,12 +414,92 @@ describe('the first session', () => {
     await throughTheIntro(user);
     expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
-    await screen.findByText(copy.item('Card states', 'synced'));
+    await user.click(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'set aside') }),
+    );
+    await waitFor(() => expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true));
     const paths = calls.map((c) => c.path.replace(`/api/${SLUG}`, ''));
     expect(paths).toEqual(['/waves/wave-1/opened', '/join', '/join', '/sync']);
     expect((calls[1]!.body as { code: string }).code).toBe(
       (calls[2]!.body as { code: string }).code,
     );
+  });
+});
+
+describe('the core loop', () => {
+  async function toTheFirstCard(user: ReturnType<typeof userEvent.setup>, wait?: AppState['wait']) {
+    const app = await open(`/${SLUG}/join/wave-1`, wait);
+    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }));
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
+    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
+    await screen.findByRole('textbox');
+    return app;
+  }
+
+  it('Save: "Saved on this device." and "Synced." on the card that was answered, then the next card', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED, SYNCED] });
+    const user = userEvent.setup();
+    const { wait, release } = held();
+    const app = await toTheFirstCard(user, wait);
+    const first = app.card!;
+    await user.type(screen.getByRole('textbox'), 'An answer');
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
+    expect(await screen.findByText(copy.item('Card states', 'synced'))).toBeTruthy();
+    expect(screen.getByText(first.text)).toBeTruthy();
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
+    release();
+    await waitFor(() => expect(screen.queryByText(first.text)).toBeNull());
+    expect(screen.queryByText(copy.item('Card states', 'synced'))).toBeNull();
+    expect(
+      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 2, total: 4 })),
+    ).toBeTruthy();
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('offline, Save says "Saved on this device. It will sync when you are online."', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [() => 'offline'] });
+    const user = userEvent.setup();
+    const { wait, release } = held();
+    await toTheFirstCard(user, wait);
+    await user.type(screen.getByRole('textbox'), 'An answer');
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
+    expect(await screen.findByText(copy.item('Card states', 'offline'))).toBeTruthy();
+    release();
+  });
+
+  it('Set aside by the button: the next card at once, and the card comes round again at the end', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const user = userEvent.setup();
+    const app = await toTheFirstCard(user);
+    const first = app.card!;
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
+    await waitFor(() => expect(screen.queryByText(first.text)).toBeNull());
+    expect(app.live!.plan.queue.at(-1)).toBe(first.id);
+    expect(app.live!.dismissed.has(first.id)).toBe(true);
+    expect(
+      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 1, total: 4 })),
+    ).toBeTruthy();
+  });
+
+  it('a swipe sets the card aside as the button does', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const user = userEvent.setup();
+    const app = await toTheFirstCard(user);
+    const first = app.card!;
+    const card = screen.getByText(first.text).closest('.card')!;
+    for (const [type, x] of [
+      ['pointerdown', 200],
+      ['pointermove', 100],
+      ['pointermove', 20],
+      ['pointerup', 20],
+    ] as const)
+      card.dispatchEvent(
+        new PointerEvent(type, { clientX: x, clientY: 100, pointerId: 1, bubbles: true }),
+      );
+    await waitFor(() => expect(screen.queryByText(first.text)).toBeNull());
+    expect(app.live!.dismissed.has(first.id)).toBe(true);
   });
 });

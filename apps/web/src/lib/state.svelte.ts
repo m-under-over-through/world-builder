@@ -5,13 +5,14 @@ import {
   codeSchema,
   MAX_ANSWER_CHARS,
   type Card,
+  type EventKind,
   type JoinRequest,
   type MeResponse,
+  type Session,
 } from '@wb/contracts';
 import { sealAnswer } from '@wb/crypto';
-import { api, DEFAULT_RETRY_AFTER_SECONDS } from './api.ts';
-import type { Copy } from './copy.ts';
-import { sessionCards, truncateCodePoints } from './deck.ts';
+import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
+import type { Copy, ListKey } from './copy.ts';
 import { dayStatus } from './days.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
@@ -22,8 +23,21 @@ import {
   type Arrival,
   type Page,
 } from './route.ts';
+import {
+  currentCardId,
+  latestSession,
+  mergeHistory,
+  position,
+  replaySession,
+  sessionOver,
+  withAnswer,
+  withDismissal,
+  withShown,
+  type LiveSession,
+} from './session.ts';
 import { localDay, WorkshopStore } from './store.ts';
 import { queueJoin, reconcile, syncNow, syncOnOpen, type SyncStatus } from './sync.ts';
+import { truncateCodePoints } from './text.ts';
 import { defaultCopy, findWorkshop, type Workshop } from './workshops.ts';
 
 /**
@@ -51,6 +65,15 @@ export type Screen =
 
 /** The code as shown before "Reveal": four groups of four. */
 export const MASKED_CODE = '•••• •••• •••• ••••';
+
+/**
+ * The states of a card (docs/screen-map.md, Core loop). `fresh` is the question with the field;
+ * the others are the line under the card after Save, each with its words in "Card states".
+ */
+export type CardState = 'fresh' | ListKey<'Card states'>;
+
+/** How long "Synced." (or "Saved on this device.") stays on the card before the next one comes. */
+export const SETTLE_MS = 900;
 
 export class AppState {
   screen = $state<Screen>('loading');
@@ -83,16 +106,19 @@ export class AppState {
   private home = '';
 
   // the session
-  cards = $state.raw<Card[]>([]);
-  index = $state(0);
-  sessionId = '';
-  /** 1 for the participant's first session: the demo card and the hint show only then. */
-  sessionNo = $state(0);
-  seq = 0;
-  saving = $state(false);
+  /**
+   * The session being played, rebuilt from its seed and its events (lib/session.ts) and replaced
+   * whole on every change. Null before a session starts.
+   */
+  live = $state.raw<LiveSession | null>(null);
+  /** The card on the screen. It stays while its answer is saved and synced; then the next one comes. */
+  card = $state.raw<Card | undefined>(undefined);
+  cardState = $state<CardState>('fresh');
   joining = $state(false);
   hintOpen = $state(false);
   sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0 });
+  /** The sync in flight, so two never run at once (one after a save, one after a set-aside). */
+  private syncing: Promise<SyncStatus> | null = null;
 
   // the panel
   me = $state.raw<MeResponse | null>(null);
@@ -101,8 +127,18 @@ export class AppState {
   /** The screen the panel was opened from, to go back to. */
   private before: Screen = 'loading';
 
-  get card(): Card | undefined {
-    return this.cards[this.index];
+  /** 1 for the participant's first session: the demo card and the hint show only then. */
+  get sessionNo(): number {
+    return this.live?.session.sessionNo ?? 0;
+  }
+
+  /** "Card n of total", as the queue stands now. */
+  get position(): { n: number; total: number } {
+    return this.live ? position(this.live) : { n: 0, total: 0 };
+  }
+
+  get saving(): boolean {
+    return this.cardState === 'saving';
   }
 
   /** Today against the workshop's days, judged on the device (lib/days.ts); the server has the last word. */
@@ -191,56 +227,88 @@ export class AppState {
    */
   private async land(): Promise<void> {
     if (this.today() !== 'open') this.screen = 'closed';
-    else if (this.code) await this.startSession();
+    else if (this.code) await this.enterSession();
     else this.screen = 'welcome';
   }
 
   /**
    * The sync on open (lib/sync.ts, syncOnOpen): the queued join, then GET /me, then the outbox.
-   * Also what a code typed on "I have a code" goes through before its first card.
+   * Also what a code typed on "I have a code" goes through before its first card, with the
+   * answer that checked the code handed in so the server is not asked twice.
    */
-  private async syncOnOpen(): Promise<void> {
+  private async syncOnOpen(answer?: ApiResult<unknown>): Promise<void> {
     if (!this.store || !this.workshop) return;
-    const { me, sync } = await syncOnOpen(this.store, this.workshop.config.slug, this.code);
+    const { me, sync } = await syncOnOpen(this.store, this.workshop.config.slug, this.code, answer);
     this.me = me;
     this.sync = sync;
   }
 
-  async afterCode(): Promise<void> {
-    await this.syncOnOpen();
-    await this.land();
-  }
-
-  async startSession(): Promise<void> {
+  /**
+   * With a code: resume the latest session when the engine says it is not over, else start a new
+   * one. Resume is replay (lib/session.ts), never a stored queue: a reload lands on the same card,
+   * and a second device with the same code continues where the first left off, since the history
+   * is the device's rows and the server's together.
+   */
+  async enterSession(): Promise<void> {
     if (!this.store || !this.workshop) return;
-    // What this participant has already answered: the device's record and the server's, combined,
-    // so a new device (or a wiped one) continues where the others left off.
-    const answered = await this.store.answeredCardIds();
-    for (const e of this.me?.events ?? []) if (e.kind === 'answered') answered.add(e.cardId);
-    this.cards = sessionCards(this.workshop.deck, this.workshop.config, answered);
-    this.index = 0;
-    this.seq = 0;
-    this.sessionId = crypto.randomUUID();
-    this.sessionNo = Math.max(await this.store.sessions.count(), this.me?.sessions.length ?? 0) + 1;
-    const seed = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
-      b.toString(16).padStart(2, '0'),
-    ).join('');
-    await this.store.sessions.put({
-      id: this.sessionId,
-      sessionNo: this.sessionNo,
+    const { deck, config } = this.workshop;
+    const history = mergeHistory(await this.store.history(), this.me);
+    const latest = latestSession(history);
+    if (latest) {
+      const replayed = replaySession(deck, config, latest, history);
+      if (!sessionOver(replayed)) {
+        this.live = replayed;
+        await this.showCard();
+        return;
+      }
+    }
+    const session: Session = {
+      id: crypto.randomUUID(),
+      sessionNo: (latest?.sessionNo ?? 0) + 1,
       startedDay: localDay(),
-      deckVersion: this.workshop.deck.version,
-      seed,
-      synced: 0,
-    });
-    // The first session opens with the demo card and the dictation hint (architecture plan, 8.1).
-    this.hintOpen = this.sessionNo === 1 && this.platform !== null;
-    if (!this.cards.length) this.screen = 'session-end';
-    else this.screen = this.sessionNo === 1 ? 'demo' : 'card';
+      deckVersion: deck.version,
+      seed: Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
+        b.toString(16).padStart(2, '0'),
+      ).join(''),
+    };
+    await this.store.sessions.put({ ...session, synced: 0 });
+    this.live = replaySession(deck, config, session, history);
+    await this.showCard();
   }
 
-  dismissDemo(): void {
+  /**
+   * Show the card the engine says is next, recording `shown`; or the session end when it says
+   * the session is over. The first session opens with the demo card, once, and the hint for this
+   * platform on its first card (architecture plan, 8.1).
+   */
+  private async showCard(): Promise<void> {
+    if (!this.store || !this.workshop || !this.live) return;
+    this.draft = '';
+    this.error = '';
+    this.cardState = 'fresh';
+    if (sessionOver(this.live)) {
+      this.card = undefined;
+      this.screen = 'session-end';
+      return;
+    }
+    // The demo card: before anything was done in the first session, once per device. A second
+    // device continuing a first session already under way skips it.
+    if (this.sessionNo === 1 && this.live.untouched && !(await this.store.get('demoSeen'))) {
+      this.screen = 'demo';
+      return;
+    }
+    const id = currentCardId(this.live);
+    this.card = this.workshop.deck.cards.find((c) => c.id === id);
+    this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
+    await this.record('shown');
+    this.live = withShown(this.live);
     this.screen = 'card';
+  }
+
+  /** "Got it" on the demo card, or a swipe: seen once per device, then the first card. */
+  async dismissDemo(): Promise<void> {
+    await this.store?.set('demoSeen', localDay());
+    await this.showCard();
   }
 
   /**
@@ -284,7 +352,7 @@ export class AppState {
         this.code = fresh;
         await this.store.set('code', this.code);
         await this.store.set('consent', localDay());
-        await this.startSession();
+        await this.enterSession();
         return;
       }
     } finally {
@@ -303,7 +371,7 @@ export class AppState {
       this.tooShort = true;
       return;
     }
-    const res = await api(`/${this.workshop.config.slug}/me`, { code: typed });
+    const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code: typed });
     if (!res.ok) {
       if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
       else this.error = res.error;
@@ -311,61 +379,89 @@ export class AppState {
     }
     this.code = typed;
     await this.store.set('code', this.code);
-    await this.afterCode();
+    await this.syncOnOpen(res);
+    await this.land();
   }
 
-  private async record(kind: 'answered' | 'dismissed', body?: string): Promise<void> {
-    if (!this.store || !this.workshop || !this.card) return;
-    const event = {
+  /** One event, as the contract spells it, with this session's next seq; the engine names the kind. */
+  private async record(kind: EventKind, body?: string): Promise<void> {
+    if (!this.store || !this.workshop || !this.live || !this.card) return;
+    await this.store.events.put({
       id: crypto.randomUUID(),
-      sessionId: this.sessionId,
+      sessionId: this.live.session.id,
       cardId: this.card.id,
-      seq: this.seq++,
+      seq: this.live.nextSeq,
       kind,
       createdDay: localDay(),
       deckVersion: this.workshop.deck.version,
-      synced: 0 as const,
+      synced: 0,
       ...(body === undefined ? {} : { body }),
-    };
-    await this.store.events.put(event);
+    });
   }
 
-  /** Seal the draft, write the outbox, move on. Returns whether the answer was taken. */
+  /**
+   * Save: seal the draft, write the outbox (`saving`), say so (`saved`), sync and say how that
+   * went (`synced`, or offline, or a problem), then, after a beat, the next card. The card stays
+   * on the screen through all of it, so the line always speaks of the answer it is under.
+   * Returns whether the answer was taken.
+   */
   async save(answer = this.draft): Promise<boolean> {
-    if (!this.workshop || this.saving) return false;
-    this.saving = true;
+    if (!this.workshop || !this.live || !this.card || this.cardState !== 'fresh') return false;
     this.error = '';
+    let sealed: string;
     try {
-      let sealed: string;
-      try {
-        sealed = sealAnswer(this.workshop.publicKey, truncateCodePoints(answer, MAX_ANSWER_CHARS));
-      } catch {
-        // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
-        // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
-        this.error = 'CLIENT_SEAL_FAILED';
-        return false;
-      }
-      await this.record('answered', sealed);
-      this.draft = '';
-      await this.next();
-      return true;
-    } finally {
-      this.saving = false;
+      sealed = sealAnswer(this.workshop.publicKey, truncateCodePoints(answer, MAX_ANSWER_CHARS));
+    } catch {
+      // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
+      // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
+      this.error = 'CLIENT_SEAL_FAILED';
+      return false;
     }
-  }
-
-  async setAside(): Promise<void> {
+    this.cardState = 'saving';
+    await this.record('answered', sealed);
+    this.live = withAnswer(this.live, this.card.id);
     this.draft = '';
-    await this.record('dismissed');
-    await this.next();
+    this.cardState = 'saved';
+    const status = await this.requestSync();
+    this.cardState =
+      status.lastResult === 'ok'
+        ? 'synced'
+        : status.lastResult === 'offline'
+          ? 'offline'
+          : 'sync problem';
+    await this.wait(SETTLE_MS);
+    await this.showCard();
+    return true;
   }
 
-  private async next(): Promise<void> {
-    if (!this.store || !this.workshop) return;
-    this.hintOpen = false;
-    this.sync = await syncNow(this.store, this.workshop.config.slug, this.code);
-    if (this.index + 1 < this.cards.length) this.index += 1;
-    else this.screen = 'session-end';
+  /**
+   * "Set aside", by button or swipe: the engine moves the card to the end of the queue the first
+   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded, the sync
+   * runs in the background, and the next card comes at once.
+   */
+  async setAside(): Promise<void> {
+    if (!this.live || !this.card || this.cardState !== 'fresh') return;
+    const { live, event } = withDismissal(this.live, this.card.id);
+    if (!event) return;
+    await this.record(event);
+    this.live = live;
+    void this.requestSync();
+    await this.showCard();
+  }
+
+  /** One sync at a time: a request while one runs waits for it, then runs. Safe to repeat. */
+  private requestSync(): Promise<SyncStatus> {
+    const run = async () => {
+      if (!this.store || !this.workshop) return this.sync;
+      this.sync = await syncNow(this.store, this.workshop.config.slug, this.code);
+      return this.sync;
+    };
+    const next = (this.syncing ?? Promise.resolve()).then(run, run);
+    this.syncing = next;
+    void next.finally(() => {
+      if (this.syncing === next) this.syncing = null;
+    });
+    return next;
   }
 
   /** "Your privacy" from any screen: a fresh GET /me, so the rows are what the server holds now. */

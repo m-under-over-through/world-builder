@@ -10,6 +10,7 @@ import PrivacyPanel from '../src/screens/PrivacyPanel.svelte';
 import SessionEnd from '../src/screens/SessionEnd.svelte';
 import Welcome from '../src/screens/Welcome.svelte';
 import { fill } from '../src/lib/copy.ts';
+import { currentCardId, replaySession, type LiveSession } from '../src/lib/session.ts';
 import { AppState, MASKED_CODE } from '../src/lib/state.svelte.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 
@@ -27,6 +28,24 @@ function state(patch: Partial<AppState> = {}): AppState {
   app.copy = copy;
   Object.assign(app, patch);
   return app;
+}
+
+/** A first session with nothing done, and its first card on the screen. */
+function onACard(patch: Partial<AppState> = {}): AppState {
+  const live: LiveSession = replaySession(
+    workshop.deck,
+    workshop.config,
+    {
+      id: '00000000-0000-4000-8000-000000000001',
+      sessionNo: 1,
+      startedDay: '2026-11-16',
+      deckVersion: workshop.deck.version,
+      seed: '0123456789abcdef',
+    },
+    { sessions: [], events: [] },
+  );
+  const card = workshop.deck.cards.find((c) => c.id === currentCardId(live));
+  return state({ live, card, ...patch });
 }
 
 describe('the screens render the words of copy.md', () => {
@@ -94,8 +113,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the card keeps the draft the state holds', () => {
-    const cards = workshop.deck.cards.slice(0, 1);
-    render(Card, { app: state({ cards, draft: 'Half an answer' }) });
+    render(Card, { app: onACard({ draft: 'Half an answer' }) });
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Half an answer');
   });
 
@@ -106,8 +124,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the card with the dictation hint open: its title once, the line for this platform, and "Got it"', () => {
-    const cards = workshop.deck.cards.slice(0, 1);
-    render(Card, { app: state({ cards, platform: 'Windows', hintOpen: true }) });
+    render(Card, { app: onACard({ platform: 'Windows', hintOpen: true }) });
     expect(
       screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
     ).toBeTruthy();
@@ -120,8 +137,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the card with the hint closed: "Prefer to talk?" on a platform that has dictation', () => {
-    const cards = workshop.deck.cards.slice(0, 1);
-    render(Card, { app: state({ cards, platform: 'Android', hintOpen: false }) });
+    render(Card, { app: onACard({ platform: 'Android', hintOpen: false }) });
     expect(
       screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
     ).toBeTruthy();
@@ -129,35 +145,44 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the card on a platform with no dictation: no hint and no "Prefer to talk?"', () => {
-    const cards = workshop.deck.cards.slice(0, 1);
-    render(Card, { app: state({ cards, platform: null, hintOpen: true }) });
+    render(Card, { app: onACard({ platform: null, hintOpen: true }) });
     expect(
       screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
     ).toBeNull();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'got it') })).toBeNull();
   });
 
-  it('the card: the question, the nudge, the position, and the sync line', () => {
-    const cards = workshop.deck.cards.slice(0, 2);
-    render(Card, { app: state({ cards, index: 1, sync: { lastResult: 'ok', outboxSize: 0 } }) });
-    expect(screen.getByText(cards[1]!.text)).toBeTruthy();
+  it('the card, fresh: the question, the nudge, the position, Save and Set aside, and no state line', () => {
+    const app = onACard();
+    render(Card, { app });
+    expect(screen.getByText(app.card!.text)).toBeTruthy();
     expect(screen.getByText(copy.text('Card nudge'), { exact: false })).toBeTruthy();
     expect(
-      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 2, total: 2 })),
+      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 1, total: 4 })),
     ).toBeTruthy();
-    expect(screen.getByText(copy.item('Card states', 'synced'))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeTruthy();
+    for (const key of ['saving', 'saved', 'synced', 'offline', 'sync problem'] as const)
+      expect(screen.queryByText(copy.item('Card states', key))).toBeNull();
   });
 
-  it('the card offline: "saved on this device"', () => {
-    const cards = workshop.deck.cards.slice(0, 1);
-    render(Card, { app: state({ cards, sync: { lastResult: 'offline', outboxSize: 1 } }) });
-    expect(screen.getByText(copy.item('Card states', 'offline'))).toBeTruthy();
+  it('the card in each state after Save: its line, with the field and the buttons off', () => {
+    for (const key of ['saving', 'saved', 'synced', 'offline', 'sync problem'] as const) {
+      const { unmount } = render(Card, { app: onACard({ cardState: key, draft: '' }) });
+      expect(screen.getByText(copy.item('Card states', key))).toBeTruthy();
+      expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
+      expect(
+        (
+          screen.getByRole('button', {
+            name: copy.item('Buttons', 'set aside'),
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+      unmount();
+    }
   });
 
   it('the card with a sealing failure: the CLIENT_SEAL_FAILED wording', () => {
-    const cards = workshop.deck.cards.slice(0, 1);
-    render(Card, { app: state({ cards, error: 'CLIENT_SEAL_FAILED' }) });
+    render(Card, { app: onACard({ error: 'CLIENT_SEAL_FAILED' }) });
     expect(screen.getByText(copy.error('CLIENT_SEAL_FAILED'), { exact: false })).toBeTruthy();
   });
 

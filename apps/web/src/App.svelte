@@ -16,7 +16,8 @@
    * everything that changes it in lib/state.svelte.ts, and this file, which reads the address on
    * open and shows the screen the state says. Every word comes from the workshop's copy.md.
    */
-  const app = new AppState();
+  // A test may hand in its own state (with an instant `wait`); the app makes one.
+  let { app = new AppState() }: { app?: AppState } = $props();
 
   onMount(() => {
     void app.open(location.pathname);

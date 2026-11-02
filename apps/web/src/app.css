@@ -27,6 +27,24 @@ h1 {
   border-radius: 16px;
   padding: 24px var(--gap);
   margin: var(--gap) 0;
+  /* Sideways is the swipe (lib/swipe.ts); up and down stays the page's scroll. */
+  touch-action: pan-y;
+}
+.card.swiping {
+  cursor: grabbing;
+}
+/* "Set aside" by button: the card leaves the way a swipe takes it. */
+.card.leaving {
+  transform: translateX(-120%) rotate(-5deg);
+  transition: transform 220ms ease-in;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card.leaving {
+    transition: none;
+  }
+}
+.card .state:empty {
+  display: none;
 }
 .card p.question {
   font-size: 1.3rem;

@@ -978,3 +978,45 @@ On the deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-
 
 - The two `GET /me` calls on "I have a code" (one to check the code, one in the sync on open) could be one; left as is, it is one extra request per typed code.
 - Without the API's `Retry-After` the five-second default usually falls in the same minute's budget, so the retry is refused too and shown; with the header (API item 6) it waits for the next minute.
+
+---
+
+## 2026-11-02, Monday, night. UI item 5: the core loop on the deck engine
+
+### What
+
+- **The session is the deck engine's.** `apps/web/src/lib/deck.ts` is gone; `lib/session.ts` feeds `@wb/deck` and keeps the bookkeeping around it. A session on the device is a `LiveSession`: the session row (its seed), the plan the engine made, and three sets for this session (answered, dismissed once, deferred), rebuilt from the stored rows and never stored itself. `replaySession` is the engine's resume recipe: `planSession` with the history as it stood when the session started (every answer from other sessions, never this session's own; the previous session's deferred cards in `seq` order), then this session's `dismissed` and `deferred` events through `applyDismiss` in `seq` order, each `dismissed` card joining the set after its own call. The history is the device's rows and the server's (`GET /me`) merged, a shared row counting once, so a second device with the same code continues the same session.
+- **Resume, not restart.** On open with a code, the latest session (highest number, on this device or on the server) is replayed; if the engine says it is not over, it continues on the same card. A reload mid-session lands where it was and adds no session row, which closes the "17 sessions, 4 events" of item 2's report. A session that is over, or none, starts the next number.
+- **`shown` on display.** Every time a card comes onto the screen, including a dismissed card coming round and a resumed session, a `shown` event is recorded first.
+- **Set aside, by button and by swipe.** `withDismissal` calls `applyDismiss` with the set as it stood before the call and adds the card after, only on a first dismissal (the hand-over's sharp edge). The first time the card goes to the end of the queue (`dismissed`); the second time it leaves for the next session (`deferred`). The swipe is a Svelte action in `lib/swipe.ts`: the card follows the finger sideways and leaves past 80 pixels or 35% of its width, springs back short of it, leaves vertical movement to the scroll, and never starts in the answer field or on a button. The button makes the card leave the same way. With "reduce motion" on, nothing animates. The demo card swipes away too.
+- **The states of a card, on the card.** `app.cardState`: `fresh`, then after Save `saving` (sealing, writing the outbox), `saved`, and `synced`, `offline` or `sync problem` once the sync answers; the line sits under the card that was answered, with its field and buttons off, and the next card comes after a beat (`SETTLE_MS`, 900 ms). A set-aside shows no line: the next card comes at once and the sync runs behind it. One sync runs at a time; a second request waits for the first.
+- **The session ends when the engine says** (`isSessionOver`): after the last checkpoint, or later if a warm-up set aside once is still owed its second showing. "Card n of total" counts what is done plus one, out of the queue as it stands.
+- **The demo card** shows once per device (`demoSeen`), and only while nothing has been done in the first session: a second device joining a first session under way goes straight to the card.
+- **Boundaries.** The answer to `POST /sync` is checked against the contract before anything is marked accepted; an answer of another shape leaves the batch in the outbox. "I have a code" hands the `GET /me` that checked the code into the sync on open, so the server is asked once, not twice (item A's open point).
+- `lib/text.ts` holds the code-point helpers that lived in `deck.ts`. `App.svelte` takes an optional state, so a test can hand in one with instant waits. Tests: `session.test.ts` (the replay, the deferred-first rule, own answers not history, the sharp edge, the merge, the latest session), `swipe.test.ts` (thresholds, where a swipe may start, left and right, spring back, vertical left alone, off while saving), the states on the card, and in the state and the rendered app: shown then dismissed then deferred with the seqs in order and the session end; a reload resumes the same card with no new session row and a `shown` recorded again; session 2 opens with the deferred card first; a second device continues from the server's rows; "Saved on this device." and "Synced." on the answered card before the next one; offline wording; the swipe. 291 tests (25 new, 2 moved).
+
+### Why
+
+Item 5 of the UI brief, on the deck engine of pull requests 12 and 14 and the hand-over in their reports.
+
+### How to verify
+
+```
+npm run check                       # 291 tests
+npx vitest run --project web        # the client's 129
+```
+
+On the deploy preview, in a fresh browser: the wave link, the intro, "I understand", the demo card: swipe it away. Card 1 of 4: set it aside with the button; card 2 shows at once and the panel's "what we store" counts `shown` and `dismissed`. Answer cards 2, 3 and 4 (each shows "Saved on this device." then "Synced." on the card, then the next). Card 1 comes round again as "Card 4 of 4"; swipe it away: "That is a session." Reload mid-session at any point: the same card, and the panel still says one session.
+
+### Decisions made on the way
+
+- **The plan is never stored, only replayed**, as the hand-over asked. The cost is a replay on every open, which for a four-card session is nothing.
+- **Resume over restart** is what makes "no empty sessions" true, rather than creating the row at the first event: with `shown` recorded on display, the first event comes at once anyway.
+- **Save keeps the card until the sync answers**, so the line always speaks of the answer under it; a slow network holds the card in "Saved on this device." until then. If that proves too long on a phone, a cap on the wait is one line.
+- **The demo card is per device and only for an untouched first session**; nothing in the map said what a second device should see, and a participant who has answered has seen it.
+- **A session on two devices at once** can produce two events with the same `seq` (each device counts on from what it knew); ids stay unique, nothing is lost, and the replay is in `seq` order with ties in store order. Rare enough to note, not to design for.
+
+### Open
+
+- The map's "the session ends after the last checkpoint" and the engine's "when the queue is exhausted" differ only when a warm-up set aside once comes round after the checkpoint; the engine's reading is kept (the deck builder's item 2 says why).
+- The `shown` events double the rows per session; the sync batches and the panel's counts take them in their stride, and the research gets "shown but not answered" for free. Say if the count on the panel should read answers only.

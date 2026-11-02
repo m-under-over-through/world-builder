@@ -1,9 +1,9 @@
 import {
   joinRequestSchema,
   meResponseSchema,
+  syncResponseSchema,
   type JoinRequest,
   type MeResponse,
-  type SyncResponse,
 } from '@wb/contracts';
 import { api, type ApiResult } from './api.ts';
 import { makeBatches } from './batches.ts';
@@ -80,9 +80,18 @@ export async function syncNow(
 async function pushOutbox(store: WorkshopStore, slug: string, code: string): Promise<SyncStatus> {
   const { sessions, events } = await store.pending();
   for (const batch of makeBatches(sessions, events)) {
-    const res = await api<SyncResponse>(`/${slug}/sync`, { body: batch, code });
+    const res = await api<unknown>(`/${slug}/sync`, { body: batch, code });
     if (!res.ok) return failed(store, res);
-    await store.markSynced(res.data.acceptedSessionIds, res.data.acceptedEventIds, localDay());
+    // An answer of another shape than the contract's marks nothing as accepted: the batch stays
+    // in the outbox and is sent again, which the server takes without duplicating.
+    const accepted = syncResponseSchema.safeParse(res.data);
+    if (!accepted.success)
+      return failed(store, { ok: false, error: 'CLIENT_SYNC_FAILED', status: 0 });
+    await store.markSynced(
+      accepted.data.acceptedSessionIds,
+      accepted.data.acceptedEventIds,
+      localDay(),
+    );
   }
   const remaining = await store.pending();
   return { lastResult: 'ok', outboxSize: remaining.events.length };
@@ -91,14 +100,16 @@ async function pushOutbox(store: WorkshopStore, slug: string, code: string): Pro
 /**
  * On open: ask the server what it holds, re-queue anything it lacks (a restored database refills
  * itself from the phones), and prune accepted events past the retention window. Returns the
- * server's view for the privacy panel.
+ * server's view for the privacy panel. A caller that has just asked GET /me itself ("I have a
+ * code" checks the code that way) hands the answer in, so the server is not asked twice.
  */
 export async function reconcile(
   store: WorkshopStore,
   slug: string,
   code: string,
+  answer?: ApiResult<unknown>,
 ): Promise<MeResponse | null> {
-  const res = await api<unknown>(`/${slug}/me`, { code });
+  const res = answer ?? (await api<unknown>(`/${slug}/me`, { code }));
   if (!res.ok) return null;
   // The boundary is checked here as everywhere else: an answer that is not the contract's shape
   // (a proxy's error page, another version of the API) is treated as no answer, never as "the
@@ -123,10 +134,11 @@ export async function syncOnOpen(
   store: WorkshopStore,
   slug: string,
   code: string,
+  answer?: ApiResult<unknown>,
 ): Promise<{ me: MeResponse | null; sync: SyncStatus }> {
   const joined = await sendPendingJoin(store, slug);
   if (joined && !joined.ok) return { me: null, sync: await failed(store, joined) };
-  const me = await reconcile(store, slug, code);
+  const me = await reconcile(store, slug, code, answer);
   const sync = await pushOutbox(store, slug, code);
   return { me, sync };
 }

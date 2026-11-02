@@ -32,9 +32,11 @@ export class WorkshopStore extends Dexie {
     await this.settings.put({ key, value });
   }
 
-  async answeredCardIds(): Promise<Set<string>> {
-    const rows = await this.events.where('id').notEqual('').toArray();
-    return new Set(rows.filter((e) => e.kind === 'answered').map((e) => e.cardId));
+  /** Everything the device holds about what was done, synced or not, as the contract's rows. */
+  async history(): Promise<{ sessions: Session[]; events: Event[] }> {
+    const sessions = await this.sessions.toArray();
+    const events = await this.events.toArray();
+    return { sessions: sessions.map(stripSession), events: events.map(stripEvent) };
   }
 
   async pending(): Promise<{ sessions: Session[]; events: Event[] }> {

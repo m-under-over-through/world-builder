@@ -135,6 +135,17 @@ describe('the sync on open', () => {
     expect((await store.pending()).events).toHaveLength(0);
   });
 
+  it('an answer to GET /me handed in by the caller is used, and the server is not asked again', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await store.events.put(event);
+    const calls = stubApi([
+      () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [event.id] } }),
+    ]);
+    const { me } = await syncOnOpen(store, 'rural-manufacturing', CODE, { ok: true, data: ME });
+    expect(me?.participant.wave).toBe('wave-1');
+    expect(calls.map((c) => c.path.replace('/api/rural-manufacturing', ''))).toEqual(['/sync']);
+  });
+
   it('with no join waiting: GET /me, then the outbox', async () => {
     const store = new WorkshopStore(`t-${Math.random()}`);
     await store.events.put(event);
