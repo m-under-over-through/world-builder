@@ -88,6 +88,29 @@ describe('an address that is not a workshop', () => {
 });
 
 describe('entering a code', () => {
+  it('"I have a code" is the address /continue, and Back is the workshop home again', async () => {
+    stubApi(() => ({ status: 200, body: {} }));
+    const user = userEvent.setup();
+    await open(`/${SLUG}/`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
+    expect(location.pathname).toBe(`/${SLUG}/continue`);
+    expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/`);
+  });
+
+  it('groups the digits by four as they are typed and takes no more than sixteen', async () => {
+    stubApi(() => ({ status: 200, body: {} }));
+    const user = userEvent.setup();
+    await open(`/${SLUG}/continue`);
+    const field = screen.getByRole('textbox') as HTMLInputElement;
+    await user.type(field, '12345');
+    expect(field.value).toBe('1234 5');
+    await user.type(field, '678901234567');
+    expect(field.value).toBe('1234 5678 9012 3456');
+  });
+
   it('refuses fewer than 16 digits before asking the server', async () => {
     const calls = stubApi(() => ({ status: 200, body: {} }));
     const user = userEvent.setup();

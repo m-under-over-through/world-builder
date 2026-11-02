@@ -2,8 +2,10 @@
   import type { AppState } from '../lib/state.svelte.ts';
 
   /**
-   * Welcome (docs/screen-map.md, Entry): two choices. "New here" needs a remembered wave or
-   * invite; without one the screen says to open the link you were sent. "I have a code" is
+   * Welcome (docs/screen-map.md, Entry), worded for the three cases a person can be in (build
+   * log, 29 October 2026): arrived through a link, so "New here" can start; has a code from an
+   * earlier session on another device, so "I have a code" continues; neither, so the screen says
+   * to open the link you were sent. The first and the third exclude each other; the second is
    * always there.
    */
   let { app }: { app: AppState } = $props();
@@ -12,15 +14,21 @@
 
 <h1>{app.workshop?.config.name}</h1>
 <p>{app.workshop?.config.purpose}</p>
-<div class="row">
-  {#if canJoin}
+{#if canJoin}
+  <section>
+    <p>{app.copy.text('Welcome: new here')}</p>
     <button class="primary" onclick={() => (app.screen = 'consent')}
       ><span>{app.copy.item('Buttons', 'new here')}</span></button
     >
-  {:else}
-    <p class="muted">{app.copy.text('Welcome: no link')}</p>
-  {/if}
-  <button onclick={() => (app.screen = 'enter-code')}
+  </section>
+{:else}
+  <section>
+    <p>{app.copy.text('Welcome: no link')}</p>
+  </section>
+{/if}
+<section>
+  <p>{app.copy.text('Welcome: I have a code')}</p>
+  <button onclick={() => app.navigate('continue')}
     >{app.copy.item('Buttons', 'i have a code')}</button
   >
-</div>
+</section>

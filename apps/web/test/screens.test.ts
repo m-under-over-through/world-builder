@@ -34,12 +34,14 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.text('Not a workshop'))).toBeTruthy();
   });
 
-  it('welcome, arrived through a link: "New here" and "I have a code"', () => {
+  it('welcome, arrived through a link: "New here" and "I have a code", each with its words', () => {
     render(Welcome, { app: state({ arrival: { wave: 'wave-1' } }) });
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'new here') })).toBeTruthy();
+    expect(screen.getByText(copy.text('Welcome: new here'))).toBeTruthy();
     expect(
       screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
     ).toBeTruthy();
+    expect(screen.getByText(copy.text('Welcome: I have a code'))).toBeTruthy();
     expect(screen.queryByText(copy.text('Welcome: no link'))).toBeNull();
   });
 
@@ -48,13 +50,15 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'new here') })).toBeTruthy();
   });
 
-  it('welcome, no link: "open the link you were sent" instead of "New here"', () => {
+  it('welcome, no link: "open the link you were sent" instead of "New here", and still "I have a code"', () => {
     render(Welcome, { app: state() });
     expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
+    expect(screen.queryByText(copy.text('Welcome: new here'))).toBeNull();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'new here') })).toBeNull();
     expect(
       screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
     ).toBeTruthy();
+    expect(screen.getByText(copy.text('Welcome: I have a code'))).toBeTruthy();
   });
 
   it('enter code, with the too-short line and an error line in their wording', () => {

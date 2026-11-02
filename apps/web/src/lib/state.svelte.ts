@@ -12,7 +12,14 @@ import { api } from './api.ts';
 import type { Copy } from './copy.ts';
 import { sessionCards, truncateCodePoints } from './deck.ts';
 import { dayStatus } from './days.ts';
-import { countsAsOpen, parseArrival, parseRoute, type Arrival } from './route.ts';
+import {
+  countsAsOpen,
+  pageHref,
+  parseArrival,
+  parseRoute,
+  type Arrival,
+  type Page,
+} from './route.ts';
 import { localDay, WorkshopStore } from './store.ts';
 import { reconcile, syncNow, type SyncStatus } from './sync.ts';
 import { defaultCopy, findWorkshop, type Workshop } from './workshops.ts';
@@ -122,6 +129,22 @@ export class AppState {
       return;
     }
     await this.land();
+  }
+
+  /**
+   * Move to a page a participant can open directly, and put its address in the address bar
+   * (docs/screen-map.md, Entry): "I have a code" is /<slug>/continue; Back from it, or no page,
+   * is /<slug>/ and where the device lands. The address is replaced, not pushed, so the
+   * browser's back goes to wherever the person came from, never to a stale screen.
+   */
+  async navigate(page?: Page): Promise<void> {
+    if (!this.workshop) return;
+    history.replaceState(null, '', pageHref(this.workshop.config.slug, page));
+    this.error = '';
+    this.tooShort = false;
+    if (page === 'continue') this.screen = 'enter-code';
+    else if (page === 'panel') await this.openPanel();
+    else await this.land();
   }
 
   /** Where a device lands after the arrival is known: the next card, or welcome, or closed. */

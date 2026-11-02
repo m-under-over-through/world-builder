@@ -670,3 +670,35 @@ On the deploy preview: the flow of item 1 behaves the same; `/rural-manufacturin
 ### Open
 
 - Every open of the app with a code creates a session row, with or without events (known since the skeleton; the panel on a much-reloaded laptop says "17 sessions, 4 events"). Item 5 can create the row at the first event instead; noted in the pull request's report.
+
+---
+
+## 2026-11-02, Monday, late afternoon. UI item 3: welcome's three cases, digits grouped as typed, /continue
+
+### What
+
+- **Welcome speaks to the three cases** decided in the phone-test entry of 29 October: next to "New here", when a wave or an invite is remembered, the block "Welcome: new here"; next to "I have a code", always, the block "Welcome: I have a code"; in place of "New here", when nothing is remembered, "Welcome: no link" ("To start, open the link you were sent."). The screen is `apps/web/src/screens/Welcome.svelte`.
+- **"I have a code" is the address `/<slug>/continue`.** `AppState.navigate(page)` puts the page's address in the address bar (replaced, not pushed, so the browser's back goes to where the person came from, never to a stale screen) and shows its screen; Back from enter code is `/<slug>/` and where the device lands. The route itself was read since item 2.
+- **Digits are grouped as typed, sixteen and no more.** `lib/code-input.ts`, `groupDigits`: digits only, in groups of four, cut at sixteen; a pasted `1234-5678-9012-3456` reads the same as the digits. The field keeps `inputmode="numeric"` (the keypad), gains `enterkeyhint="go"` and sits in a form, so the keypad's Enter is Continue. `RATE_LIMITED` and `AUTH_CODE_UNKNOWN` show their `copy.md` lines (tests since item 1).
+- Tests: `groupDigits` (groups, the cap, pasted separators, letters); the three welcome blocks in both states; "I have a code" changes the address to `/continue` and Back changes it back; typing seventeen digits leaves `1234 5678 9012 3456` in the field. 168 tests (5 new).
+
+### Why
+
+Item 3 of the UI brief. The 29 October phone test: "the code reads as a puzzle"; the welcome now says in words what each button is for and what to do with neither.
+
+### How to verify
+
+```
+npm run check            # 168 tests
+```
+
+On the deploy preview, in a fresh browser: open `/rural-manufacturing/` (no link): the welcome says to open the link you were sent, and under it "Been here before on another device?" with "I have a code". Tap it: the address is `/rural-manufacturing/continue`. Type `12345678901234567`: the field reads `1234 5678 9012 3456`. Press Enter on the keypad: "That code is not ours. Check the digits." Back: the address is `/rural-manufacturing/` again. Open `/rural-manufacturing/join/wave-1`: both "New here?" with its line and the code block.
+
+### Decisions made on the way
+
+- **The address is replaced, not pushed**, for moves inside the app. A pushed `/continue` would need the browser's back button handled on every screen; the brief's "/continue as its own route" is the address being openable and shown, which this is.
+- **The grouping lives in one pure function** the field calls on every input, and the caret moves to the end: a code is typed, not edited in the middle.
+
+### Open
+
+- Nothing for the integrator. Item 4 (the intro, the demo card, the dictation hint) is next; item 5 waits for `packages/deck`.
