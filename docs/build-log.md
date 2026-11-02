@@ -740,3 +740,35 @@ Section 12's pre-launch list names "a manual authorization test (code A cannot r
 ### Open
 
 - Whether the runbook gets the sequence as a paragraph in the Netlify entry or as its own heading (a heading with spaces does not trip the one-word-heading test).
+
+---
+
+## 2026-11-02, Monday. API, 5 of 6: the limiter prunes its own rows
+
+### What
+
+- `apps/api/src/app.ts`: every hundredth rate-limit check on a function instance (`PRUNE_EVERY_CHECKS`) deletes the buckets older than an hour in one statement, before the request is answered. A failed prune is logged as `rate_buckets prune failed: <error>` and never fails the request. The nightly job's prune stays as the backstop.
+- `packages/db/src/queries.ts`: `pruneRateBuckets` returns how many rows it deleted; `countRateBuckets`, new, for the tests and later the status command.
+- Tests. `packages/db/test/health-and-rate.test.ts`: pruning removes the buckets older than an hour, keeps the last hour's, says how many went; the pruned minute is allowed again while the kept one still counts. `apps/api/test/limits.test.ts`: every hundredth check deletes the old buckets, so one health call every two minutes for 200 minutes leaves 99 rows before the hundredth call and 31 after it; refused requests count towards the prune too, so a flood of 100 calls with one code (60 allowed, 40 refused) leaves one row and removes the join's rows from 90 minutes earlier.
+
+### Why
+
+The restore drill of 30 October counted 1007 `rate_buckets` rows after a day with no participants, and the build log asked what fills it. The answer: one row per route, subject and minute, from the monitor alone, deleted only at night. The brief offered two ways: prune on the way, or leave it to the job and document the bound. Pruning on the way was recommended and is what landed. **The bound:** a bucket busy for a whole hour owns 60 live rows, and at most 100 rows are written between prunes, so the table holds about 60 rows per bucket busy in the last hour, plus a hundred. A quiet night: about 60 to 160 rows, against 1007. Item 5 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/limits.test.ts packages/db/test/health-and-rate.test.ts`: 10 tests; `npm run check` is green, 166 tests.
+- By hand, on the deploy preview of pull request 21, which shares the staging database: in Neon's SQL editor on the `staging` branch, `select count(*), min(window_start) from rate_buckets;` and note both. Join a test code on the preview and call `me` with it 100 times (60 answer 200, 40 answer 429, all count), then delete the code; the commands are in the pull request. The query again: `min(window_start)` is under an hour old and the count has dropped to the last hour's rows. If not, the hundred calls were spread over more than one function instance; run the loop again.
+
+### Decisions made on the way
+
+- **On the way, with the job as backstop.** The prune is one `delete` on rows the limiter itself wrote, bounded by the request rate, and it keeps the table legible on Neon at any hour. The job still runs because a function instance that handles fewer than a hundred checks before it is recycled never prunes.
+- **Count checks, not requests.** The counter sits in `limited`, which every route calls once or twice; "every hundredth check" is "about every hundredth request" and one place in the code.
+- **Refused requests count too.** A flood that trips the limiter is exactly when the table fills; it should also be when it is cleaned.
+- **A failed prune is a log line, not a failure.** The participant's request has nothing to do with housekeeping; the line names the error and nothing from any request; the job catches up at night.
+- **A count query rather than raw SQL in the test.** `countRateBuckets` is three lines and the operator's status command will want it too.
+
+### Open
+
+- The ops builder's backup job calls `pruneRateBuckets`, which now returns a number; nothing breaks, and the job could log it.
+- Whether the words "bucket" and "budget" enter the glossary (pull request 15's proposal).
