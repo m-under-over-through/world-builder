@@ -638,3 +638,49 @@ Nothing to see in the browser yet; the client still uses the skeleton's file ord
 
 - For the integrator: the reading of "counted against the set" when the deferred cards outnumber the count (all shown, nothing fresh added), the field name `queue` and its glossary line, and the README row, all proposed in the pull request's report.
 - The UI builder's `deferredIds`: the ids with a `deferred` event in the previous session, in `seq` order, minus any answered since. The engine shows exactly that list first.
+
+---
+
+## 2026-11-02, Monday, afternoon. The deck engine, item 2: dismiss, defer and the end of a session
+
+### What
+
+- **`applyDismiss(plan, cardId, dismissedThisSession)`** returns `{ plan, event }`. The first dismissal of a card in this session moves it to the end of the queue and names the event `dismissed`. The second dismissal of the same card in the same session takes it out of the queue and names the event `deferred`. A card that is not in the queue gives the same plan back and no event. The input plan is never changed. `dismissedThisSession` is the set of card ids already dismissed in this session, kept by the caller.
+- **`isSessionOver(plan, answeredOrDeferredThisSession)`** is true when every card in the queue is in the set: the queue is exhausted. With warm-ups then checkpoints that is after the last checkpoint; a card dismissed once is still owed its second showing and keeps the session open.
+- `DismissEvent` is `Extract<EventKind, 'dismissed' | 'deferred'>`, so the names the engine returns are, by type, names the event contract knows. The header of `packages/deck/src/index.ts` now describes all three functions. This is item 2 of the deck brief; the package is complete as the brief specifies it.
+- 21 tests in `packages/deck/test/dismiss-and-session-over.test.ts`: first dismissal to the end; second removes and defers; not in the queue, no-op and no event; a card already deferred cannot be dismissed again; middle of the queue; last card stays last; input untouched; only this session's dismissals count; set or array; the names are contract kinds; the session is not over before the last checkpoint and is over after it; over when the last card is deferred instead; a once-dismissed card keeps it open; order of answering irrelevant; ids outside the queue do not count; an empty queue is over; a resumed session rebuilds its queue by replaying its dismissals; feeding this session's answers back as history changes the plan; the worked example continued. 175 tests in the repository.
+
+### Why
+
+Section 8: "Dismiss moves the card to the end of this session's queue. A second dismiss defers it to a future session", and "A session ends after the checkpoints". The skeleton's "Set aside" writes `dismissed` and moves on, so a set-aside card is gone for the session and never comes back. The UI builder's item 5 replaces that with these two functions.
+
+### How to verify
+
+```
+npm run check                      # typecheck, 175 tests, formatting
+npx vitest run packages/deck       # the 53 tests of the engine alone
+```
+
+The worked example continued, pinned by the last test. Same deck of six, counts 3 and 1, seed `example`: the plan is `cool, on-tv, embarrassing, immigrants`.
+
+| Step                                                                   | Queue after                             | Event       |
+| ---------------------------------------------------------------------- | --------------------------------------- | ----------- |
+| the participant sets `cool` aside                                      | `on-tv, embarrassing, immigrants, cool` | `dismissed` |
+| they answer the other three; `isSessionOver` with those three answered | the same                                | not over    |
+| `cool` comes round again and they set it aside a second time           | `on-tv, embarrassing, immigrants`       | `deferred`  |
+| `isSessionOver` with the three answered                                |                                         | over        |
+| next session, with `cool` in the deferred list                         | `cool` first, then three more           |             |
+
+### Decisions made on the way
+
+- **The engine names the event, it does not build it.** An event has an id, a session id, a seq, a day and a deck version, all of which belong to the client; the engine answers "which kind", `dismissed` or `deferred`, typed from the contract, and the client builds the event the way it already builds `answered`.
+- **The engine is stateless; the caller keeps `dismissedThisSession`.** The set is this session's `dismissed` events, so a resumed session remembers which cards have had their first chance. A dismissal in an earlier session does not count: a deferred card that comes back starts fresh and gets its two chances again.
+- **"After the last checkpoint" is read as "the queue is exhausted"**, as the brief says in so many words. The two agree unless a warm-up was dismissed once, in which case it sits after the checkpoint and the session waits for it. The alternative, ending the session at the checkpoint and leaving the dismissed card unresolved, would lose the second dismissal that makes a card `deferred`.
+- **A deferred card leaves the queue, and `isSessionOver` also accepts its id in the done set.** The client can hold the latest plan or the first plan plus the done set; both give the same answer. Nothing depends on which bookkeeping the UI builder picks.
+- **The no-op returns the same plan object**, so a caller can see by identity that nothing changed.
+- **Resuming is replay, not storage.** The client stores the seed and the events, never the queue. On resume it calls `planSession` with the history as it stood when the session started, which is every answer from other sessions and the previous session's deferrals, then replays this session's `dismissed` and `deferred` events through `applyDismiss` in `seq` order. Two tests show the recipe and the pitfall: this session's own answers must not be fed back as history mid-session, or the plan changes under the participant.
+
+### Open
+
+- The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
+- For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.

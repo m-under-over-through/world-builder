@@ -1,10 +1,10 @@
-import type { Card, CardSet, Deck } from '@wb/contracts';
+import type { Card, CardSet, Deck, EventKind } from '@wb/contracts';
 import { seededShuffle } from './random.ts';
 
 /**
- * @wb/deck: the deck engine. Which cards a session shows and in what order; item 2 of the deck
- * brief adds what a dismissal does. The rules are the architecture plan's section 8; the shuffle
- * is explained in docs/learn/09-seeded-shuffle.md.
+ * @wb/deck: the deck engine. Which cards a session shows, in what order, what a dismissal does,
+ * and when a session is over. The rules are the architecture plan's section 8; the shuffle is
+ * explained in docs/learn/09-seeded-shuffle.md.
  *
  * Everything here is a pure function: plain data in, plain data out, no storage, no network, no
  * screen. The client stores the seed, keeps the history, records the events and renders the cards.
@@ -102,4 +102,50 @@ function shuffleSet(deck: Deck, set: CardSet, seed: string): string[] {
     .map((card) => card.id)
     .sort();
   return seededShuffle(ids, `${seed}:${set}`);
+}
+
+/** The two event kinds a dismissal can call for; both are kinds the event contract knows. */
+export type DismissEvent = Extract<EventKind, 'dismissed' | 'deferred'>;
+
+export interface DismissResult {
+  /** The queue after the dismissal. The input plan is never changed. */
+  plan: SessionPlan;
+  /** The event the caller records, or null when the card was not in the queue and nothing happened. */
+  event: DismissEvent | null;
+}
+
+/**
+ * What "Set aside" does (architecture plan, section 8). The first dismissal of a card in this
+ * session moves it to the end of the queue, so it comes round once more; the event to record is
+ * `dismissed`. The second dismissal of the same card in the same session takes it out of the queue
+ * for a future session; the event to record is `deferred`. A card that is not in the queue is left
+ * alone and no event is called for.
+ *
+ * `dismissedThisSession` is the set of card ids already dismissed in this session, before this
+ * dismissal. The caller keeps it and records the event; the engine does neither.
+ */
+export function applyDismiss(
+  plan: SessionPlan,
+  cardId: string,
+  dismissedThisSession: Iterable<string>,
+): DismissResult {
+  if (!plan.queue.includes(cardId)) return { plan, event: null };
+  const rest = plan.queue.filter((id) => id !== cardId);
+  if (new Set(dismissedThisSession).has(cardId)) {
+    return { plan: { queue: rest }, event: 'deferred' };
+  }
+  return { plan: { queue: [...rest, cardId] }, event: 'dismissed' };
+}
+
+/**
+ * A session ends when its queue is exhausted: every card in it has been answered or deferred in
+ * this session. With a queue of warm-ups then checkpoints, that is after the last checkpoint. A
+ * card dismissed once is still owed its second showing, so it keeps the session open.
+ */
+export function isSessionOver(
+  plan: SessionPlan,
+  answeredOrDeferredThisSession: Iterable<string>,
+): boolean {
+  const done = new Set(answeredOrDeferredThisSession);
+  return plan.queue.every((id) => done.has(id));
 }
