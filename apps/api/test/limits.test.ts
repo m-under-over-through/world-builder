@@ -29,6 +29,8 @@ async function expectRateLimited(res: Response) {
   const body = errorResponseSchema.parse(await res.json());
   expect(body.error).toBe('RATE_LIMITED');
   expect(body.errorId).toBeUndefined();
+  const wait = Number(res.headers.get('retry-after'));
+  expect(Number.isInteger(wait) && wait >= 1 && wait <= 60, 'Retry-After in seconds').toBe(true);
 }
 
 describe('rate limits without addresses', () => {
@@ -37,6 +39,7 @@ describe('rate limits without addresses', () => {
     const { res, sent } = await untilLimited(t, () => t.app.request('/api/health'), 60);
     expect(sent).toBe(61);
     await expectRateLimited(res);
+    expect(res.headers.get('retry-after')).toBe('60'); // the clock is on the minute
     t.clock.advanceMinutes(1);
     expect((await t.app.request('/api/health')).status).toBe(200);
   });
@@ -52,17 +55,50 @@ describe('rate limits without addresses', () => {
     await expectRateLimited(res);
   });
 
-  it('joins are budgeted per workshop at 30 a minute, and another workshop keeps its own budget', async () => {
+  it('joins are budgeted per workshop at 120 a minute, and another workshop keeps its own budget', async () => {
     const t = await freshApp();
     await seedWorkshop(t.db, { slug: 'other-one' });
     const { res, sent } = await untilLimited(
       t,
       () => t.app.request(`/api/${slug}/join`, json({ code: generateCode(), wave: 'wave-1' })),
-      30,
+      120,
     );
-    expect(sent).toBe(31);
+    expect(sent).toBe(121);
     await expectRateLimited(res);
     expect((await joined(t.app, 'other-one')).length).toBe(16);
+  });
+
+  it('a newsletter minute: 120 readers join, the 121st is told to wait the rest of the minute and then joins', async () => {
+    const t = await freshApp();
+    t.clock.advanceSeconds(45); // the newsletter landed at 12:00:45
+    for (let i = 0; i < 120; i++) {
+      expect(
+        (await t.app.request(`/api/${slug}/join`, json({ code: generateCode(), wave: 'wave-1' })))
+          .status,
+      ).toBe(200);
+    }
+    const code = generateCode();
+    const refused = await t.app.request(`/api/${slug}/join`, json({ code, wave: 'wave-1' }));
+    await expectRateLimited(refused);
+    expect(refused.headers.get('retry-after')).toBe('15');
+    // The client waits that long and retries once.
+    t.clock.advanceSeconds(15);
+    const retried = await t.app.request(`/api/${slug}/join`, json({ code, wave: 'wave-1' }));
+    expect(retried.status).toBe(200);
+  });
+
+  it('a refused join that was the same code over and over still cost one participant row', async () => {
+    const t = await freshApp();
+    const code = generateCode();
+    const statuses: number[] = [];
+    for (let i = 0; i < 121; i++) {
+      statuses.push(
+        (await t.app.request(`/api/${slug}/join`, json({ code, wave: 'wave-1' }))).status,
+      );
+    }
+    expect(statuses[0]).toBe(200);
+    expect(statuses.slice(1, 120).every((s) => s === 409)).toBe(true);
+    expect(statuses[120]).toBe(429);
   });
 
   it('unknown codes are budgeted per workshop at 30 a minute, so guessing is slow', async () => {

@@ -70,10 +70,17 @@ export interface AppDeps {
 
 type Vars = { workshop: Workshop; participant: Participant };
 
+/**
+ * Requests allowed per minute, per bucket (ADR 0012). Join is budgeted per workshop at 120, decided
+ * 2 November 2026 (docs/briefs/week-2-plan.md, section 4): a newsletter that lands at once sends
+ * its readers to the consent screen within the same few minutes, and with 30 the thirty-first
+ * would have seen an error. The cap of 150 per wave stays the bound on how many join at all; this
+ * number only sets the pace. The client retries a refused join once, after Retry-After.
+ */
 const LIMITS = {
   health: 60,
   waveOpened: 120,
-  join: 30,
+  join: 120,
   unknownCode: 30,
   authenticated: 60,
 } as const;
@@ -96,11 +103,18 @@ export function createApp(deps: AppDeps) {
   const log = deps.log ?? consoleLogger;
   const app = new Hono<{ Variables: Vars }>();
 
+  /** Seconds until the minute turns and every bucket starts again: 1 to 60. */
+  const secondsToNextMinute = () => 60 - Math.floor((now().getTime() / 1000) % 60);
+
   const fail = (c: Context, code: ErrorCode, errorId?: string) => {
     const { status, meaning } = ERROR_CODES[code];
+    // A refused client is told how long the wait is (RFC 9110, Retry-After), so it can retry
+    // once when the minute turns instead of guessing.
+    const headers = code === 'RATE_LIMITED' ? { 'Retry-After': String(secondsToNextMinute()) } : {};
     return c.json(
       { error: code, message: meaning, ...(errorId ? { errorId } : {}) },
       status as 400,
+      headers,
     );
   };
 

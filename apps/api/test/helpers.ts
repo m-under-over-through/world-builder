@@ -38,6 +38,9 @@ export function testClock(day = DAY) {
     advanceMinutes(n: number) {
       current = new Date(current.getTime() + n * 60_000);
     },
+    advanceSeconds(n: number) {
+      current = new Date(current.getTime() + n * 1000);
+    },
   };
 }
 export type TestClock = ReturnType<typeof testClock>;
