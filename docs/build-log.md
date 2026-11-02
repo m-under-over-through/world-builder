@@ -574,3 +574,24 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 - Merging during the week: with branch protection on, every pull request waits for the `check` workflow; the integrator merges after the independent review.
 - The Better Stack monitor's definition, to be read in the console.
+
+---
+
+## 2026-11-02, Monday, midday. The participant texts, drafted for the legal review
+
+### What
+
+- `docs/participant-texts.md`, new: the consent screen (under 80 words), the terms, the privacy policy, the trust page's seven sections and the one-paragraph data management plan, written for a phone screen from the architecture plan's sections 6.4, 9, 13 and 14. Square brackets mark the three things the reviewers decide: a minimum age, the contact address, a governing law. The UI builder's first pull request creates the `copy.md` sections and later items take these drafts as they are; the words change when the review lands.
+
+### Why
+
+Decision 5 of today: the integrator drafts, Marco reviews with Mechanism's legal team, and the UI never waits for the words. One file, so the review has one thing to read and the client has one place to take the text from.
+
+### How to verify
+
+Read the file against the plan's sections it cites; every claim in it is a fact of the system (what the schema holds, what the headers forbid, the dates), not an intention.
+
+### Decisions made on the way
+
+- **"Locked" and "scrambled" instead of "encrypted" and "hashed"** in the participant-facing text, with the real terms one tap away on the trust page.
+- **No promise about hosting logs.** The policy says the hosts may keep technical records under their own policies and that we do not receive them; the trust page's honest limit says why that is the truthful version.
