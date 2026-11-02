@@ -1,7 +1,8 @@
 name: CI
 
-# Runs on every push and pull request: type check, tests, formatting.
-# Nothing here touches secrets or deploys; deploy workflows live in the private ops repository.
+# Runs on every push and pull request: type check, tests, formatting, and an audit of the
+# dependencies that are deployed. Nothing here touches secrets or deploys; deploy workflows live
+# in the private ops repository, and so does the weekly scan of the live site.
 on:
   push:
     branches: [main]
@@ -20,3 +21,15 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run format:check
+      # What ships is the client bundle and the function bundle, built from the non-development
+      # dependencies; a high or critical advisory in one of them blocks the merge. The development
+      # tools (the test runner, the bundler, the migration generator) are audited by hand from
+      # `npm audit` and by Dependabot's alerts, and upgraded on a schedule: a breaking upgrade of
+      # the test runner should not block a fix to the app (ops runbook page `runbook/scans.md`).
+      - run: npm audit --omit=dev --audit-level=high
+      # What ships is the client bundle and the function bundle, built from the non-development
+      # dependencies; a high or critical advisory in one of them blocks the merge. The development
+      # tools (the test runner, the bundler, the migration generator) are audited by hand from
+      # `npm audit` and by Dependabot's alerts, and upgraded on a schedule: a breaking upgrade of
+      # the test runner should not block a fix to the app (ops runbook page `runbook/scans.md`).
+      - run: npm audit --omit=dev --audit-level=high
