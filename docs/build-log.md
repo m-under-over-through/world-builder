@@ -772,3 +772,32 @@ The restore drill of 30 October counted 1007 `rate_buckets` rows after a day wit
 
 - The ops builder's backup job calls `pruneRateBuckets`, which now returns a number; nothing breaks, and the job could log it.
 - Whether the words "bucket" and "budget" enter the glossary (pull request 15's proposal).
+
+---
+
+## 2026-11-02, Monday. API, 6 of 6: joins at 120 a minute; a 429 says how long to wait
+
+### What
+
+- `apps/api/src/app.ts`: `LIMITS.join` is 120 a minute per workshop, with Marco's decision 3 and its reasoning in the comment above the table. Every `RATE_LIMITED` answer carries a `Retry-After` header with the seconds left in the current minute, 1 to 60; the body is unchanged.
+- Tests in `apps/api/test/limits.test.ts`: the 121st join in a minute is refused and another workshop keeps its budget; a newsletter minute (the clock at 12:00:45, 120 readers join, the 121st is refused with `Retry-After: 15`, waits, and joins); 121 joins with the same code cost one participant row (200, 119 times 409, then 429); health's 61st call on the minute says `Retry-After: 60`; every bucket's 429 is checked for a `Retry-After` between 1 and 60.
+
+### Why
+
+Decision 3 of 2 November (`docs/briefs/week-2-plan.md`, section 4): with 30 a minute, the thirty-first reader to open the newsletter in the same minute would have seen an error on the consent screen and had to tap again; with 120 and one retry, nobody sees anything but a pause. The cap of 150 per wave stays the bound on how many join at all; the per-minute number sets the pace. The decision says the client retries "after the server's wait", and the standard way for a server to say how long that is (RFC 9110, `Retry-After`) costs one header and spares the client a guess: it waits until the minute turns, when every bucket starts again. Item 6 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test/limits.test.ts`: 9 tests; `npm run check` is green, 168 tests.
+- On the deploy preview of pull request 23: 121 joins with one made-up code within a minute answer `200`, then `409` 119 times (the limiter runs before the body is read, so a refused join counts), then `429` with `retry-after: <1 to 60>`; then `DELETE /me` with that code. The commands are in the pull request. The join budget is per workshop and the preview shares staging's database, so staging's own joins are refused for that minute too; do it when nobody is trying staging.
+
+### Decisions made on the way
+
+- **`Retry-After` on every 429, not only on join.** One line in `fail`, the same header for every bucket, and the sync and health clients can use it too. The value is the rest of the minute, because that is when the bucket resets; the client has nothing to compute.
+- **The scenario is a test.** "120 readers join, the 121st waits 15 seconds and joins" is the sentence of the decision, run against the real app with a clock set to 12:00:45.
+- **The by-hand check uses one code.** 121 joins with distinct codes would leave 120 participant rows on staging; with one code, the limiter still counts every request, and one row is deleted at the end.
+
+### Open
+
+- The UI brief names the silent retry on `JOIN_CODE_TAKEN` but not the one retry on `RATE_LIMITED` with `Retry-After`; the integrator relays it to the UI builder (in the report of pull request 23).
+- The six API pull requests are open: 10, 11, 15, 18, 21, 23, each stacked on the one before. The runbook proposals from all six are in their reports, for the ops builder.
