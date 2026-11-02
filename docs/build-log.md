@@ -750,3 +750,30 @@ The worked example continued, pinned by the last test. Same deck of six, counts 
 - The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
 - For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.
 ```
+
+---
+
+## 2026-11-02, Monday night, later. Ops 3, follow-up: the API builder's runbook proposals applied
+
+### What
+
+- The server entries of `docs/runbook.md` rewritten once more, from the reports of the API builder's six pull requests (10, 11, 15, 18, 21, 23), so they describe the code as those leave it: `REQUEST_TOO_LARGE` counts bytes on the wire; `REQUEST_INVALID` is join's alone (`/invites` has no body) and has its WARN line `REQUEST_INVALID POST /api/:slug/join: <field> (<what>)`, as `SYNC_PAYLOAD_INVALID` has its own with the event's index; `WORKSHOP_UNKNOWN` covers a wrong method and `/api` itself; `WORKSHOP_CLOSED` names every route that answers it, the UTC midnight edge on `closesDay` (7 pm Eastern on 6 December, Marco's decision whether to set the day one later), and what `workshop sync` does to the row; `JOIN_WAVE_FULL` says the count can end one or two over; `AUTH_CODE_UNKNOWN` says where the rate of guessing shows without naming anyone; `RATE_LIMITED` has the five budgets (join at 120), `Retry-After`, what a participant sees on join and on sync, and the two queries on `rate_buckets`; `SERVER_ERROR` has the shape of its log line with the parameters cut out. The Netlify entry gains the authorization check by hand, the sequence of pull request 18 with the point of each step. The Backups entry says the API prunes the buckets on the way and what a count in the thousands means. The introduction says when and against what the server entries were last checked.
+- The two words the API builder proposed for the glossary, **bucket** and **budget**, are defined inside the `RATE_LIMITED` entry until the integrator decides on the glossary.
+
+### Why
+
+Item 3 of the ops brief says the builders' runbook proposals are applied here. They arrived in the reports of six pull requests that were open when the runbook pass merged; applying them in a pull request of their own keeps the runbook true to `main` at every merge, provided this one merges after the six.
+
+### How to verify
+
+`npm test -- packages/contracts/test/runbook.test.ts`. Then, once the six API pull requests are on staging: the `curl` sequence under "Authorization check, by hand" in the Netlify entry; a body over a million bytes on `/sync` answers 413; a 121st join in a minute answers 429 with `Retry-After`; a join with an unknown field writes one WARN line in the function log naming `(root) (unrecognized_keys)` and nothing else.
+
+### Decisions made on the way
+
+- **Merge after the API pull requests, not before.** The entries now describe the code those six introduce; merged earlier, the runbook would describe code not yet on `main`, the very thing item 3 removed.
+- **The date edge is written down, not decided.** The API builder found it; the entry states the fact and that the decision is Marco's.
+
+### Open
+
+- The UI builder's proposals for `AUTH_CODE_UNKNOWN`, `RATE_LIMITED` on the consent screen and `CLIENT_STORAGE_UNAVAILABLE` come with its items 3 and 9; the entries name those items.
+- Glossary: bucket, budget (the API builder's proposal, relayed).
