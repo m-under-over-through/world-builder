@@ -595,3 +595,46 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 
 - **"Locked" and "scrambled" instead of "encrypted" and "hashed"** in the participant-facing text, with the real terms one tap away on the trust page.
 - **No promise about hosting logs.** The policy says the hosts may keep technical records under their own policies and that we do not receive them; the trust page's honest limit says why that is the truthful version.
+
+---
+
+## 2026-11-02, Monday, early afternoon. The deck engine, item 1: the session plan and the seeded shuffle
+
+### What
+
+- **`packages/deck` exists**, the package the README has listed since the skeleton. It is pure functions, no I/O: plain data in, a plan out. This pull request is item 1 of the deck brief (`docs/briefs/week-2-deck.md`): `planSession` and the seeded shuffle. Item 2, `applyDismiss` and `isSessionOver`, follows in the next pull request.
+- **`planSession(input)`** takes the deck, `warmupsPerSession`, `checkpointsPerSession`, the session's seed, the set of card ids ever answered and the list of card ids deferred in the previous session, and returns `{ queue }`: the card ids of the session, in order. The rules of the architecture plan, section 8: deferred cards first, in the order they were deferred, each counted against its set; then warm-ups up to W, then checkpoints up to C, each set shuffled by the seed, never-answered cards before answered ones, answered ones only when the set's unanswered cards have run out; never the same card twice in a session; a small deck gives what it has.
+- **The seeded shuffle**, in `packages/deck/src/random.ts`: FNV-1a turns the seed string into a 32-bit number, mulberry32 turns that into a stream of numbers, and Fisher-Yates turns the stream into an order. Written in the package, no dependency, about thirty lines in all. Learning note 09 explains the idea and the three steps.
+- 32 tests in `packages/deck/test/`, named as behaviours: same seed same order; different seeds differ; warm-ups before checkpoints; counts respected; unanswered preferred; cycling when a set is exhausted; deferred first, in order, counted against the set, more than the count all shown, unknown ids skipped, duplicates once; small deck; empty history; counts of zero and counts that are not whole numbers; file order irrelevant; no repeat over forty seeds and three histories; inputs untouched; the real workshop deck; the published answers for the hash and the generator; a fairness check over three thousand seeds; the worked example. 154 tests in the repository.
+- Outside the brief's files: the lock file gains the workspace link for the new package (`npm ci` in CI refuses a lock that does not match), `docs/learn/09-seeded-shuffle.md` and its row in the notes' index, because `CLAUDE.md` asks for a note when a change brings an idea the operator has not met here, and this entry.
+
+### Why
+
+The skeleton picks cards in file order, so every participant sees the same first four cards and a resumed session cannot know where it was. Section 8 asks for a seeded shuffle so that a stored seed replays a session, and for the three rules about deferred, unanswered and answered cards. The UI builder picks the package up on Tuesday and replaces `apps/web/src/lib/deck.ts` with it; until then the client is untouched.
+
+### How to verify
+
+```
+npm run check                      # typecheck, 154 tests, formatting
+npx vitest run packages/deck       # the 32 tests of the engine alone
+```
+
+The worked example, which the last test pins: a deck of six cards, four warm-ups (`tuesday-night`, `on-tv`, `embarrassing`, `cool`) and two checkpoints (`immigrants`, `rich-poor`), counts 3 and 1, seed `example`, no history. The plan is `cool, on-tv, embarrassing, immigrants`. The same call gives the same plan every time; seed `other` gives `cool, embarrassing, on-tv, rich-poor`. With `tuesday-night`, `on-tv` and `embarrassing` already answered, the plan is `cool` first, then two of the answered three in the seed's order, then the checkpoint. With `cool` and `rich-poor` deferred in the previous session, the plan is `cool, rich-poor, on-tv, embarrassing`: both deferred cards first, and the deferred checkpoint has taken the one checkpoint place.
+
+Nothing to see in the browser yet; the client still uses the skeleton's file order until the UI builder's item 5.
+
+### Decisions made on the way
+
+- **mulberry32 over xoshiro.** Both were named in the brief. mulberry32 is one 32-bit number of state and five lines; xoshiro128 is four numbers and needs a second generator to spread the seed into them. For a deck of a few dozen cards, the smaller one is as good and far easier to read, and the operator can hold the whole recipe in mind. Pinned in the tests against the published outputs, because a change to the generator would reorder every stored session.
+- **FNV-1a for the seed string.** The seed the client makes is already 64 random bits as hex; the hash exists so that any string, `example` included, works as a seed, and so that each set can have its own sub-seed. 32 bits of generator state means two different seeds give the same order about once in four billion pairs, which is harmless: it is an order, not a secret.
+- **One sub-seed per set, and the set's ids sorted before the shuffle.** The order of a set then depends on the seed and on which ids the set holds, not on the other set's size or on the order of the cards in the file. Reordering `deck.json` by hand changes nothing; adding or removing a card changes that set's order, which a deck version bump records anyway.
+- **Deferred cards are never capped.** The brief says they come first and count against their set; it does not say "up to the count". A deferred card was promised a future session, and the Later pile that would otherwise catch it is a later tier, so the engine shows every deferred card and adds nothing fresh from a set whose count is spent. In practice a previous session can only defer as many as it showed, so this matters only if the counts are lowered between sessions.
+- **The caller's list of deferred cards is trusted, not filtered against the answered set.** A card answered in session 1, back in session 5 because the set had run out, and deferred there is in both lists and is still owed a showing. The caller is the one who knows "not answered since the deferral".
+- **The engine never throws.** There is no failure path and therefore no error code: an unknown deferred id is skipped, a duplicate is shown once, a count that is not a whole number is read towards zero and never below. The counts come from `workshop.json`, where the schema already bounds them.
+- **Types only from `@wb/contracts`.** The engine imports `Deck`, `Card` and `CardSet` as types, so nothing of the contracts package runs inside it and the client bundle grows by the engine alone.
+- **The word "queue".** Section 8 and the brief both say "the queue" for the session's ordered cards; the plan's field is `queue`. The glossary does not have the word yet; proposed in the report.
+
+### Open
+
+- For the integrator: the reading of "counted against the set" when the deferred cards outnumber the count (all shown, nothing fresh added), the field name `queue` and its glossary line, and the README row, all proposed in the pull request's report.
+- The UI builder's `deferredIds`: the ids with a `deferred` event in the previous session, in `seq` order, minus any answered since. The engine shows exactly that list first.

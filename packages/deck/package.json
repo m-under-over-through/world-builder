@@ -1,0 +1,13 @@
+{
+  "name": "@wb/deck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The deck engine: which cards a session shows, in what order, and what a dismissal does. Pure functions with no I/O; the client renders what they return.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@wb/contracts": "*"
+  }
+}
