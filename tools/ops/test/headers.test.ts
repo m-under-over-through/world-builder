@@ -104,5 +104,8 @@ describe('the security headers file', () => {
     expect(header('X-Frame-Options')).toBe('DENY');
     expect(header('Cross-Origin-Opener-Policy')).toBe('same-origin');
     expect(header('Cross-Origin-Resource-Policy')).toBe('same-origin');
+    // The third of the trio, found missing by the first ZAP scan (ops repository, runbook/scans.md).
+    // The app loads nothing cross-origin, so requiring it changes nothing a participant sees.
+    expect(header('Cross-Origin-Embedder-Policy')).toBe('require-corp');
   });
 });
