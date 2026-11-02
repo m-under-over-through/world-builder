@@ -592,13 +592,13 @@ The week-2 gap list: the skeleton compared `text.length` with `MAX_REQUEST_BYTES
 ### How to verify
 
 - `npx vitest run apps/api/test/body.test.ts apps/api/test/app.test.ts`: 28 tests pass; `npm run check` is green.
-- On the deploy preview of pull request 8, with `curl`. Make a body one byte over the cap, made of two-byte characters, and post it:
+- On the deploy preview of pull request 10, with `curl`. Make a body one byte over the cap, made of two-byte characters, and post it:
 
   ```
   node -e 'process.stdout.write(`{"code":"${"é".repeat(499995)}"}`)' > big.json
   wc -c big.json            # 1000001
   curl -s -w '\n%{http_code}\n' -X POST -H 'content-type: application/json' --data-binary @big.json \
-    https://deploy-preview-8--worldbuilder-uot.netlify.app/api/rural-manufacturing/join
+    https://deploy-preview-10--worldbuilder-uot.netlify.app/api/rural-manufacturing/join
   ```
 
   Expected: `{"error":"REQUEST_TOO_LARGE",...}` and `413`. The same with `"a".repeat(999990)` (one byte each, 999,999 bytes) answers `REQUEST_INVALID` and `400`: under the cap, the contract answers, not the cap. The preview proves the `Content-Length` path, since `curl` sends the header and the function host hands the body over in one piece; the streamed path, where the header is absent or wrong, is proved by the tests.
@@ -612,4 +612,4 @@ The week-2 gap list: the skeleton compared `text.length` with `MAX_REQUEST_BYTES
 
 ### Open
 
-- The remaining five items of the API brief follow as pull requests 9 to 13, each on the one before.
+- The remaining five items of the API brief follow as pull requests, each stacked on the one before.
