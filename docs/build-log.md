@@ -651,3 +651,41 @@ The runbook's `REQUEST_INVALID` and `SYNC_PAYLOAD_INVALID` entries tell the read
 ### Open
 
 - Drizzle wraps a failed query in `DrizzleQueryError`, whose message is `Failed query: <sql> params: <params>`, and the params of a failed insert are code hashes and sealed bodies. The `SERVER_ERROR` line still logs the error object. Item 3 tests that line and will make it carry the error's name, the SQL with its placeholders and the stack, never the params.
+
+---
+
+## 2026-11-02, Monday. API, 3 of 6: every row of the error table tested over HTTP; the SERVER_ERROR line without query parameters
+
+### What
+
+- Tests for the rows the table lacked, each named as a behaviour, in `apps/api/test/app.test.ts`: the route table (every entry of `ROUTES` is served; twelve unlisted paths and wrong methods answer 404 with a contract body); a participant of a workshop past its close day gets `WORKSHOP_CLOSED` on sync, me, invites and delete, and the rows stay; `JOIN_WAVE_UNKNOWN`, `JOIN_WAVE_FULL` (a workshop with a cap of one) and `JOIN_INVITE_INVALID` on join; the same batch twice is accepted twice with the same ids and stored once; a sync body over the byte cap is `REQUEST_TOO_LARGE` and nothing of it is stored; a database failure mid-request answers `SERVER_ERROR` with an errorId that matches one log line. A last test reads the test sources and fails if any key of `ERROR_CODES` is asserted nowhere.
+- `apps/api/test/limits.test.ts`, new: one test per bucket, each on its own database, with the 429 body checked against `errorResponseSchema`: health at 60 a minute for everyone; wave opens at 120 a minute per workshop; joins at 30 a minute per workshop, another workshop unaffected; unknown codes at 30 a minute per workshop, a real participant unaffected; an authenticated code at 60 a minute on its own, another code unaffected; the next minute allows again.
+- `apps/api/test/helpers.ts`, new: the real workshop, the test pepper, a clock the test moves by day and by minute, a fresh database with the workshop open, and an app on it whose log lines land in an array.
+- Two code changes. `GET /me` answers `WORKSHOP_CLOSED` past the close day, as sync, invites and delete already did. The `SERVER_ERROR` line is built by `serverErrorLine` in `log.ts` and goes through the Logger: the errorId, the error's class, the SQL with its `$1` placeholders, the cause's message and the stack frames; the parameters of a failed query and the stack's header are cut out.
+
+### Why
+
+The brief's "tests that define done": every row of the error-code table over HTTP. Writing them found the two code changes. The screen map shows a closing screen on `WORKSHOP_CLOSED` and the trust page says the rows can be seen and deleted "any time until 6 December", so `me` past the close day should say closed, as delete did; before, it kept answering the data. And Drizzle's query error carries the query's parameters in its message, which for our queries are code hashes, bucket keys built from them, and sealed bodies; the skeleton logged the error whole, so a database failure in the limiter would have put a hash in the function log. Item 3 of `docs/briefs/week-2-api.md`.
+
+### How to verify
+
+- `npx vitest run apps/api/test`: 58 tests; `npm run check` is green.
+- On the deploy preview of pull request 15, `P=https://deploy-preview-15--worldbuilder-uot.netlify.app`:
+  - `curl -s -w '\n%{http_code}\n' -H 'Authorization: Code 1234567890123456' $P/api/rural-manufacturing/me`: `AUTH_CODE_UNKNOWN`, 401, nothing else in the body.
+  - `curl -s -w '\n%{http_code}\n' $P/api/rural-manufacturing/join`: `WORKSHOP_UNKNOWN`, 404; `GET` on join is not a route.
+  - `curl -s $P/api/health`: `ok`, a seven-character `version`, `dbReachable`, `lastBackupAt`, `eventsToday`, `workshops` as slug and status.
+  - A 429 without touching anyone else's bucket: join a test code on the preview, call `me` with it 61 times, read the body of the last call, then delete the code. The exact commands are in the pull request. Do not use health for this: a preview shares the staging database, so its buckets are staging's, and the monitor would see staging's health answer 429 for the rest of the minute.
+
+### Decisions made on the way
+
+- **Drop the table, do not mock the failure.** `db.execute('drop table rate_buckets')` under a running app makes the limiter's upsert fail with a real Drizzle error carrying real parameters, the bucket key built from the hash among them. The test then proves the line has the id and the SQL and not the hash. A mock would prove what the mock was told.
+- **The SQL stays in the line, the parameters go.** The SQL is ours, with placeholders; it tells the reader which query failed. The cause's message stays too: a Postgres primary message names the relation or the constraint and keeps values for its detail field, which is not logged.
+- **One database per limit test.** The clock is fixed inside a test file, so a bucket filled by one test would be full for the next; a fresh PGlite costs a third of a second.
+- **Every code must be asserted somewhere.** The last test is a guard on the table itself: a code added to the contract without an HTTP test fails the suite, the way the runbook test fails on a code without a heading.
+- **The test helpers are a file, not a copy.** Item 4's authorization tests need the same setup; one helpers file keeps the two files about behaviour.
+
+### Open
+
+- Whether `GET /me` should stay readable between the close day and the delete day, for the privacy panel's "what we store": the docs say no, the integrator confirms (pull request 15's report).
+- "Today" is the UTC day, so the window closes at 7 pm Eastern on 6 December: accept, or set `closesDay` a day later. Marco's call; in the report.
+- Two words for the glossary, bucket and budget; the runbook proposals for nine entries; in the report.
