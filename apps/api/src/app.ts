@@ -26,6 +26,7 @@ import {
   joinViaWave,
   participantData,
   participantSummary,
+  pruneRateBuckets,
   rateLimitAllows,
   syncBatch,
   waveOpened,
@@ -35,7 +36,13 @@ import {
 } from '@wb/db';
 import { codeHash, newInviteToken, tokenHash } from './auth.ts';
 import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
-import { consoleLogger, serverErrorLine, validationLine, type Logger } from './log.ts';
+import {
+  consoleLogger,
+  describeError,
+  serverErrorLine,
+  validationLine,
+  type Logger,
+} from './log.ts';
 
 /**
  * The API (architecture plan, sections 6, 9 and 12; CLAUDE.md, API builder notes).
@@ -71,6 +78,15 @@ const LIMITS = {
   authenticated: 60,
 } as const;
 
+/**
+ * Every this many rate-limit checks, the instance deletes the buckets older than an hour, in one
+ * statement, before answering the request (item 5 of the API brief; the nightly job prunes too, as
+ * the backstop for instances that never reach the count). A bucket is one row per route, subject
+ * and minute, so the table holds at most an hour of live buckets plus the rows written since the
+ * last prune: about 60 rows per bucket that was busy all hour, plus a hundred.
+ */
+export const PRUNE_EVERY_CHECKS = 100;
+
 export function todayDay(now: Date): string {
   return now.toISOString().slice(0, 10);
 }
@@ -88,8 +104,20 @@ export function createApp(deps: AppDeps) {
     );
   };
 
-  const limited = async (route: string, subject: string, limitPerMinute: number) =>
-    !(await rateLimitAllows(deps.db, { route, subject, limitPerMinute, now: now() }));
+  let checksSincePrune = 0;
+  const limited = async (route: string, subject: string, limitPerMinute: number) => {
+    const allowed = await rateLimitAllows(deps.db, { route, subject, limitPerMinute, now: now() });
+    if (++checksSincePrune >= PRUNE_EVERY_CHECKS) {
+      checksSincePrune = 0;
+      try {
+        await pruneRateBuckets(deps.db, now());
+      } catch (error) {
+        // The request is answered either way; the nightly job prunes as the backstop.
+        log.error(`rate_buckets prune failed: ${describeError(error)}`);
+      }
+    }
+    return !allowed;
+  };
 
   /**
    * Reads at most MAX_REQUEST_BYTES of the body, counted in bytes on the wire (body.ts), and

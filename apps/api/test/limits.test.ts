@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { errorResponseSchema, generateCode } from '@wb/contracts';
+import { countRateBuckets } from '@wb/db';
+import { PRUNE_EVERY_CHECKS } from '../src/app.ts';
 import { auth, freshApp, joined, json, seedWorkshop, slug, type TestApp } from './helpers.ts';
 
 /**
@@ -91,5 +93,34 @@ describe('rate limits without addresses', () => {
     expect((await t.app.request(`/api/${slug}/me`, { headers: auth(b) })).status).toBe(200);
     t.clock.advanceMinutes(1);
     expect((await t.app.request(`/api/${slug}/me`, { headers: auth(a) })).status).toBe(200);
+  });
+});
+
+describe("the limiter's rows", () => {
+  it('every hundredth check deletes the buckets older than an hour, so the table stays about an hour deep', async () => {
+    const t = await freshApp();
+    // One health call every two minutes for 200 minutes: a new bucket row each time.
+    for (let i = 1; i < PRUNE_EVERY_CHECKS; i++) {
+      t.clock.advanceMinutes(2);
+      expect((await t.app.request('/api/health')).status).toBe(200);
+    }
+    expect(await countRateBuckets(t.db)).toBe(PRUNE_EVERY_CHECKS - 1);
+    t.clock.advanceMinutes(2);
+    expect((await t.app.request('/api/health')).status).toBe(200);
+    // The hundredth check pruned: of the 100 rows, only the ones from the last hour remain,
+    // which is 31 (minutes 140 to 200 inclusive, in steps of two).
+    expect(await countRateBuckets(t.db)).toBe(31);
+    expect(t.lines).toEqual([]);
+  });
+
+  it('refused requests count towards the prune too, so a flood cleans up after itself', async () => {
+    const t = await freshApp();
+    const code = await joined(t.app);
+    t.clock.advanceMinutes(90); // the join's buckets are now older than an hour
+    for (let i = 0; i < PRUNE_EVERY_CHECKS; i++) {
+      await t.app.request(`/api/${slug}/me`, { headers: auth(code) });
+    }
+    // 60 allowed, 40 refused, one bucket row for the code this minute; the join's rows are gone.
+    expect(await countRateBuckets(t.db)).toBe(1);
   });
 });

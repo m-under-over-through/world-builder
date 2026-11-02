@@ -69,7 +69,8 @@ export function serverErrorLine(errorId: string, error: unknown): string {
   return parts.join('\n');
 }
 
-function describeError(error: unknown): string {
+/** An error as "Name: message", with a failed query's parameters cut; the value of a thrown non-Error is never shown. */
+export function describeError(error: unknown): string {
   if (!(error instanceof Error)) return `a thrown value of type ${typeof error}`;
   const message = error.message.split('\nparams:')[0] ?? '';
   // Drizzle's query error does not set a name; the class name says what it is.
