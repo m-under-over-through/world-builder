@@ -809,7 +809,7 @@ The restore drill of 30 October counted 1007 `rate_buckets` rows after a day wit
 
 ### Open
 
-- The ops builder's backup job calls `pruneRateBuckets`, which now returns a number; nothing breaks, and the job could log it.
+- The backup job in the ops repository prunes with its own SQL (`delete from rate_buckets where window_start < now() - interval '1 hour'` in `scripts/backup.sh`), not through `pruneRateBuckets`; the two agree on the hour. (Corrected by the integrator on 2 November: the earlier sentence here said the job called the function.)
 - Whether the words "bucket" and "budget" enter the glossary (pull request 15's proposal).
 
 ---
@@ -1057,3 +1057,29 @@ The worked example, pinned by the last test of `plan-session.test.ts`. Same deck
 ```
 
 ```
+
+---
+
+## 2026-11-02, Monday, late afternoon. The first merges of the parallel build, and what the reviews decided
+
+### What
+
+- Merged into `main` today, each after an independent review and with a merge commit naming the verdict: the deck engine (pull requests 12, 14 and 25, the last one refining "deferred first" to "deferred first within its own set"); the API stack (10, 11, 15, 18, 21, 23: the byte cap in bytes, the validation log line, every error-table row tested over HTTP, the authorization boundary, the limiter prune, joins at 120 a minute with `Retry-After`); the ops items 1 to 3 (9, 13, 16: the export tool and the other tools tested, the runbook checked against the code); and the client's item 1 (17: every word from `copy.md`, the component harness). Main carries 264 tests and `npm run check` is green.
+- Three builders stopped at their sessions' usage limits during the afternoon with their next items open; the client's items 2 to 4 (20, 22, 24) wait for two review fixes before they merge, the ops item 4 (19) and the two failing ops-repository pages (6, 8) wait for theirs.
+- Decisions from the reviews, by the integrator: `GET /me` and `DELETE /me` refuse `WORKSHOP_CLOSED` past the close day, as the API builder built them; the contract's meaning says so now (the participant texts already say that seeing and deleting end with collection). `Retry-After` on every 429 is kept and written into the contract's comments; the client retries a join once after it. The glossary gains **queue**, **bucket** and **budget**. The README's `packages/deck` row is true at last.
+- The build-log entry of the limiter pull request said the backup job calls `pruneRateBuckets`; it runs its own SQL. Corrected in place.
+
+### Why
+
+Stacked pull requests from four streams all append to this file, so every merge made the next branch "conflicting" on GitHub while a local merge was clean. The integrator merges `main` into each branch in a scratch worktree with git's union driver on this file, runs Prettier, pushes, waits for the check, merges. One branch at a time; the order was deck, ops, API, client, so that the client's next item could build on the engine.
+
+### How to verify
+
+- `git log --merges --oneline -12 origin/main` lists the merge commits with their review verdicts.
+- `npm run check` on `main`: green, 264 tests.
+- `packages/contracts/src/api.ts`: the comments on `join`, `WORKSHOP_CLOSED` and `RATE_LIMITED`.
+
+### Open
+
+- The client's review fixes and items 5 to 10 (a second client session is proposed); the ops item 4 fixes and the two ops-repository pages; the API builder's three small follow-ups (`.returning` to a row count, the test that names a row count but asserts statuses, the `Retry-After` computed from a second clock).
+- The Better Stack monitor's definition, still Marco's to read.
