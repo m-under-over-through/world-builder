@@ -636,3 +636,37 @@ On the pull request's deploy preview, in a fresh browser: open `/rural-manufactu
 - **The local API refuses joins before 16 November.** `apps/api/dev.ts` does not pass `workshop.staging.json`'s opening day to `syncWorkshop`, so a join on the laptop answers `WORKSHOP_CLOSED` today while the client, which reads the staging day, shows the welcome. The by-hand check above was run against a copy of `dev.ts` with `opensDay: staging.opensDay` added; the file is the API builder's, so the fix is proposed in the pull request's report.
 - The session-end text under "Session end: your code" begins with "That is a session.", which is also the screen's title, so the words appear twice. A wording question for Marco, not a code change.
 - The buttons' labels sit in a `<span>` inside the primary button (a styling habit of the skeleton); the visual pass of item 10 removes it.
+
+---
+
+## 2026-11-02, Monday afternoon, later. UI item 2: one component per screen, the state in one place, the router
+
+### What
+
+- **`App.svelte` is split.** `apps/web/src/screens/` holds one component per screen of the map that the skeleton had: `NotAWorkshop`, `Welcome`, `EnterCode`, `Consent` (Intro 3), `Card`, `SessionEnd` (with the code reveal), `Closed` (closed and not open yet), `PrivacyPanel`. Each renders what it is given and calls one function; what is local to a screen (the digits being typed, the answer being written, whether the code is revealed) stays in the screen.
+- **The state is one class, `AppState` in `apps/web/src/lib/state.svelte.ts`**, read top to bottom: which screen, the workshop and its copy, the code, the arrival, the session (cards, index, sync status), the panel's rows, and the functions that change them (`open`, `join`, `continueWithCode`, `save`, `setAside`, `openPanel`, `closePanel`, `deleteMe`). The fields are reactive, so a screen re-renders when one changes. `App.svelte` is now the frame: the nav, and the screen the state names.
+- **The router knows the pages a participant can open directly.** `lib/route.ts` reads `/<slug>/continue`, `/<slug>/panel` and `/<slug>/trust` (`PAGES`), and `pageHref` writes them. `/continue` lands on enter code; `/panel` lands on the privacy panel, and Back from there goes where the device would have landed (the next card with a code, the welcome without); `/trust` is read and waits for item 8's screen. Nothing else changes: the tests of item 1 pass unchanged.
+- Tests: every screen renders on its own from a state set up by hand (`test/screens.test.ts`, 14 tests: the three welcome cases, enter code with both lines, consent with an error, the card with its position, the nudge, each sync line and a sealing failure, the session end with and without answers waiting, closed, the panel with and without a code); the three pages and `pageHref` (`deck-and-route.test.ts`); `/continue`, `/panel` and Back from the panel in the rendered app (`app.test.ts`). 163 tests (19 new).
+
+### Why
+
+Item 2 of the UI brief: the next eight items each add a screen or a rule, and a 400-line component is not a place to add either. One class the operator can read answers "what does the app do when I tap this" for every tap.
+
+### How to verify
+
+```
+npm run check                       # 163 tests
+npx vitest run --project web        # the client's 60
+```
+
+On the deploy preview: the flow of item 1 behaves the same; `/rural-manufacturing/continue` opens on enter code; `/rural-manufacturing/panel` opens on the panel, and Back from it goes to the welcome (no code) or the next card (with one).
+
+### Decisions made on the way
+
+- **State in a class with reactive fields, not a Svelte store.** It reads like the plan: a named field per thing, a named function per action, and a test can set the fields by hand and render a screen.
+- **The panel remembers the screen it was opened from** and goes back there; opened directly at `/panel`, it goes where the device lands.
+- **The screen components keep the skeleton's markup and classes**; the look is item 10's.
+
+### Open
+
+- Every open of the app with a code creates a session row, with or without events (known since the skeleton; the panel on a much-reloaded laptop says "17 sessions, 4 events"). Item 5 can create the row at the first event instead; noted in the pull request's report.

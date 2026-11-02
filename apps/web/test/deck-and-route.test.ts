@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, workshopConfigSchema } from '@wb/contracts';
 import { codePoints, sessionCards, truncateCodePoints } from '../src/lib/deck.ts';
-import { countsAsOpen, parseArrival, parseRoute } from '../src/lib/route.ts';
+import { countsAsOpen, pageHref, parseArrival, parseRoute } from '../src/lib/route.ts';
 
 // A path, not a URL: the client's tests run in a DOM whose URL class is not the one node:fs reads.
 const folder = join(fileURLToPath(import.meta.url), '../../../../workshops/rural-manufacturing');
@@ -56,6 +56,17 @@ describe('routes', () => {
       page: 'panel',
     });
     expect(parseRoute('/')).toBeNull();
+  });
+
+  it('reads the pages a participant can open directly: continue, panel, trust', () => {
+    expect(parseRoute('/rural-manufacturing/continue')?.page).toBe('continue');
+    expect(parseRoute('/rural-manufacturing/trust')?.page).toBe('trust');
+    expect(parseRoute('/rural-manufacturing/elsewhere')).toEqual({ slug: 'rural-manufacturing' });
+  });
+
+  it('writes the address of a page, and never anything else', () => {
+    expect(pageHref('rural-manufacturing', 'continue')).toBe('/rural-manufacturing/continue');
+    expect(pageHref('rural-manufacturing')).toBe('/rural-manufacturing/');
   });
 });
 

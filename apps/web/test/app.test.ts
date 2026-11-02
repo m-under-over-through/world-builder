@@ -146,3 +146,31 @@ describe('outside the workshop days', () => {
     expect(screen.getByText(copy.text('Closed'))).toBeTruthy();
   });
 });
+
+describe('the pages a participant can open directly', () => {
+  it('/continue lands on enter code', async () => {
+    stubApi(() => ({ status: 200, body: {} }));
+    await open(`/${SLUG}/continue`);
+    expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
+  });
+
+  it('/panel lands on the privacy panel, with no code yet, and Back goes where the device lands', async () => {
+    const calls = stubApi(() => ({ status: 200, body: {} }));
+    const user = userEvent.setup();
+    await open(`/${SLUG}/panel`);
+    expect(screen.getByText(copy.item('Privacy panel', 'no code yet'))).toBeTruthy();
+    expect(calls).toEqual([]);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+  });
+
+  it('the panel opened from the welcome goes back to the welcome', async () => {
+    stubApi(() => ({ status: 200, body: {} }));
+    const user = userEvent.setup();
+    await open(`/${SLUG}/`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'privacy') }));
+    expect(await screen.findByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+  });
+});
