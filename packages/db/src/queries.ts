@@ -312,10 +312,25 @@ export async function recordBackupRun(
   await db.insert(backupRuns).values({ kind, ok, finishedAt: finishedAt.toISOString() });
 }
 
-/** Called by the nightly job: buckets older than an hour carry nothing worth keeping. */
-export async function pruneRateBuckets(db: Db, now: Date): Promise<void> {
+/**
+ * Deletes the buckets older than an hour, which carry nothing worth keeping, and says how many.
+ * Called by the API on every hundredth rate-limit check (apps/api/src/app.ts) and by the nightly
+ * job as the backstop. One statement; it touches only rows the limiter itself wrote since the last
+ * prune, so it is bounded by the request rate.
+ */
+export async function pruneRateBuckets(db: Db, now: Date): Promise<number> {
   const cutoff = new Date(now.getTime() - 60 * 60_000).toISOString();
-  await db.delete(rateBuckets).where(sql`${rateBuckets.windowStart} < ${cutoff}`);
+  const deleted = await db
+    .delete(rateBuckets)
+    .where(sql`${rateBuckets.windowStart} < ${cutoff}`)
+    .returning({ key: rateBuckets.key });
+  return deleted.length;
+}
+
+/** How many bucket rows exist. For the tests of the bound and for the operator's status command. */
+export async function countRateBuckets(db: Db): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(rateBuckets);
+  return row?.n ?? 0;
 }
 
 // Keep these imports referenced for the day they are needed in queries above.

@@ -26,6 +26,7 @@ import {
   joinViaWave,
   participantData,
   participantSummary,
+  pruneRateBuckets,
   rateLimitAllows,
   syncBatch,
   waveOpened,
@@ -34,6 +35,14 @@ import {
   type Workshop,
 } from '@wb/db';
 import { codeHash, newInviteToken, tokenHash } from './auth.ts';
+import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
+import {
+  consoleLogger,
+  describeError,
+  serverErrorLine,
+  validationLine,
+  type Logger,
+} from './log.ts';
 
 /**
  * The API (architecture plan, sections 6, 9 and 12; CLAUDE.md, API builder notes).
@@ -44,6 +53,8 @@ import { codeHash, newInviteToken, tokenHash } from './auth.ts';
  *   and only the parsed value is used.
  * - Every failure path returns { error, message } with a code from ERROR_CODES. Unexpected
  *   errors get an errorId that matches the log line.
+ * - A body that fails the contract writes one log line naming the route, the code and the field
+ *   paths (log.ts); never a value, a body, a code or a hash.
  * - Rate limits without addresses: per code on authenticated routes, per workshop on the rest.
  * - This package never imports @wb/crypto: it stores sealed bodies it cannot read.
  */
@@ -53,17 +64,35 @@ export interface AppDeps {
   pepper: string;
   version: string;
   now?: () => Date;
+  /** Where log lines go; the console in deployment, an array in tests. */
+  log?: Logger;
 }
 
 type Vars = { workshop: Workshop; participant: Participant };
 
+/**
+ * Requests allowed per minute, per bucket (ADR 0012). Join is budgeted per workshop at 120, decided
+ * 2 November 2026 (docs/briefs/week-2-plan.md, section 4): a newsletter that lands at once sends
+ * its readers to the consent screen within the same few minutes, and with 30 the thirty-first
+ * would have seen an error. The cap of 150 per wave stays the bound on how many join at all; this
+ * number only sets the pace. The client retries a refused join once, after Retry-After.
+ */
 const LIMITS = {
   health: 60,
   waveOpened: 120,
-  join: 30,
+  join: 120,
   unknownCode: 30,
   authenticated: 60,
 } as const;
+
+/**
+ * Every this many rate-limit checks, the instance deletes the buckets older than an hour, in one
+ * statement, before answering the request (item 5 of the API brief; the nightly job prunes too, as
+ * the backstop for instances that never reach the count). A bucket is one row per route, subject
+ * and minute, so the table holds at most an hour of live buckets plus the rows written since the
+ * last prune: about 60 rows per bucket that was busy all hour, plus a hundred.
+ */
+export const PRUNE_EVERY_CHECKS = 100;
 
 export function todayDay(now: Date): string {
   return now.toISOString().slice(0, 10);
@@ -71,37 +100,57 @@ export function todayDay(now: Date): string {
 
 export function createApp(deps: AppDeps) {
   const now = deps.now ?? (() => new Date());
+  const log = deps.log ?? consoleLogger;
   const app = new Hono<{ Variables: Vars }>();
+
+  /** Seconds until the minute turns and every bucket starts again: 1 to 60. */
+  const secondsToNextMinute = () => 60 - Math.floor((now().getTime() / 1000) % 60);
 
   const fail = (c: Context, code: ErrorCode, errorId?: string) => {
     const { status, meaning } = ERROR_CODES[code];
+    // A refused client is told how long the wait is (RFC 9110, Retry-After), so it can retry
+    // once when the minute turns instead of guessing.
+    const headers = code === 'RATE_LIMITED' ? { 'Retry-After': String(secondsToNextMinute()) } : {};
     return c.json(
       { error: code, message: meaning, ...(errorId ? { errorId } : {}) },
       status as 400,
+      headers,
     );
   };
 
-  const limited = async (route: string, subject: string, limitPerMinute: number) =>
-    !(await rateLimitAllows(deps.db, { route, subject, limitPerMinute, now: now() }));
-
-  /** Reads the body with a byte cap and parses JSON; returns undefined on either failure. */
-  const readJson = async (c: Context): Promise<unknown | undefined> => {
-    const declared = Number(c.req.header('content-length') ?? '0');
-    if (declared > MAX_REQUEST_BYTES) return TOO_LARGE;
-    const text = await c.req.text();
-    if (text.length > MAX_REQUEST_BYTES) return TOO_LARGE;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return undefined;
+  let checksSincePrune = 0;
+  const limited = async (route: string, subject: string, limitPerMinute: number) => {
+    const allowed = await rateLimitAllows(deps.db, { route, subject, limitPerMinute, now: now() });
+    if (++checksSincePrune >= PRUNE_EVERY_CHECKS) {
+      checksSincePrune = 0;
+      try {
+        await pruneRateBuckets(deps.db, now());
+      } catch (error) {
+        // The request is answered either way; the nightly job prunes as the backstop.
+        log.error(`rate_buckets prune failed: ${describeError(error)}`);
+      }
     }
+    return !allowed;
   };
-  const TOO_LARGE = Symbol('too large');
+
+  /**
+   * Reads at most MAX_REQUEST_BYTES of the body, counted in bytes on the wire (body.ts), and
+   * parses JSON; TOO_LARGE past the cap, undefined when the bytes are not JSON.
+   */
+  const readJson = async (c: Context): Promise<unknown | undefined> => {
+    const bytes = await readBodyBytes(c.req.raw, MAX_REQUEST_BYTES);
+    return bytes === BODY_TOO_LARGE ? TOO_LARGE : parseJsonBytes(bytes);
+  };
+  const TOO_LARGE = BODY_TOO_LARGE;
+
+  /** The route as written in ROUTES, "POST /api/:slug/join", so the line never carries a slug or a wave. */
+  const routeOf = (c: Context) => `${c.req.method} ${c.req.routePath}`;
 
   app.onError((error, c) => {
     const errorId = crypto.randomUUID().slice(0, 8);
-    // The stack is logged; the body never is. Netlify keeps function logs for about a day.
-    console.error(`SERVER_ERROR ${errorId}`, error);
+    // The stack is logged, the body never is, and a failed query's parameters are cut out
+    // (log.ts). Netlify keeps function logs for about a day.
+    log.error(serverErrorLine(errorId, error));
     return fail(c, 'SERVER_ERROR', errorId);
   });
 
@@ -186,7 +235,16 @@ export function createApp(deps: AppDeps) {
     const raw = await readJson(c);
     if (raw === TOO_LARGE) return fail(c, 'REQUEST_TOO_LARGE');
     const parsed = joinRequestSchema.safeParse(raw);
-    if (!parsed.success) return fail(c, 'REQUEST_INVALID');
+    if (!parsed.success) {
+      log.warn(
+        validationLine(
+          'REQUEST_INVALID',
+          routeOf(c),
+          raw === undefined ? 'not json' : parsed.error.issues,
+        ),
+      );
+      return fail(c, 'REQUEST_INVALID');
+    }
     const { code, wave, invite } = parsed.data;
     const hash = await codeHash(deps.pepper, workshop.slug, code);
     const today = todayDay(now());
@@ -226,12 +284,24 @@ export function createApp(deps: AppDeps) {
       }
     }
     const parsed = syncRequestSchema.safeParse(raw);
-    if (!parsed.success) return fail(c, 'SYNC_PAYLOAD_INVALID');
+    if (!parsed.success) {
+      log.warn(
+        validationLine(
+          'SYNC_PAYLOAD_INVALID',
+          routeOf(c),
+          raw === undefined ? 'not json' : parsed.error.issues,
+        ),
+      );
+      return fail(c, 'SYNC_PAYLOAD_INVALID');
+    }
     return c.json(await syncBatch(deps.db, c.get('participant').id, parsed.data));
   });
 
+  // Past the close day the app shows a closing screen (screen map: WORKSHOP_CLOSED); seeing and
+  // deleting one's rows ends with collection, as the trust page says (architecture plan, 13).
   workshopRoutes.get('/me', authenticated, async (c) => {
     const workshop = c.get('workshop');
+    if (!isOpen(workshop)) return fail(c, 'WORKSHOP_CLOSED');
     const participant = c.get('participant');
     const data = await participantData(deps.db, participant.id);
     const body: MeResponse = {
