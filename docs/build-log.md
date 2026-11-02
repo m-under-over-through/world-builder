@@ -684,3 +684,36 @@ The worked example continued, pinned by the last test. Same deck of six, counts 
 
 - The Later pile and `revisited` are outside the brief's three functions; a later item would add a function for it, probably one that puts a card back at the front of the queue.
 - For the UI builder: the resume recipe above, and which bookkeeping (latest plan, or first plan plus done set) the client keeps. Either works.
+
+---
+
+## 2026-11-02, Monday, late afternoon. The deck engine, item 3: deferred cards first within their own set
+
+### What
+
+- **`planSession` refined.** A deferred card now comes first within its own set: deferred warm-ups at the start of the warm-up block, deferred checkpoints at the start of the checkpoint block, still in the order they were deferred, still each taking one of the set's places. The queue is therefore always warm-ups then checkpoints, and a session ends after the checkpoints whatever was deferred. Before this, deferred cards of both sets led the queue, so a deferred checkpoint came before the fresh warm-ups and a session could end on a warm-up.
+- **Tests.** Three renamed or rewritten and three new in `packages/deck/test/`: a deferred checkpoint is shown first among the checkpoints, after the warm-ups; deferred cards keep their order, each at the start of its set; a deferred checkpoint takes the C place, so the session still ends on a checkpoint; the last card of a session is a checkpoint whatever was deferred, over twenty seeds and four deferral patterns; the worked example gains its deferred case; and, from the reviewer's note on item 2, `dismissedThisSession` means "before this call": adding the id first turns a first dismissal into `deferred`. 178 tests in the repository.
+- The comments on `planSession`, `deferredIds` and `applyDismiss` say the new rule and the sharp edge. Nothing else changes: the function names, the inputs and the shape of the plan are as in items 1 and 2.
+
+### Why
+
+The independent review of pull request 14 caught it: item 1 read "deferred cards come first" literally across sets, and the architecture plan's section 8 says "a session ends after the checkpoints". A deferred checkpoint shown first, then three warm-ups, ends a session on a warm-up, and the "come back another day" screen would follow a warm-up. The brief's own order, "deferred cards come first, counted against the set they belong to; then warm-ups up to the count, then checkpoints up to the count", reads naturally as first within the set, once the ending rule is held next to it. Item 1's report had flagged the literal reading as an ambiguity; this is the integrator's answer.
+
+### How to verify
+
+```
+npm run check                      # typecheck, 178 tests, formatting
+npx vitest run packages/deck       # the 56 tests of the engine alone
+```
+
+The worked example, pinned by the last test of `plan-session.test.ts`. Same deck of six (`tuesday-night`, `on-tv`, `embarrassing`, `cool`; `immigrants`, `rich-poor`), counts 3 and 1, seed `example`. No history: `cool, on-tv, embarrassing, immigrants`, unchanged. With `cool` and `rich-poor` deferred last session: now `cool, on-tv, embarrassing, rich-poor`. Before this change it was `cool, rich-poor, on-tv, embarrassing`, the last row of item 1's example above, which this supersedes. `cool` still leads the warm-ups, `rich-poor` takes the one checkpoint place and closes the session.
+
+### Decisions made on the way
+
+- **Within the set, not capped and not reordered.** Deferred cards still count against their set's places and still show in full when they outnumber the places; only where the checkpoint block starts moved. A session with a deferred checkpoint and C = 1 is still four cards.
+- **The sharp edge is a test, not only a comment.** `dismissedThisSession` is the set as it stood before the call. A client that adds the card to the set and then calls `applyDismiss` gets `deferred` on the first tap. The test says so in words, next to the test that shows the right order, so the next reader of the recipe meets it.
+- **Nothing changes for the client's calling recipe.** Same inputs, same plan shape, same replay on resume. What changes is where a deferred checkpoint appears on the screen.
+
+### Open
+
+- The README row for `packages/deck` and the glossary line for "queue", proposed in the reports of pull requests 12 and 14, are still the integrator's to write.

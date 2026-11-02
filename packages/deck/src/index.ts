@@ -26,7 +26,8 @@ export interface SessionPlanInput {
   answeredIds: Iterable<string>;
   /**
    * The card ids deferred in the previous session (dismissed twice there) and not answered since,
-   * in the order they were deferred. The first session passes an empty list.
+   * in the order they were deferred. Each comes first within its own set. The first session
+   * passes an empty list.
    */
   deferredIds: readonly string[];
 }
@@ -51,41 +52,40 @@ function wholeCount(n: number): number {
 /**
  * The cards of this session, in order (architecture plan, section 8):
  *
- * 1. The cards deferred in the previous session, first, in the order they were deferred. Each
- *    counts against the set it belongs to, so a deferred warm-up takes one of the W places.
- * 2. Then warm-ups up to W, then checkpoints up to C. Each set is shuffled once by the seed; cards
- *    never answered come before answered ones, so an answered card returns only when the set's
- *    unanswered cards have run out. A card is never shown twice in one session.
+ * 1. Warm-ups up to W, then checkpoints up to C, so a session ends after the checkpoints.
+ * 2. Within each set, the cards deferred in the previous session come first, in the order they
+ *    were deferred, and each takes one of the set's places. The places left are filled from a
+ *    seeded shuffle of the set: cards never answered before answered ones, so an answered card
+ *    returns only when the set's unanswered cards have run out.
  *
- * A deck with fewer cards than the counts gives what it has.
+ * A card is never shown twice in one session. A deck with fewer cards than the counts gives what
+ * it has. A set with more deferred cards than places shows them all and adds nothing fresh.
  */
 export function planSession(input: SessionPlanInput): SessionPlan {
   const setOf = new Map<string, CardSet>(input.deck.cards.map((card) => [card.id, card.set]));
   const answered = new Set(input.answeredIds);
-  const remaining: Record<CardSet, number> = {
+  const places: Record<CardSet, number> = {
     warmup: wholeCount(input.warmupsPerSession),
     checkpoint: wholeCount(input.checkpointsPerSession),
   };
-  const queue: string[] = [];
+  const owed: Record<CardSet, string[]> = { warmup: [], checkpoint: [] };
   const queued = new Set<string>();
 
   for (const id of input.deferredIds) {
     const set = setOf.get(id);
     // Not in this deck (the deck changed since), or listed twice: skipped, not failed.
     if (set === undefined || queued.has(id)) continue;
-    queue.push(id);
+    owed[set].push(id);
     queued.add(id);
-    remaining[set] = Math.max(0, remaining[set] - 1);
   }
 
+  const queue: string[] = [];
   for (const set of SETS_IN_ORDER) {
     const candidates = shuffleSet(input.deck, set, input.seed).filter((id) => !queued.has(id));
     const fresh = candidates.filter((id) => !answered.has(id));
     const seen = candidates.filter((id) => answered.has(id));
-    for (const id of [...fresh, ...seen].slice(0, remaining[set])) {
-      queue.push(id);
-      queued.add(id);
-    }
+    const left = Math.max(0, places[set] - owed[set].length);
+    queue.push(...owed[set], ...[...fresh, ...seen].slice(0, left));
   }
 
   return { queue };
@@ -121,8 +121,10 @@ export interface DismissResult {
  * for a future session; the event to record is `deferred`. A card that is not in the queue is left
  * alone and no event is called for.
  *
- * `dismissedThisSession` is the set of card ids already dismissed in this session, before this
- * dismissal. The caller keeps it and records the event; the engine does neither.
+ * `dismissedThisSession` is the set of card ids already dismissed in this session, as it stood
+ * before this call. The caller keeps it and records the event; the engine does neither. Add the
+ * card to the set after the call, never before: added before, a first dismissal reads as a second
+ * and the card is deferred at once.
  */
 export function applyDismiss(
   plan: SessionPlan,
