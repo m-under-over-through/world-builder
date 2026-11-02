@@ -1,14 +1,17 @@
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, workshopConfigSchema } from '@wb/contracts';
 import { codePoints, sessionCards, truncateCodePoints } from '../src/lib/deck.ts';
 import { countsAsOpen, parseArrival, parseRoute } from '../src/lib/route.ts';
 
-const folder = new URL('../../../workshops/rural-manufacturing/', import.meta.url);
+// A path, not a URL: the client's tests run in a DOM whose URL class is not the one node:fs reads.
+const folder = join(fileURLToPath(import.meta.url), '../../../../workshops/rural-manufacturing');
 const config = workshopConfigSchema.parse(
-  JSON.parse(readFileSync(new URL('workshop.json', folder), 'utf8')),
+  JSON.parse(readFileSync(join(folder, 'workshop.json'), 'utf8')),
 );
-const deck = deckSchema.parse(JSON.parse(readFileSync(new URL('deck.json', folder), 'utf8')));
+const deck = deckSchema.parse(JSON.parse(readFileSync(join(folder, 'deck.json'), 'utf8')));
 
 describe('session cards', () => {
   it('gives W warm-ups then C checkpoints from the workshop settings', () => {

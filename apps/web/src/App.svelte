@@ -11,17 +11,19 @@
   } from '@wb/contracts';
   import { sealAnswer } from '@wb/crypto';
   import { api } from './lib/api.ts';
+  import { fill, type Copy } from './lib/copy.ts';
   import { codePoints, sessionCards, truncateCodePoints } from './lib/deck.ts';
   import { dayStatus } from './lib/days.ts';
   import { countsAsOpen, parseArrival, parseRoute, type Arrival } from './lib/route.ts';
   import { localDay, WorkshopStore } from './lib/store.ts';
   import { reconcile, syncNow, type SyncStatus } from './lib/sync.ts';
-  import { ENV, findWorkshop, VERSION, type Workshop } from './lib/workshops.ts';
+  import { defaultCopy, ENV, findWorkshop, VERSION, type Workshop } from './lib/workshops.ts';
 
   /**
    * The walking skeleton of the client: welcome, consent, one session of cards, the code reveal,
    * and the privacy panel. Screens follow docs/screen-map.md; the full intro, the Later pile,
-   * install prompts and dictation hints come in week two.
+   * install prompts and dictation hints come in week two. Every word on the screen comes from
+   * the workshop's copy.md through `copy` (lib/copy.ts); nothing is typed here.
    */
   type Screen =
     | 'loading'
@@ -36,9 +38,11 @@
 
   let screen = $state<Screen>('loading');
   let workshop = $state<Workshop | undefined>();
+  let copy = $state.raw<Copy>(defaultCopy());
   let store: WorkshopStore | undefined;
   let code = $state('');
   let arrival = $state<Arrival>({});
+  /** The error code of the last failure on this screen, shown through its copy.md wording. */
   let error = $state('');
   let codeInput = $state('');
   let revealed = $state(false);
@@ -71,6 +75,7 @@
       year: 'numeric',
     });
   const remaining = $derived(MAX_ANSWER_CHARS - codePoints(answer));
+  const masked = '•••• •••• •••• ••••';
 
   onMount(async () => {
     const route = parseRoute(location.pathname);
@@ -79,6 +84,7 @@
       screen = 'no-workshop';
       return;
     }
+    copy = workshop.copy;
     store = new WorkshopStore(route.slug);
     const saved = await store.get('code');
     const stored = parseArrival(await store.get('arrival'));
@@ -165,19 +171,21 @@
     await startSession();
   }
 
+  /** Not an error code: the one local refusal, a code that is not 16 digits yet. */
+  let tooShort = $state(false);
+
   async function continueWithCode() {
     if (!store || !workshop) return;
     error = '';
+    tooShort = false;
     const typed = normalizeCode(codeInput);
     if (!codeSchema.safeParse(typed).success) {
-      error = 'That is not a 16-digit code.';
+      tooShort = true;
       return;
     }
     const res = await api(`/${workshop.config.slug}/me`, { code: typed });
     if (!res.ok) {
       if (res.error === 'WORKSHOP_CLOSED') screen = 'closed';
-      else if (res.error === 'AUTH_CODE_UNKNOWN')
-        error = 'That code is not ours. Check the digits.';
       else error = res.error;
       return;
     }
@@ -235,7 +243,8 @@
     if (!store || !workshop) return;
     cookies = document.cookie.split(';').filter((c) => c.trim()).length;
     const seen = new Set<string>([location.host]);
-    for (const entry of performance.getEntriesByType('resource')) {
+    // The browser's own record of every resource this page fetched; absent in a test DOM.
+    for (const entry of performance.getEntriesByType?.('resource') ?? []) {
       try {
         seen.add(new URL(entry.name).host);
       } catch {
@@ -249,12 +258,7 @@
 
   async function deleteMe() {
     if (!store || !workshop) return;
-    if (
-      !confirm(
-        'Delete everything about you, on this device and on our server? This cannot be undone.',
-      )
-    )
-      return;
+    if (!confirm(copy.text('Privacy panel: delete confirm'))) return;
     const res = await api(`/${workshop.config.slug}/me`, { method: 'DELETE', code });
     if (!res.ok) {
       error = res.error;
@@ -273,156 +277,181 @@
 
 <main>
   <nav>
-    <span>{workshop?.config.name ?? 'World Builder'}</span>
+    <span>{workshop?.config.name ?? copy.item('App labels', 'app name')}</span>
     {#if screen !== 'loading' && screen !== 'no-workshop' && screen !== 'panel'}
-      <button onclick={openPanel}>Your privacy</button>
+      <button onclick={openPanel}>{copy.item('Buttons', 'privacy')}</button>
     {/if}
   </nav>
 
   {#if screen === 'loading'}
-    <p class="muted">Loading…</p>
+    <p class="muted">{copy.item('App labels', 'loading')}</p>
   {:else if screen === 'no-workshop'}
-    <h1>World Builder</h1>
-    <p>This address is not a workshop. Use the link you were sent.</p>
+    <h1>{copy.item('Titles', 'not a workshop')}</h1>
+    <p>{copy.text('Not a workshop')}</p>
   {:else if screen === 'welcome'}
     <h1>{workshop?.config.name}</h1>
     <p>{workshop?.config.purpose}</p>
     <div class="row">
       {#if arrival.wave || arrival.invite}
-        <button class="primary" onclick={() => (screen = 'consent')}><span>New here</span></button>
+        <button class="primary" onclick={() => (screen = 'consent')}
+          ><span>{copy.item('Buttons', 'new here')}</span></button
+        >
       {:else}
-        <p class="muted">To start, open the link you were sent.</p>
+        <p class="muted">{copy.text('Welcome: no link')}</p>
       {/if}
-      <button onclick={() => (screen = 'enter-code')}>I have a code</button>
+      <button onclick={() => (screen = 'enter-code')}
+        >{copy.item('Buttons', 'i have a code')}</button
+      >
     </div>
   {:else if screen === 'enter-code'}
-    <h1>Your code</h1>
-    <p>The 16 digits you were shown at the end of your first session.</p>
+    <h1>{copy.item('Titles', 'enter code')}</h1>
+    <p>{copy.text('Enter code')}</p>
     <input
       class="code"
       inputmode="numeric"
       autocomplete="off"
       placeholder="1234 5678 9012 3456"
+      aria-label={copy.item('Titles', 'enter code')}
       bind:value={codeInput}
     />
-    {#if error}<p>{error}</p>{/if}
+    {#if tooShort}<p>{copy.text('Enter code: too short')}</p>{/if}
+    {#if error}<p>{copy.error(error)}</p>{/if}
     <div class="row">
-      <button class="primary" onclick={continueWithCode}><span>Continue</span></button>
-      <button onclick={() => (screen = 'welcome')}>Back</button>
+      <button class="primary" onclick={continueWithCode}
+        ><span>{copy.item('Buttons', 'continue')}</span></button
+      >
+      <button onclick={() => (screen = 'welcome')}>{copy.item('Buttons', 'back')}</button>
     </div>
   {:else if screen === 'consent'}
-    <h1>Before you start</h1>
-    <p>
-      Your answers are anonymous. We do not ask for your name or email, we set no cookies, and your
-      answers are encrypted on your device before they are sent. They will be used by {workshop
-        ?.config.organizer} to imagine the future of local manufacturing and may be quoted, without any
-      way to trace them to you.
-    </p>
-    {#if error}<p>Something went wrong: {error}</p>{/if}
+    <h1>{copy.item('Titles', 'consent')}</h1>
+    <p>{copy.text('Intro 3, consent')}</p>
+    {#if error}<p>{copy.error(error)}</p>{/if}
     <div class="row">
-      <button class="primary" onclick={join}><span>I understand</span></button>
+      <button class="primary" onclick={join}
+        ><span>{copy.item('Buttons', 'i understand')}</span></button
+      >
     </div>
   {:else if screen === 'card' && card}
-    <p class="muted">Card {index + 1} of {cards.length}</p>
+    <p class="muted">
+      {fill(copy.item('Card labels', 'position'), { n: index + 1, total: cards.length })}
+    </p>
     <div class="card">
       <p class="question">{card.text}</p>
       <textarea
         bind:value={answer}
-        placeholder="Type, or tap the mic on your keyboard to dictate."
+        placeholder={copy.item('Card labels', 'placeholder')}
         aria-label={card.text}></textarea>
       <p class="muted">
-        Please do not name real people. {remaining < 500 ? `${remaining} characters left.` : ''}
+        {copy.text('Card nudge')}
+        {remaining < 500 ? fill(copy.item('Card labels', 'counter'), { n: remaining }) : ''}
       </p>
-      {#if error}<p>Could not save: {error}</p>{/if}
+      {#if error}<p>{copy.item('Card labels', 'could not save')} {copy.error(error)}</p>{/if}
       <div class="row">
         <button class="primary" onclick={save} disabled={saving || !answer.trim() || remaining < 0}
-          ><span>Save</span></button
+          ><span>{copy.item('Buttons', 'save')}</span></button
         >
-        <button onclick={setAside}>Set aside</button>
+        <button onclick={setAside}>{copy.item('Buttons', 'set aside')}</button>
       </div>
     </div>
     <p class="muted">
-      {#if sync.lastResult === 'ok'}Synced.{:else if sync.lastResult === 'offline'}Saved on this
-        device. Will sync when online.{:else if sync.lastResult === 'error'}Saved on this device.
-        Sync problem: {sync.lastError}.{/if}
+      {#if sync.lastResult === 'ok'}{copy.item(
+          'Card states',
+          'synced',
+        )}{:else if sync.lastResult === 'offline'}{copy.item(
+          'Card states',
+          'offline',
+        )}{:else if sync.lastResult === 'error'}{copy.item('Card states', 'sync problem')}{/if}
     </p>
   {:else if screen === 'session-end'}
-    <h1>That is a session.</h1>
-    <p>
-      This code is you. It is random, and it is the only thing that identifies you to us. Save it if
-      you want to continue on another device.
-    </p>
-    <p class="code">{revealed ? formatCode(code) : '•••• •••• •••• ••••'}</p>
+    <h1>{copy.item('Titles', 'session end')}</h1>
+    <p>{fill(copy.text('Session end: your code'), { code: '' })}</p>
+    <p class="code">{revealed ? formatCode(code) : masked}</p>
     <div class="row">
-      <button onclick={() => (revealed = !revealed)}>{revealed ? 'Hide' : 'Reveal'}</button>
-      <button onclick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
+      <button onclick={() => (revealed = !revealed)}
+        >{revealed ? copy.item('Buttons', 'hide') : copy.item('Buttons', 'reveal')}</button
+      >
+      <button onclick={copyCode}
+        >{copied ? copy.item('Buttons', 'copied') : copy.item('Buttons', 'copy')}</button
+      >
     </div>
-    <p class="muted">Come back another day for the next cards.</p>
+    <p class="muted">{copy.item('Session end', 'come back')}</p>
     <p class="muted">
-      {#if sync.outboxSize > 0}{sync.outboxSize} answer(s) still waiting to sync; keep the app open a
-        moment when you are online.{:else}Everything is synced.{/if}
+      {#if sync.outboxSize > 0}{fill(copy.item('Session end', 'waiting to sync'), {
+          n: sync.outboxSize,
+        })}{:else}{copy.item('Session end', 'all synced')}{/if}
     </p>
   {:else if screen === 'closed'}
     {#if notYetOpen && workshop}
-      <h1>Not open yet.</h1>
-      <p>This opens on {longDay(workshop.opensDay)}. Keep the link and come back then.</p>
+      <h1>{copy.item('Titles', 'not open yet')}</h1>
+      <p>{fill(copy.text('Not open yet'), { day: longDay(workshop.opensDay) })}</p>
     {:else}
-      <h1>This workshop has closed.</h1>
-      <p>Thank you. The answers are being read now.</p>
+      <h1>{copy.item('Titles', 'closed')}</h1>
+      <p>{copy.text('Closed')}</p>
     {/if}
   {:else if screen === 'panel'}
-    <h1>Your privacy</h1>
+    <h1>{copy.item('Titles', 'privacy panel')}</h1>
     <dl>
       <div>
-        <dt>Your code</dt>
+        <dt>{copy.item('Privacy panel', 'code')}</dt>
         <dd class="code">
-          {code ? (revealed ? formatCode(code) : '•••• •••• •••• ••••') : 'none yet'}
+          {code
+            ? revealed
+              ? formatCode(code)
+              : masked
+            : copy.item('Privacy panel', 'no code yet')}
         </dd>
       </div>
       <div>
-        <dt>Cookies set by this app</dt>
+        <dt>{copy.item('Privacy panel', 'cookies')}</dt>
         <dd>{cookies}</dd>
       </div>
       <div>
-        <dt>Hosts this app has contacted</dt>
+        <dt>{copy.item('Privacy panel', 'hosts')}</dt>
         <dd>{hosts.join(', ')}</dd>
       </div>
       <div>
-        <dt>Microphone, camera, location</dt>
-        <dd>blocked by policy</dd>
+        <dt>{copy.item('Privacy panel', 'permissions')}</dt>
+        <dd>{copy.item('Privacy panel', 'permissions value')}</dd>
       </div>
       <div>
-        <dt>Answers encrypted to key</dt>
+        <dt>{copy.item('Privacy panel', 'key')}</dt>
         <dd>{workshop?.keyFingerprint} ({ENV})</dd>
       </div>
       <div>
-        <dt>Stored on our server about you</dt>
+        <dt>{copy.item('Privacy panel', 'stored')}</dt>
         <dd>
           {me
-            ? `${me.sessions.length} session(s), ${me.events.length} event(s), answers sealed`
-            : 'nothing yet'}
+            ? fill(copy.item('Privacy panel', 'stored summary'), {
+                sessions: me.sessions.length,
+                events: me.events.length,
+              })
+            : copy.item('Privacy panel', 'nothing stored')}
         </dd>
       </div>
       <div>
-        <dt>Waiting to sync</dt>
+        <dt>{copy.item('Privacy panel', 'waiting')}</dt>
         <dd>
-          {sync.outboxSize} event(s); last sync {sync.lastResult}{sync.lastError
-            ? ` (${sync.lastError})`
-            : ''}
+          {fill(copy.item('Privacy panel', 'waiting summary'), { n: sync.outboxSize })}; {copy.item(
+            'Diagnostics',
+            'last sync',
+          )}
+          {copy.item('Diagnostics', sync.lastResult)}{sync.lastError ? ` (${sync.lastError})` : ''}
         </dd>
       </div>
       <div>
-        <dt>Version</dt>
+        <dt>{copy.item('Privacy panel', 'version')}</dt>
         <dd>{VERSION}</dd>
       </div>
     </dl>
-    {#if error}<p>{error}</p>{/if}
+    {#if error}<p>{copy.error(error)}</p>{/if}
     <div class="row">
       <button onclick={() => (revealed = !revealed)}
-        >{revealed ? 'Hide code' : 'Reveal code'}</button
+        >{revealed ? copy.item('Buttons', 'hide') : copy.item('Buttons', 'reveal')}</button
       >
-      <button onclick={() => (screen = code ? 'card' : 'welcome')}>Back</button>
-      {#if code}<button onclick={deleteMe}>Delete everything about me</button>{/if}
+      <button onclick={() => (screen = code ? 'card' : 'welcome')}
+        >{copy.item('Buttons', 'back')}</button
+      >
+      {#if code}<button onclick={deleteMe}>{copy.item('Buttons', 'delete')}</button>{/if}
     </div>
   {/if}
 </main>
