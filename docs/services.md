@@ -52,6 +52,10 @@ Running cost: zero a month beyond the vault's ten dollars a year. New accounts t
 - The domain's auto-renew and holding account confirmed in the runbook.
 - A page in the runbook per service: what it does, where the login is, what breaks without it, how to move off it.
 
+## 6. Packages named here rather than in a decision record
+
+- **workbox-build** and **workbox-window** (Apache-2.0, by Google): the two parts of `vite-plugin-pwa` (ADR 0012) that write the service worker at build time and register it in the page. They are listed as direct dependencies of `apps/web` because the plugin asks for them; nothing else uses them, and nothing of theirs runs at the API.
+
 ## Tooling for the agents, not for the app
 
 - **Impeccable** (`impeccable` on npm, Apache-2.0, by Paul Bakaus): design skills and slash commands for the coding agent (`/impeccable critique`, `polish`, `document` and others). Installed per working copy with `npx -y impeccable@4.8.0 install --project --providers=claude-code --no-hooks -y`, which writes into `.claude/skills` and `.claude/agents`, both ignored by git. Nothing of it reaches the client, the API or the build; its design checker runs in code without an AI service. Added 2 November 2026 at Marco's request for the UI builder's visual pass. Cost 0.

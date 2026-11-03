@@ -1580,3 +1580,42 @@ An installed app must open where it was installed from, on every platform. Stora
 - An app installed before this change keeps its old start address. Remove it from the home screen and add it again.
 - A fresh iPhone app has no stored arrival, so it joins through the first wave rather than the one the newsletter link named. The wave is lost for that device.
 - The reviewer's two nits left as they are: the plugin test checks names and contents, not the order against the service worker (the build step in "How to verify" does); the rule "only a known workshop gets its own manifest" lives in two lines of `main.ts` without a test of its own.
+
+## 2026-11-03, Tuesday evening. The second day's merges, Marco's first try, and what is open
+
+### What
+
+Every item of the four week-2 briefs is on `main`, each after an independent reviewer and a green check, with a merge commit that names the verdict.
+
+- Deck engine: pull requests 12, 14 and 25.
+- API: 10, 11, 15, 18, 21 and 23.
+- Ops, app side: 9, 13, 16, 19, 26 and 27. Ops repository: 5, 6, 7, 8 and 9.
+- Client: 17, 20, 22, 24, 29, 30, 31 and 32, merged at the top of their stack through 32; then 33, 34 and 35 through 35.
+- Integrator: 6 (the briefs), 7 and 8 (contracts and the participant texts), 28 (corrections), 36 (the installed app's start address).
+
+`main` is at the merge of pull request 36 with 400 tests. Staging is a fast-forward of `main`.
+
+Marco tried the app on staging on the evening of 2 November and sent four notes. One was a bug, fixed in pull request 36 (its own entry above). The other three are a pass on the client, running as its own builder session from a brief: privacy on one page instead of a button on every screen, a plain session end with no sentence twice, the code shown once in a sentence, the install offer kept on both platforms and worded honestly, and a "Remind me" calendar file served from our origin. Push notifications were considered and set aside for this workshop: a permission prompt most people decline, a device token on our server, two push services and a sender for little gain.
+
+A reading recorded on the way: after sealing, the plain answer stays in memory, greyed, until the card settles after the sync. ADR 0007 is about storage, and nothing readable is stored; this holds.
+
+### Why
+
+The log of each merge is the builder's own entry; this one is the integrator's view of the day, so a reader can find every merge in one place. The stacked pull requests all append to this file, so each merge made the next branch "conflicting" on GitHub while a local merge was clean; each branch was refreshed by merging `main` into it with git's union driver on `docs/build-log.md`, which keeps both sides of the file in time order. That is why the entries above sit in the order they were written, not the order they were merged.
+
+### How to verify
+
+1. `git log --merges --since=2026-11-02 --format='%h %s%n%b'` lists the merges with their verdicts.
+2. `npm run check`: 400 tests.
+3. `gh pr list --state all --limit 40` in both repositories: every number above is merged, nothing is open.
+
+### Decisions made on the way
+
+- Section 6.2 of the architecture plan had already said that Safari may purge a site's storage after about a week of browsing without a visit, and that an iPhone's home-screen app has its own storage apart from Safari's. The installed app's start address at `/` was the deviation from it, corrected in pull request 36. The plan needs no change.
+- The two workbox packages that `vite-plugin-pwa` asks for are now named in `docs/services.md`, section 6.
+
+### Open
+
+- Reviewer lows deferred to the week of 9 November: the trust page opened from the privacy panel returns to the landing screen rather than the panel; a permanent sync refusal other than `WORKSHOP_CLOSED` is retried every five minutes; the API's three nits (a row count instead of `.returning`, a test name, `Retry-After` read from a second clock). The first two may fall to the client pass.
+- The two ops rehearsals that need Marco's consoles: the staging reset as one piece, and the laptop drill in a fresh user account.
+- The Better Stack lesson, once the paused monitor's cause is known.
