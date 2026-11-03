@@ -1619,3 +1619,73 @@ The log of each merge is the builder's own entry; this one is the integrator's v
 - Reviewer lows deferred to the week of 9 November: the trust page opened from the privacy panel returns to the landing screen rather than the panel; a permanent sync refusal other than `WORKSHOP_CLOSED` is retried every five minutes; the API's three nits (a row count instead of `.returning`, a test name, `Retry-After` read from a second clock). The first two may fall to the client pass.
 - The two ops rehearsals that need Marco's consoles: the staging reset as one piece, and the laptop drill in a fresh user account.
 - The Better Stack lesson, once the paused monitor's cause is known.
+
+---
+
+## 2026-11-03, Tuesday evening. Privacy in one place, a plain session end, and a calendar reminder (pull request 38)
+
+### What
+
+Marco's notes from his first try of the whole app on staging, 2 November: "repeating privacy privacy privacy everywhere almost results in the opposite", the session end "very surreal", the code "highly complicated", and "people will open it once and then forget". The app stays as it is built; what it says, and where, changes. The decision record is [docs/adr/0013-privacy-in-one-place-and-the-way-back.md](adr/0013-privacy-in-one-place-and-the-way-back.md).
+
+- **One page, "About this app"** (`apps/web/src/screens/About.svelte`), from one small link at the foot of every screen. The "Your privacy" button is gone from the header, which is now the workshop's name alone; the foot's three links are now one. The page, in order: what this is in two sentences; how answers are protected, which is the trust page's six paragraphs, shortened, without their numbered headings and without "your controls" (the page itself is the controls now); your code in one sentence, shown plainly, with Copy; the facts the privacy panel showed, as a plain list of label and value, with the caveat under them; "Delete everything I sent", only once the phone has a code, in two steps; the terms and the privacy policy; Back. `PrivacyPanel.svelte` and `Trust.svelte` are gone. `/about` is the address; `/panel` and `/trust` still work, since a newsletter may carry them, and open the page scrolled to the facts and to "how answers are protected" (`aboutSectionFor` in `lib/state.svelte.ts`); the address becomes `/about`. The terms and the policy opened from the page go back to the page, and the page goes back to the screen it was opened from: a small trail of screens in the state replaces the one "before" field, which also closes the reviewer's low from the last entry (the trust page opened from the panel used to return to the landing screen).
+- **Delete-me is two taps from any screen**: the link at the foot, then the button at the end of the page; the third tap is the confirmation. A test walks it from a card.
+- **The code is shown, not masked.** No dots, no Reveal: the sixteen digits in four groups and one button, Copy, on the page and at the session end. `MASKED_CODE` is gone. The code is sized to stay on one line at 320 pixels.
+- **The welcome**: one button, "New here", and under it one quiet line, "Been here before on another phone? I have a code", with the link in the line. The forgotten-code line (`AUTH_CODE_UNKNOWN` on a stored code, from the failure behaviour) is one calm sentence with `role="status"`, no box, and shows only then.
+- **The session end** is one screen, one heading, "Thank you", nothing said twice. Session 1: "If you ever want to continue on another phone, this is you:" with the code on its own line and Copy; then "Keep it close", the install offer, where it is due; then "The next cards wait for you another day. Remind me". Every later session: the heading, that line once, the reminder. The line about answers waiting to sync shows only while something waits; "Everything is synced" is gone. The steps (`endStep`, "Next", "Not now") are gone with it.
+- **The install offer**, once, at the end of session 1, on both platforms, as a note with the steps for this platform; nothing has to be tapped, nothing is stored (`installDismissals` and the two-dismissals rule are gone; `installDue` takes the platform and whether the app runs installed). On an iPhone the steps say "The app asks for your code once". It stays on iPhone: Safari deletes everything a site stored after seven days of Safari use without a visit to the site, and a home-screen app is exempt, so it is the one way an iPhone keeps a participant for the three weeks. Dropping it there is one line in `lib/install.ts` if Marco decides so.
+- **"Remind me"**: `/<slug>/reminder.ics`, a file in the iCalendar format (RFC 5545) the phone's own calendar reads. One event, Wednesday and Sunday at 18:00 in the phone's own time, from the day after the opening day until the close day inclusive, fifteen minutes, with an alarm at the time, and the workshop's home address as the one link. Written into the build, one per workshop folder, by `workshopReminders` in `apps/web/pwa.ts` the way the manifests are, from the workshop's days and the "Reminder" block in its `copy.md`; `apps/web/vite.config.ts` reads those and takes the absolute address from Netlify's build environment (`URL` in the production context, `DEPLOY_PRIME_URL` on a branch deploy or a preview), `http://localhost:5173` on a laptop. The dev server serves the same bytes, so it can be tried without a build. Netlify serves it as `text/calendar` (`apps/web/public/_headers`); the service worker keeps it with the client's files and never answers a tap on it with the client's page (`REMINDER_PATH` on the deny list). Nothing about the person is in it: the same bytes go to everyone, no code, no wave, no invite, and the required stamp is the opening day at midnight, not the moment of the build. The format is written by hand in `apps/web/src/lib/reminder.ts` (escaping, folding at 75 octets, CRLF), sixty lines with the RFC's sections named; no dependency. The idea is in [docs/learn/11-the-calendar-file.md](learn/11-the-calendar-file.md).
+- **The words.** Every block touched in `workshops/rural-manufacturing/copy.md` reads as a facilitator would say it, in the glossary's words, no heading repeated in a body. "That is a session" is gone, and a copy test keeps it gone. The consent block is untouched. Gone from the file: "Trust page headings", "Trust page: your controls", "Data management plan" (its facts are said once in "who, where, until when"), the "come back" and "all synced" lines, the "reveal", "hide", "not now", "privacy" and "trust page" buttons, the panel's "plan" and "another device" rows. New: "About: what this is", "About: delete", "Reminder", "Session end: come back", the "about" and "remind me" buttons, the "about" title. The terms and the policy say "About this app" where they said "Your privacy".
+- **A small guard found on the way**: a sync is never sent without a code. After a refused code was forgotten on open, the retry loop that the failed sync had scheduled sent one more sync with no code, and the diagnostics showed `AUTH_CODE_MISSING`. One condition in `requestSync`.
+- **The screen map** is updated row by row: the shell, the welcome, the session end as three rows (session end, install offer, remind me), "Always reachable" as the one page and its sections, the two failure lines.
+- Tests: 416 in the repository (402 before, with 24 client tests new or rewritten and 7 in the new `reminder.test.ts`). The screen tests hold the order of the page's sections and of the session end, that nothing on the session end appears twice, that no screen says "privacy" in a button or a heading, the one-tap welcome, the calm line; the state tests hold the trail (page, text, back, back), `/panel` and `/trust` at their section, the install offer once; the reminder test reads the file's rules back (the repeat ends on the close day, the alarm, the link without a code, CRLF and 75 octets, the fold on multi-byte characters).
+
+### Why
+
+Marco's notes of 2 November, item by item; the brief of 3 November. Privacy is said once, in full, where someone who wants it finds it, and nowhere else.
+
+### How to verify
+
+```
+npm run check                                                  # 416 tests
+npm run build:web
+cat apps/web/dist/rural-manufacturing/reminder.ics
+grep -c rural-manufacturing/reminder.ics apps/web/dist/sw.js      # 1: kept offline
+.claude/skills/impeccable/scripts/impeccable detect --json apps/web/src   # []
+```
+
+On a phone, on the deploy preview (`deploy-preview-38--worldbuilder-uot.netlify.app`), with nothing stored:
+
+1. The wave link: the workshop's name in the top bar and no button there; "New here"; under it "Been here before on another phone? I have a code" with the link in the line; at the foot one small link, "About this app".
+2. "About this app": the two sentences; "How your answers are protected", six paragraphs and three links; "Your code" ("You have no code yet"); "Right now, from this phone" as rows; the terms and the policy; Back. `/rural-manufacturing/trust` opens it at "How your answers are protected", `/rural-manufacturing/panel` at "Right now"; the address bar says `/about`.
+3. A session to its end: "Thank you"; the code on one line with Copy; "Keep it close" with this phone's steps (an iPhone: "The app asks for your code once"); "The next cards wait for you another day. Remind me". Nothing appears twice.
+4. "Remind me": an iPhone shows the add-to-calendar sheet; Android downloads the file and offers the calendar. The event repeats Wednesdays and Sundays at 18:00 until 6 December 2026 with a notice; its link is the preview's `/rural-manufacturing/`.
+5. "About this app" now shows the code with Copy and, at the end, "Delete everything I sent": two taps from the card, the third confirms.
+6. The next session's end: "Thank you", the come-back line with "Remind me", no code, no offer.
+7. Delete yourself from another device and open this one: the welcome with one quiet line about the forgotten code, no box.
+
+### What was seen
+
+- On the dev server at 375 and 320 pixels wide, light and dark: the welcome, the page (opened from the foot and at `/trust`, which lands on the heading), the intro, the demo card, four cards, the session end with the code on one line, the install note (Android's steps on the laptop's browser), "Remind me" serving the file as `text/calendar`; no horizontal scroll at 320; every button, link and summary 44 pixels tall or more.
+- On the deploy preview (`deploy-preview-38`), in the desktop app's browser with a phone-sized viewport: the welcome with no button in the top bar and "About this app" as the only link at the foot; `curl -sI .../rural-manufacturing/reminder.ics` answers `content-type: text/calendar; charset=utf-8` with the full security headers beside it; the file carries the preview's own address as its link, `UNTIL=20261206T180000` and the alarm; with the service worker in control of the page, a fetch of the file returns the calendar text, and a navigation to it gets a 200 that the browser hands to its download handler while the page stays where it was: the client page did not answer in its place.
+- **Not seen on a phone.** No iPhone or Android device was at hand for this session, and the iOS Simulator tool needs a full Xcode install that this Mac does not have. The add-to-calendar sheet on an iPhone and the download-then-open on Android are what the format and the header promise, not what was watched. Marco's try on the preview is the test; the entry will be amended with what he sees.
+
+### Decisions made on the way
+
+- **The trust page's seven blocks became six paragraphs under one heading**, keeping their names in `copy.md` so the legal reviewers' drafts in `docs/participant-texts.md` still map block by block. "Your controls" went: on this page the controls are the next two sections.
+- **The code is shown plainly.** A masked code with "Reveal" was a second thing to understand about a thing Marco already found too hard; shoulder surfing is not in the threat model of a reflection exercise, forgetting the code is.
+- **The install offer is a note, not a step.** With nothing to tap there is no "Not now", so no dismiss count, so nothing to store.
+- **The calendar file is one for everyone**, so it cannot start the day after a participant's first session; it starts the day after the workshop opens, and earlier dates sit in the past where alarms never ring. A file made on the phone would know the day, but a `blob:` address does not open the add-to-calendar sheet on an iPhone, and the service worker could not keep it.
+- **Wednesday and Sunday at six.** Two evenings, one in the week and one at the weekend, a day after the Monday the newsletter goes out. Two constants in `lib/reminder.ts`; the test reads them back from the file.
+- **The ops headers test** (`tools/ops/test/headers.test.ts`, not in the brief's files) held `_headers` to a single `/*` rule; it now allows another path rule that sets only a content type, which the calendar file needs. Netlify applies every matching rule, so the security headers still reach the file. The integrator accepts or reverts both together.
+- **A learning note** (`docs/learn/11-the-calendar-file.md`) is outside the brief's files too, per `CLAUDE.md`'s rule on an idea the operator has not met.
+
+### Open
+
+- **The consent block is 85 words** by a whitespace count against its own "under 80" note; it was not touched, since it is the reviewers' draft. Marco's and the reviewers' call.
+- **`docs/participant-texts.md`** still says "Your privacy" in the terms, the policy and the trust page's "your controls"; `copy.md` says "About this app". The integrator's file.
+- **`DESIGN.md`** still names "Your privacy" in the top bar and the three links at the foot (Layout); two lines, the next documenter's.
+- **The glossary** defines the privacy panel as "one tap away"; it is now a section of the page, one link away at the foot of every screen. A line to propose: "about page: the one page about the app, from the foot of every screen, holding the trust page, the code, the privacy panel and delete-me."
+- **Whether to drop the install offer on iPhone** stays Marco's call (his notes of 2 November, the last entry's open point). It stays, and says what it asks.
+- **The reminder's phone checks** are owed, on an iPhone and on Android, as "What was seen" says.
+- `apps/api/dev.ts` loads the production opening day (16 November), so the local API refuses joins before then; the deploy contexts use `workshop.staging.json`'s day. The browser walk ran the same server from a scratch script with the staging day. One line in `dev.ts`, the API builder's file.
