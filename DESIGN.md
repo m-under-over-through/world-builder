@@ -135,7 +135,7 @@ The client talks to one origin only (the Content Security Policy is `self`), so 
 
 - One column, 36 rem at most, centred; 16 px side gutters; usable at 320 px wide and with the system font size at its largest (everything is in rem).
 - Spacing scale: 8, 16, 24, 32, 48. Tight inside a group, generous between groups; more space above a heading than below it.
-- The top bar is the workshop's name, truncated, and "Your privacy". The foot of every screen links to the trust page, the terms and the policy.
+- The top bar is the workshop's name, truncated. The foot of every screen carries one small link, "About this app".
 - Every control is at least 44 px tall.
 
 ## Elevation & Depth

@@ -44,9 +44,16 @@ function csp(value: string): Map<string, string[]> {
 }
 
 describe('the security headers file', () => {
-  it('has one rule, for every path, and nothing that narrows it', () => {
-    expect([...rules.keys()]).toEqual(['/*']);
+  it('has one rule for every path, and no other rule that narrows it: a path may add a content type and nothing else', () => {
+    expect([...rules.keys()][0]).toBe('/*');
     expect(everything.size).toBeGreaterThanOrEqual(8);
+    // The calendar reminder (ADR 0013) is served as text/calendar from its own path. Netlify
+    // applies every matching rule, so the security headers above still reach that file; a path
+    // rule may only ever name a content type, never one of them.
+    for (const [path, headers] of rules) {
+      if (path === '/*') continue;
+      expect([...headers.keys()], path).toEqual(['content-type']);
+    }
   });
 
   it('allows scripts, styles, images, fonts, connections, workers and the manifest from this origin only; images may also be data: URLs', () => {

@@ -127,6 +127,29 @@ describe('every workshop folder has the words the client reads', () => {
         for (const value of Object.values(section.items)) expect(value).not.toContain('<!--');
       }
     });
+
+    it(`${slug}: the session end says nothing twice, and nobody says "That is a session"`, () => {
+      const title = copy.item('Titles', 'session end');
+      for (const block of [
+        'Session end: your code',
+        'Session end: install',
+        'Session end: come back',
+      ] as const)
+        expect(copy.text(block)).not.toContain(title);
+      expect(copy.text('Session end: install')).not.toContain(copy.item('Titles', 'install'));
+      for (const section of copy.sections.values()) {
+        expect(section.text).not.toContain('That is a session');
+        for (const value of Object.values(section.items))
+          expect(value).not.toContain('That is a session');
+      }
+    });
+
+    it(`${slug}: the words a screen fills are still there`, () => {
+      expect(copy.text('Session end: your code')).toContain('[code]');
+      expect(copy.text('Session end: install')).toContain('[per-platform steps]');
+      expect(copy.item('Reminder', 'description')).toContain('[link]');
+      expect(copy.item('Install steps', 'iPhone and iPad')).toMatch(/code/);
+    });
   }
 });
 

@@ -302,65 +302,45 @@ describe('the session end', () => {
     expect(app.screen).toBe('session-end');
   }
 
-  it('session 1 on a phone: the code, then the install prompt, then "come back"', async () => {
+  it('session 1 on a phone offers the install; session 2 on the same phone does not, with nothing stored about it', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await opened(`/${SLUG}/join/wave-1`);
     app.platform = 'Android';
     await app.join();
     await app.dismissDemo();
     await toTheEnd(app);
-    expect(app.endStep).toBe('code');
-    await app.nextFromCode();
-    expect(app.endStep).toBe('install');
-    await app.dismissInstall();
-    expect(app.endStep).toBe('done');
-    expect(await app.store!.get('installDismissals')).toBe('1');
-  });
-
-  it('the install prompt comes once more after one "Not now", and never after two', async () => {
-    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
-    const app = await opened(`/${SLUG}/join/wave-1`);
-    app.platform = 'Android';
-    await app.join();
-    await app.dismissDemo();
-    await toTheEnd(app);
-    await app.nextFromCode();
-    await app.dismissInstall();
+    expect(app.sessionNo).toBe(1);
+    expect(app.installOffered).toBe(true);
+    expect(await app.store!.get('installDismissals')).toBeUndefined();
 
     const second = await opened(`/${SLUG}/join/wave-1`);
     second.platform = 'Android';
     expect(second.sessionNo).toBe(2);
     await toTheEnd(second);
-    expect(second.endStep).toBe('install');
-    await second.dismissInstall();
-    expect(await second.store!.get('installDismissals')).toBe('2');
-
-    const third = await opened(`/${SLUG}/join/wave-1`);
-    third.platform = 'Android';
-    expect(third.sessionNo).toBe(3);
-    await toTheEnd(third);
-    expect(third.endStep).toBe('done');
+    expect(second.installOffered).toBe(false);
   });
 
-  it('a platform without steps, or an app already installed, goes from the code to "come back"', async () => {
+  it('a platform without steps, or an app already installed, gets no install offer on session 1', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await opened(`/${SLUG}/join/wave-1`);
     app.platform = null;
     await app.join();
     await app.dismissDemo();
     await toTheEnd(app);
-    expect(app.endStep).toBe('code');
-    await app.nextFromCode();
-    expect(app.endStep).toBe('done');
+    expect(app.installOffered).toBe(false);
 
+    freshIndexedDb();
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('standalone') }));
     const installed = await opened(`/${SLUG}/join/wave-1`);
     installed.platform = 'iPhone and iPad';
+    await installed.join();
+    await installed.dismissDemo();
     await toTheEnd(installed);
-    expect(installed.endStep).toBe('done');
+    expect(installed.sessionNo).toBe(1);
+    expect(installed.installOffered).toBe(false);
   });
 
-  it('"Install" uses the browser\'s offer once and lands on "come back"', async () => {
+  it('"Install" uses the browser\'s offer once, and the offer leaves the screen', async () => {
     stubRoutes({});
     const app = new AppState();
     app.workshop = workshop;
@@ -373,11 +353,11 @@ describe('the session end', () => {
       },
       userChoice: Promise.resolve({ outcome: 'accepted' as const }),
     });
-    app.endStep = 'install';
+    app.installOffered = true;
     await app.install();
     expect(prompted).toBe(1);
     expect(app.installOffer).toBeNull();
-    expect(app.endStep).toBe('done');
+    expect(app.installOffered).toBe(false);
   });
 });
 
@@ -403,19 +383,67 @@ describe('the installed app opens at the root', () => {
 });
 
 describe('the address bar', () => {
-  it('remembers the wave link as the home address and restores it from the panel', async () => {
+  it('remembers the wave link as the home address and restores it from the page about the app', async () => {
     stubRoutes({});
     const app = await opened(`/${SLUG}/join/wave-1`);
     expect(app.screen).toBe('welcome');
     await app.navigate('continue');
     expect(location.pathname).toBe(`/${SLUG}/continue`);
-    await app.openPanel();
-    await app.closePanel();
+    await app.openAbout();
+    expect(app.screen).toBe('about');
+    expect(location.pathname).toBe(`/${SLUG}/about`);
+    await app.back();
     expect(app.screen).toBe('enter-code');
     expect(location.pathname).toBe(`/${SLUG}/continue`);
     await app.navigate();
     expect(app.screen).toBe('welcome');
     expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+  });
+});
+
+describe('the one page about the app and the way back', () => {
+  it('/panel and /trust open the page at their section, /about at the top, and Back from a direct open lands home', async () => {
+    stubRoutes({});
+    const panel = await opened(`/${SLUG}/panel`);
+    expect(panel.screen).toBe('about');
+    expect(panel.aboutSection).toBe('now');
+    expect(location.pathname).toBe(`/${SLUG}/about`);
+    await panel.back();
+    expect(panel.screen).toBe('welcome');
+    expect(location.pathname).toBe(`/${SLUG}/`);
+
+    const trust = await opened(`/${SLUG}/trust`);
+    expect(trust.screen).toBe('about');
+    expect(trust.aboutSection).toBe('protected');
+
+    const about = await opened(`/${SLUG}/about`);
+    expect(about.screen).toBe('about');
+    expect(about.aboutSection).toBeNull();
+  });
+
+  it('the terms opened from the page go back to the page, and the page back to the screen it was opened from', async () => {
+    stubRoutes({});
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(app.screen).toBe('welcome');
+    await app.openAbout();
+    app.openPage('terms');
+    expect(app.screen).toBe('terms');
+    expect(location.pathname).toBe(`/${SLUG}/terms`);
+    await app.closePage();
+    expect(app.screen).toBe('about');
+    expect(location.pathname).toBe(`/${SLUG}/about`);
+    await app.back();
+    expect(app.screen).toBe('welcome');
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+  });
+
+  it('the policy opened directly by its address goes back to where the device lands', async () => {
+    stubRoutes({});
+    const app = await opened(`/${SLUG}/privacy`);
+    expect(app.screen).toBe('privacy');
+    await app.closePage();
+    expect(app.screen).toBe('welcome');
+    expect(location.pathname).toBe(`/${SLUG}/`);
   });
 });
 
@@ -544,13 +572,13 @@ describe('failure behaviour', () => {
     expect(app.sync.lastResult).toBe('ok');
     while (app.screen === 'card') await app.setAside();
     expect(app.screen).toBe('session-end');
-    expect(app.endStep).toBe('code');
+    expect(app.sessionNo).toBe(1);
     freshIndexedDb();
     const again = await opened(`/${SLUG}/join/wave-1`);
     expect(again.code).toBe('');
   });
 
-  it('"delete everything about me" also forgets the last workshop', async () => {
+  it('"delete everything I sent" also forgets the last workshop', async () => {
     await storedCode();
     stubRoutes({ [`/api/${SLUG}/me`]: [() => ({ status: 200, body: ME })] });
     const app = await opened(`/${SLUG}/join/wave-1`);

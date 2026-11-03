@@ -141,7 +141,7 @@ li {
   margin-bottom: var(--space-1);
 }
 
-/* the top bar: the workshop's name, quiet, and the one way to the privacy panel */
+/* the top bar: the workshop's name, quiet, and nothing else */
 nav {
   display: flex;
   justify-content: space-between;
@@ -155,12 +155,6 @@ nav span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-nav button {
-  flex: none;
-  min-height: var(--tap);
-  padding: 0 var(--space-2);
-  font-size: var(--size-small);
 }
 
 /* the card: a card, on paper, with the stack behind it */
@@ -293,6 +287,21 @@ button.link:hover {
   background: none;
   color: var(--accent-deep);
 }
+/* a link inside a line of text: the line's size and rhythm, and still 44 pixels to tap */
+p a,
+dd a {
+  padding-block: 11px;
+}
+p.aside {
+  margin-top: var(--space-2);
+}
+p.aside button.link {
+  font-size: inherit;
+  min-height: 0;
+  padding: 11px 0;
+  margin-block: -11px;
+  vertical-align: baseline;
+}
 .row {
   display: flex;
   gap: var(--space-1) 12px;
@@ -318,12 +327,18 @@ section .row {
   background: color-mix(in srgb, var(--accent) 8%, var(--card));
 }
 
-/* the code, in groups of four */
+/* the code, in groups of four, sized so the sixteen digits stay on one line at 320 pixels wide;
+   inside a sentence it takes a line of its own */
 .code {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: var(--size-question);
-  letter-spacing: 0.08em;
+  font-size: clamp(1.25rem, 6.4vw, var(--size-question));
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+p .code {
+  display: block;
+  margin-top: var(--space-1);
 }
 input.code {
   display: block;
@@ -352,7 +367,30 @@ input.code {
   margin-bottom: var(--space-2);
 }
 
-/* the privacy panel's rows */
+/* the page about the app: a lead, sections a link can open at, the facts as rows */
+p.lead {
+  font-size: var(--size-lead);
+  text-wrap: pretty;
+}
+section[id] {
+  scroll-margin-top: var(--space-3);
+}
+ul.links {
+  padding-left: 0;
+  list-style: none;
+}
+ul.links li {
+  margin: 0;
+}
+ul.links a {
+  display: inline-block;
+  padding: var(--space-1) 0;
+}
+p.confirm {
+  font-weight: 600;
+}
+
+/* the facts, label and value */
 dl {
   margin: var(--space-2) 0;
 }
@@ -385,7 +423,7 @@ summary {
   align-items: center;
 }
 
-/* the foot of every screen: the trust page, the terms, the policy */
+/* the foot of every screen: one small link; the foot of the page about the app: two */
 footer {
   display: flex;
   gap: var(--space-1) var(--space-3);

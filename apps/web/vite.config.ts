@@ -1,11 +1,13 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { pwaOptions, workshopManifests } from './pwa.ts';
+import { pwaOptions, workshopManifests, workshopReminders } from './pwa.ts';
+import { Copy } from './src/lib/copy.ts';
+import type { ReminderInput } from './src/lib/reminder.ts';
 
 // The client (ADR 0012). Static output in dist/, served by Netlify with the headers from public/_headers.
 // In development, /api is proxied to the local API server (node apps/api/dev.ts).
@@ -14,18 +16,48 @@ import { pwaOptions, workshopManifests } from './pwa.ts';
 // that is running and it can be matched with /api/health. Absent on a laptop: the panel says "local".
 const commitRef = process.env.COMMIT_REF ?? process.env.VITE_COMMIT_REF;
 
-// The workshop folders, the same ones src/lib/workshops.ts bundles: one manifest each (pwa.ts).
+// The workshop folders, the same ones src/lib/workshops.ts bundles: one manifest and one
+// calendar file each (pwa.ts).
 const workshopsDir = fileURLToPath(new URL('../../workshops/', import.meta.url));
 const slugs = existsSync(workshopsDir)
   ? readdirSync(workshopsDir).filter((dir) => existsSync(join(workshopsDir, dir, 'workshop.json')))
   : [];
+
+// The absolute address the calendar file links to (src/lib/reminder.ts): the site's own address
+// in production, the deploy's address on a branch deploy or a preview, both from Netlify's build
+// environment; the development server's on a laptop.
+const base =
+  (process.env.CONTEXT === 'production' ? process.env.URL : process.env.DEPLOY_PRIME_URL) ??
+  process.env.URL ??
+  'http://localhost:5173';
+const reminders: ReminderInput[] = slugs.map((slug) => {
+  const config = JSON.parse(readFileSync(join(workshopsDir, slug, 'workshop.json'), 'utf8')) as {
+    opensDay: string;
+    closesDay: string;
+  };
+  const copy = Copy.parse(readFileSync(join(workshopsDir, slug, 'copy.md'), 'utf8'));
+  return {
+    slug,
+    base,
+    opensDay: config.opensDay,
+    closesDay: config.closesDay,
+    summary: copy.item('Reminder', 'summary'),
+    description: copy.item('Reminder', 'description'),
+  };
+});
 
 export default defineConfig({
   define: commitRef ? { 'import.meta.env.VITE_COMMIT_REF': JSON.stringify(commitRef) } : {},
   // svelteTesting only acts under Vitest: it makes Svelte resolve its browser build in tests and
   // unmounts rendered components after each one. It is nothing in a build.
   // The manifest, the icons and the service worker: pwa.ts says what is cached and what never is.
-  plugins: [svelte(), svelteTesting(), VitePWA(pwaOptions), workshopManifests(slugs)],
+  plugins: [
+    svelte(),
+    svelteTesting(),
+    VitePWA(pwaOptions),
+    workshopManifests(slugs),
+    workshopReminders(reminders),
+  ],
   build: { outDir: 'dist', emptyOutDir: true },
   server: { proxy: { '/api': 'http://localhost:8788' } },
   // The client's tests: pure logic and rendered components, both in a DOM (jsdom), with an

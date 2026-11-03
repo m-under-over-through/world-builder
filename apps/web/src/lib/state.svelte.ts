@@ -14,13 +14,7 @@ import { sealAnswer } from '@wb/crypto';
 import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
 import type { Copy, ListKey } from './copy.ts';
 import { dayStatus } from './days.ts';
-import {
-  INSTALL_DISMISSALS,
-  installDue,
-  readDismissals,
-  runsInstalled,
-  type InstallOffer,
-} from './install.ts';
+import { installDue, runsInstalled, type InstallOffer } from './install.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
@@ -75,17 +69,25 @@ export type Screen =
   | 'demo'
   | 'card'
   | 'session-end'
-  | 'panel'
-  | 'trust'
+  | 'about'
   | 'terms'
   | 'privacy'
   | 'closed';
 
-/** The three pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
-export type TextPage = Extract<Page, 'trust' | 'terms' | 'privacy'>;
+/** The two pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
+export type TextPage = Extract<Page, 'terms' | 'privacy'>;
 
-/** The code as shown before "Reveal": four groups of four. */
-export const MASKED_CODE = '•••• •••• •••• ••••';
+/**
+ * The sections of the one page about the app (ADR 0013), in order, each with the id of its
+ * heading on the page: /trust opens the page at "protected", /panel at "now".
+ */
+export const ABOUT_SECTIONS = ['protected', 'code', 'now', 'delete'] as const;
+export type AboutSection = (typeof ABOUT_SECTIONS)[number];
+
+/** Which section of the page an older address opens; the page's own address opens the top. */
+export function aboutSectionFor(page: Page): AboutSection | null {
+  return page === 'trust' ? 'protected' : page === 'panel' ? 'now' : null;
+}
 
 /**
  * The states of a card (docs/screen-map.md, Core loop). `fresh` is the question with the field;
@@ -95,9 +97,6 @@ export type CardState = 'fresh' | ListKey<'Card states'>;
 
 /** How long "Synced." (or "Saved on this device.") stays on the card before the next one comes. */
 export const SETTLE_MS = 900;
-
-/** The steps of the session end: the code (session 1), the install prompt, then "come back". */
-export type EndStep = 'code' | 'install' | 'done';
 
 /** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
 export const LAST_WORKSHOP = 'wb:lastWorkshop';
@@ -166,19 +165,25 @@ export class AppState {
   confirmingDelete = $state(false);
   /** The sync in flight, so two never run at once (one after a save, one after a set-aside). */
   private syncing: Promise<SyncStatus> | null = null;
-  /** Where the session end stands: the code first on session 1, then the install prompt, then "come back". */
-  endStep = $state<EndStep>('done');
+  /** True while the session end shows the install offer: the first session, where it is due (lib/install.ts). */
+  installOffered = $state(false);
   /** The browser's own install offer, kept from `beforeinstallprompt` until the prompt uses it. */
   installOffer = $state.raw<InstallOffer | null>(null);
   /** Leaves this page for another address; a test replaces it. */
   go: (href: string) => void = (href) => location.replace(href);
 
-  // the panel
+  // the page about the app
   me = $state.raw<MeResponse | null>(null);
   hosts = $state<string[]>([]);
   cookies = $state(0);
-  /** The screen the panel was opened from, to go back to. */
-  private before: Screen = 'loading';
+  /** The section the page scrolls to when it opens from /trust or /panel; null is the top. */
+  aboutSection = $state<AboutSection | null>(null);
+  /**
+   * The screens behind the one showing, for Back: the screen the page about the app was opened
+   * from, then the page itself when the terms or the policy are opened from it. Empty when a
+   * page was opened directly by its address: Back then lands where the device lands.
+   */
+  private trail: Screen[] = [];
 
   /** Show an error on this screen, and remember it for the panel's diagnostics. */
   private fail(code: string): void {
@@ -307,13 +312,13 @@ export class AppState {
       this.screen = 'enter-code';
       return;
     }
-    if (route.page === 'trust' || route.page === 'terms' || route.page === 'privacy') {
+    if (route.page === 'terms' || route.page === 'privacy') {
       this.openPage(route.page);
       return;
     }
-    if (route.page === 'panel') {
-      // The sync on open has just read GET /me; the panel shows it rather than asking again.
-      await this.showPanel();
+    if (route.page) {
+      // The sync on open has just read GET /me; the page shows it rather than asking again.
+      await this.showAbout(aboutSectionFor(route.page));
       return;
     }
     await this.land();
@@ -365,22 +370,25 @@ export class AppState {
     this.error = '';
     this.tooShort = false;
     if (page === 'continue') this.screen = 'enter-code';
-    else if (page === 'panel') await this.openPanel();
-    else if (page === 'trust' || page === 'terms' || page === 'privacy') this.openPage(page);
+    else if (page === 'terms' || page === 'privacy') this.openPage(page);
+    else if (page) await this.openAbout(aboutSectionFor(page));
     else await this.land();
   }
 
-  /** The trust page, the terms or the privacy policy, from any screen; Back returns there. */
+  /**
+   * The terms or the privacy policy, from the page about the app (or by their address); Back
+   * returns to the page when it was open.
+   */
   openPage(page: TextPage): void {
     if (!this.workshop) return;
-    if (this.screen !== page) this.before = this.screen;
+    if (this.screen === 'about') this.trail.push('about');
     history.replaceState(null, '', pageHref(this.workshop.config.slug, page));
     this.screen = page;
   }
 
-  /** Back from a page of text: the same rule as Back from the panel. */
+  /** Back from a page of text: the same rule as Back from the page about the app. */
   async closePage(): Promise<void> {
-    await this.closePanel();
+    await this.back();
   }
 
   /**
@@ -488,40 +496,18 @@ export class AppState {
   }
 
   /**
-   * The session end (docs/screen-map.md; architecture plan 8.1): on session 1 the code first,
-   * so someone who installs after seeing it can type it into the installed app; then the install
-   * prompt, while it is due; then "come back another day". Later sessions go straight there.
+   * The session end (docs/screen-map.md, Session end; ADR 0013): one screen. On session 1 the
+   * code, so someone who installs after seeing it can type it into the installed app, then the
+   * install offer where it is due; on every session "the next cards wait for you another day"
+   * with the reminder. The offer is shown this once: nothing is stored about it.
    */
   private async endSession(): Promise<void> {
-    this.endStep = this.sessionNo === 1 ? 'code' : (await this.installIsDue()) ? 'install' : 'done';
+    this.installOffered =
+      this.sessionNo === 1 && installDue({ platform: this.platform, installed: runsInstalled() });
     this.screen = 'session-end';
   }
 
-  /** The install prompt is due until dismissed twice, and never in an app that is installed. */
-  private async installIsDue(): Promise<boolean> {
-    if (!this.store) return false;
-    return installDue({
-      platform: this.platform,
-      dismissals: readDismissals(await this.store.get(INSTALL_DISMISSALS)),
-      installed: runsInstalled(),
-    });
-  }
-
-  /** "Next" under the code: the install prompt if it is due, else "come back". */
-  async nextFromCode(): Promise<void> {
-    this.endStep = (await this.installIsDue()) ? 'install' : 'done';
-  }
-
-  /** "Not now" on the install prompt: counted, and after the second one never asked again. */
-  async dismissInstall(): Promise<void> {
-    if (this.store) {
-      const n = readDismissals(await this.store.get(INSTALL_DISMISSALS)) + 1;
-      await this.store.set(INSTALL_DISMISSALS, String(n));
-    }
-    this.endStep = 'done';
-  }
-
-  /** "Install", where the browser made the offer: its own dialog, then "come back" either way. */
+  /** "Install", where the browser made the offer: its own dialog, then the offer is gone either way. */
   async install(): Promise<void> {
     const offer = this.installOffer;
     this.installOffer = null;
@@ -530,10 +516,10 @@ export class AppState {
         await offer.prompt();
         await offer.userChoice;
       } catch {
-        /* the browser withdrew the offer; the steps stay on the screen next time */
+        /* the browser withdrew the offer; the steps stay on the screen */
       }
     }
-    this.endStep = 'done';
+    this.installOffered = false;
   }
 
   /** "Got it" on the demo card, or a swipe: seen once per device, then the first card. */
@@ -680,10 +666,14 @@ export class AppState {
     await this.showCard();
   }
 
-  /** One sync at a time: a request while one runs waits for it, then runs. Safe to repeat. */
+  /**
+   * One sync at a time: a request while one runs waits for it, then runs. Safe to repeat. Nothing
+   * is sent without a code: once a refused code has been forgotten, a retry the earlier failure
+   * scheduled has nobody to sync for.
+   */
   private requestSync(): Promise<SyncStatus> {
     const run = async () => {
-      if (!this.store || !this.workshop) return this.sync;
+      if (!this.store || !this.workshop || !this.code) return this.sync;
       return this.note(await syncNow(this.store, this.workshop.config.slug, this.code));
     };
     const next = (this.syncing ?? Promise.resolve()).then(run, run);
@@ -694,19 +684,26 @@ export class AppState {
     return next;
   }
 
-  /** "Your privacy" from any screen: a fresh GET /me, so the rows are what the server holds now. */
-  async openPanel(): Promise<void> {
+  /**
+   * "About this app" from the foot of any screen: a fresh GET /me, so the rows are what the
+   * server holds now; then the page, at a section when an older address asked for one.
+   */
+  async openAbout(section: AboutSection | null = null): Promise<void> {
     if (!this.store || !this.workshop) return;
     if (this.code) {
       const { me, error } = await reconcile(this.store, this.workshop.config.slug, this.code);
       this.me = me;
       if (error) this.lastError = error;
     }
-    await this.showPanel();
+    await this.showAbout(section);
   }
 
-  private async showPanel(): Promise<void> {
-    this.before = this.screen;
+  private async showAbout(section: AboutSection | null): Promise<void> {
+    if (!this.workshop) return;
+    const pages: Screen[] = ['loading', 'about', 'terms', 'privacy'];
+    this.trail = pages.includes(this.screen) ? [] : [this.screen];
+    history.replaceState(null, '', pageHref(this.workshop.config.slug, 'about'));
+    this.aboutSection = section;
     this.confirmingDelete = false;
     this.lastSyncDay = (await this.store?.get(LAST_SYNC_DAY)) ?? '';
     this.cookies = document.cookie.split(';').filter((c) => c.trim()).length;
@@ -720,27 +717,30 @@ export class AppState {
       }
     }
     this.hosts = [...seen];
-    this.screen = 'panel';
+    this.screen = 'about';
   }
 
   /**
-   * Back from the panel: to the screen it was opened from, or, opened directly at /panel, where
-   * the device lands. The address bar follows, so a reload shows that screen and not the panel.
+   * Back from the page about the app, the terms or the policy: to the screen behind it (the page
+   * about the app when the text was opened from there), or, opened directly by its address,
+   * where the device lands. The address bar follows, so a reload shows that screen.
    */
-  async closePanel(): Promise<void> {
+  async back(): Promise<void> {
     if (!this.workshop) return;
-    const pages: Screen[] = ['loading', 'panel', 'trust', 'terms', 'privacy'];
-    const back = pages.includes(this.before) ? undefined : this.before;
-    history.replaceState(
-      null,
-      '',
-      back === 'enter-code' ? pageHref(this.workshop.config.slug, 'continue') : this.home,
-    );
-    if (back) this.screen = back;
+    const slug = this.workshop.config.slug;
+    const to = this.trail.pop();
+    if (to === 'about') {
+      history.replaceState(null, '', pageHref(slug, 'about'));
+      this.aboutSection = null;
+      this.screen = 'about';
+      return;
+    }
+    history.replaceState(null, '', to === 'enter-code' ? pageHref(slug, 'continue') : this.home);
+    if (to) this.screen = to;
     else await this.land();
   }
 
-  /** "Delete everything about me": the question first; nothing is sent until "yes". */
+  /** "Delete everything I sent": the question first; nothing is sent until "yes". */
   askDelete(): void {
     this.confirmingDelete = true;
   }
@@ -769,7 +769,7 @@ export class AppState {
     this.go(pageHref(this.workshop.config.slug));
   }
 
-  /** The source at the commit that is running, for the panel and the trust page. */
+  /** The source at the commit that is running, for the page about the app. */
   get sourceHref(): string {
     const source = this.copy.item('Trust page variables', 'source');
     return VERSION === 'local' ? source : `${source}/tree/${VERSION}`;

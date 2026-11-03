@@ -10,3 +10,8 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
+
+# The calendar reminder of each workshop (apps/web/src/lib/reminder.ts): a phone opens a file of
+# this type with its own calendar. The file holds the workshop's home address and nothing else.
+/*/reminder.ics
+  Content-Type: text/calendar; charset=utf-8

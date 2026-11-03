@@ -16,3 +16,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0010   | A subdomain of under-over-through.co, DNS at Netlify, the existing UOT GitHub account     |
 | 0011   | Zero-cost hosting: Netlify for client and API, Neon free, Backblaze plus GitHub artifacts |
 | 0012   | Libraries for the walking skeleton, and rate limiting without addresses                   |
+| 0013   | Privacy in one place, and the way back: the one page, the plain session end, the reminder |

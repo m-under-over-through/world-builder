@@ -211,15 +211,25 @@ describe('the pages a participant can open directly', () => {
     expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
   });
 
-  it('/panel lands on the privacy panel, with no code yet, and Back goes where the device lands', async () => {
+  it('/panel lands on the page about the app, with no code yet, and Back goes where the device lands', async () => {
     const calls = stubApi(() => ({ status: 200, body: {} }));
     const user = userEvent.setup();
     await open(`/${SLUG}/panel`);
+    expect(screen.getByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     expect(screen.getByText(copy.item('Privacy panel', 'no code yet'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/about`);
     expect(calls).toEqual([]);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/`);
+  });
+
+  it('/about opens the page, with the small "About this app" link gone from its foot and the header without a button', async () => {
+    stubApi(() => ({ status: 200, body: {} }));
+    await open(`/${SLUG}/about`);
+    expect(screen.getByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'about') })).toBeNull();
+    expect(document.querySelectorAll('nav button')).toHaveLength(0);
   });
 
   it('/panel with a stored code syncs on open, before Back is tapped', async () => {
@@ -269,7 +279,9 @@ describe('the pages a participant can open directly', () => {
       ],
     });
     await open(`/${SLUG}/panel`);
-    expect(screen.getByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: copy.item('Titles', 'privacy panel') }),
+    ).toBeTruthy();
     const paths = calls.map((c) => `${c.method} ${c.path.replace(`/api/${SLUG}`, '')}`);
     expect(paths.slice(0, 2)).toEqual(['GET /me', 'POST /sync']);
     expect(document.body.textContent).toMatch(
@@ -292,41 +304,58 @@ describe('the pages a participant can open directly', () => {
     stubRoutes({});
     const user = userEvent.setup();
     await open(`/${SLUG}/trust`);
-    expect(screen.getByText(copy.item('Titles', 'trust page'))).toBeTruthy();
+    expect(screen.getByRole('heading', { name: copy.item('Titles', 'trust page') })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/`);
   });
 
-  it('the footer reaches the trust page, the terms and the policy from the welcome, and Back returns there', async () => {
+  it('the foot of the welcome is one link, "About this app"; the terms and the policy open from the page, and Back returns step by step', async () => {
     stubRoutes({});
     const user = userEvent.setup();
     await open(`/${SLUG}/join/wave-1`);
+    expect(document.querySelectorAll('footer button')).toHaveLength(1);
+    expect(
+      screen.queryByRole('button', { name: copy.item('Trust page links', 'terms') }),
+    ).toBeNull();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/about`);
     await user.click(screen.getByRole('button', { name: copy.item('Trust page links', 'terms') }));
     expect(await screen.findByText(copy.item('Titles', 'terms'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/terms`);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
-    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
-    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'trust page') }));
-    expect(await screen.findByText(copy.item('Titles', 'trust page'))).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/about`);
     await user.click(
       screen.getByRole('button', { name: copy.item('Trust page links', 'privacy policy') }),
     );
     expect(await screen.findByText(copy.item('Titles', 'privacy policy'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/privacy`);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
   });
 
-  it('the panel opened from the welcome goes back to the welcome', async () => {
+  it('the page about the app opened from the welcome goes back to the welcome', async () => {
     stubApi(() => ({ status: 200, body: {} }));
     const user = userEvent.setup();
     await open(`/${SLUG}/`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'privacy') }));
-    expect(await screen.findByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+  });
+
+  it('no screen says "privacy" in a button or a heading', async () => {
+    stubRoutes({});
+    await open(`/${SLUG}/join/wave-1`);
+    const words = [...document.querySelectorAll('button, h1, h2, nav')].map(
+      (e) => e.textContent ?? '',
+    );
+    expect(words.some((w) => /privacy/i.test(w))).toBe(false);
   });
 });
 
@@ -381,14 +410,14 @@ describe('the first session', () => {
     ).toBeNull();
   });
 
-  it('the answer being written survives "Your privacy" and Back', async () => {
+  it('the answer being written survives "About this app" and Back', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
     const user = userEvent.setup();
     await throughTheIntro(user);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
     await user.type(await screen.findByRole('textbox'), 'Half an answer');
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'privacy') }));
-    expect(await screen.findByText(copy.item('Titles', 'privacy panel'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
     expect(((await screen.findByRole('textbox')) as HTMLTextAreaElement).value).toBe(
       'Half an answer',
@@ -429,17 +458,14 @@ describe('the first session', () => {
     expect(screen.queryByText('JOIN_WAVE_FULL')).toBeNull();
   });
 
-  it('a workshop closed at join shows the closed screen with the trust page link', async () => {
+  it('a workshop closed at join shows the closed screen, with the page about the app at its foot', async () => {
     stubRoutes({
       [`/api/${SLUG}/join`]: [() => ({ status: 403, body: { error: 'WORKSHOP_CLOSED' } })],
     });
     const user = userEvent.setup();
     await throughTheIntro(user);
     expect(await screen.findByText(copy.text('Closed'))).toBeTruthy();
-    // The closed screen's own button, and the footer's.
-    expect(
-      screen.getAllByRole('button', { name: copy.item('Buttons', 'trust page') }).length,
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'about') })).toBeTruthy();
   });
 
   it('a join refused for the minute (RATE_LIMITED) is retried once after Retry-After, and a second refusal is shown', async () => {
@@ -481,7 +507,7 @@ describe('the first session', () => {
   });
 });
 
-describe('the privacy panel', () => {
+describe('the page about the app', () => {
   async function withACode() {
     const store = new WorkshopStore(SLUG);
     await store.set('code', '1234567890123456');
@@ -497,7 +523,7 @@ describe('the privacy panel', () => {
     },
   });
 
-  it('"Delete everything about me" asks first, "Keep my answers" sends nothing, "Yes" deletes and wipes the device', async () => {
+  it('"Delete everything I sent" asks first, "Keep my answers" sends nothing, "Yes" deletes and wipes the device', async () => {
     await withACode();
     const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
     const user = userEvent.setup();
@@ -524,13 +550,20 @@ describe('the privacy panel', () => {
     store.close();
   });
 
-  it('"I have a code" from the panel opens enter code at /continue', async () => {
-    stubRoutes({});
+  it('delete is two taps from a card: "About this app" at the foot, then the delete button; the third is the confirmation', async () => {
+    await withACode();
+    stubRoutes({ [`/api/${SLUG}/me`]: [ME, ME] });
     const user = userEvent.setup();
-    await open(`/${SLUG}/panel`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
-    expect(await screen.findByText(copy.text('Enter code'))).toBeTruthy();
-    expect(location.pathname).toBe(`/${SLUG}/continue`);
+    const gone: string[] = [];
+    const app = await open(`/${SLUG}/join/wave-1`);
+    app.go = (href) => gone.push(href);
+    expect(['demo', 'card']).toContain(app.screen);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'delete') }));
+    await user.click(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'yes delete') }),
+    );
+    await waitFor(() => expect(gone).toEqual([`/${SLUG}/`]));
   });
 
   it('the last error of a failed sync is shown in the diagnostics with its one line', async () => {

@@ -20,7 +20,7 @@ This is a research project by Under Over Through and Mechanism about the future 
 
 **What we ask of you.** Answer honestly, or set a question aside. Do not share your 16-digit code with anyone: it is the only key to what you wrote.
 
-**Ending.** You can stop at any time by closing the app. You can delete everything you wrote at any time until 6 December 2026, from "Your privacy" in the app. After that date the answers are part of the research set and can no longer be removed one by one; everything is deleted on 5 February 2027. We may close the project earlier, in which case the app says so.
+**Ending.** You can stop at any time by closing the app. You can delete everything you wrote at any time until 6 December 2026, from "About this app" in the app. After that date the answers are part of the research set and can no longer be removed one by one; everything is deleted on 5 February 2027. We may close the project earlier, in which case the app says so.
 
 **No promises beyond these.** The app is provided as it is. If it fails, nothing you wrote is sent anywhere else, and your phone keeps unsent answers for fourteen days and sends them when it can.
 
@@ -40,7 +40,7 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Where.** The servers and the backup copies are in the United States.
 
-**Your controls.** "Your privacy" in the app shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
+**Your controls.** "About this app" in the app shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 
@@ -58,13 +58,13 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **4. Check it yourself.** Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at `{source}`, where the database schema has no column for a name or an email.
 
-**5. Your controls.** "Your privacy", one tap away on every screen, shows everything we hold about you as it is stored, and deletes all of it on request, any time until 6 December 2026.
+**5. Your controls.** "About this app", linked at the foot of every screen, shows everything we hold about you as it is stored, and deletes all of it on request, any time until 6 December 2026.
 
 **6. Who, where, until when.** Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system, and the spreadsheet is shared with Mechanism at the end. Everything is stored in the United States. Collection closes 6 December 2026, the spreadsheet is produced the week after, and everything on the server is deleted on 5 February 2027, backups included.
 
 **7. The honest limit.** Nobody can prove that a server keeps no record of a connection. That is why this one is built to hold nothing worth taking: no names, no readable answers, no way back from a code to a person.
 
-## The data management plan (one paragraph, inside "Your privacy")
+## The data management plan (one paragraph, inside "About this app")
 
 Answers are locked on each phone with the research team's key and sent to a database in the United States. Every night a copy is locked again with a second key and kept for fourteen days in two places. On 6 December 2026 collection closes; the team unlocks the answers on one computer, removes any names, and produces the research spreadsheet. On 5 February 2027 the database and its backups are deleted, and the key that locks the answers is destroyed.
 
