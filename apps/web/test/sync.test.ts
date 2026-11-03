@@ -156,6 +156,31 @@ describe('the sync on open', () => {
     expect(calls.map((c) => c.path.replace('/api/rural-manufacturing', ''))).toEqual(['/sync']);
   });
 
+  it('a session the server lacks after a restore is queued again with its events', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await store.sessions.put({
+      id: event.sessionId,
+      sessionNo: 1,
+      startedDay: '2026-11-16',
+      deckVersion: '0.1',
+      seed: '0123456789abcdef',
+      synced: 1,
+    });
+    await store.events.put({ ...event, synced: 1, syncedDay: '2026-11-16' });
+    const calls = stubApi([
+      () => ({ status: 200, body: ME }),
+      () => ({
+        status: 200,
+        body: { acceptedSessionIds: [event.sessionId], acceptedEventIds: [event.id] },
+      }),
+    ]);
+    const { sync } = await syncOnOpen(store, 'rural-manufacturing', CODE);
+    expect(sync.lastResult).toBe('ok');
+    const sent = calls[1]!.body as { sessions: unknown[]; events: unknown[] };
+    expect(sent.sessions).toHaveLength(1);
+    expect(sent.events).toHaveLength(1);
+  });
+
   it('with no join waiting: GET /me, then the outbox', async () => {
     const store = new WorkshopStore(`t-${Math.random()}`);
     await store.events.put(event);

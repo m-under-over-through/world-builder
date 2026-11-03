@@ -38,11 +38,52 @@ describe('the device store', () => {
     );
   });
 
-  it('re-queues events the server lacks', async () => {
+  it('re-queues events and sessions the server lacks', async () => {
     const store = new WorkshopStore(`t-${Math.random()}`);
     await store.events.bulkPut([event(1, 1, '2026-11-16')]);
-    await store.markUnsynced([event(1, 1).id]);
+    await store.sessions.put({
+      id: '00000000-0000-4000-8000-000000000001',
+      sessionNo: 1,
+      startedDay: '2026-11-16',
+      deckVersion: '0.1',
+      seed: '0123456789abcdef',
+      synced: 1,
+    });
+    expect(await store.accepted()).toEqual({
+      sessionIds: ['00000000-0000-4000-8000-000000000001'],
+      eventIds: [event(1, 1).id],
+    });
+    await store.markUnsynced(['00000000-0000-4000-8000-000000000001'], [event(1, 1).id]);
+    const pending = await store.pending();
+    expect(pending.events).toHaveLength(1);
+    expect(pending.sessions).toHaveLength(1);
+  });
+
+  it('never prunes a re-queued event, however old the day it was first accepted', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    const today = '2026-12-01';
+    await store.events.bulkPut([
+      event(1, 1, addDays(today, -20)),
+      event(2, 1, addDays(today, -20)),
+    ]);
+    await store.markUnsynced([], [event(1, 1).id]);
+    expect(await store.prune(today)).toBe(1);
+    expect((await store.events.toArray()).map((e) => e.id)).toEqual([event(1, 1).id]);
+  });
+
+  it('the memory store behaves the same for one open', async () => {
+    const { MemoryStore } = await import('../src/lib/store.ts');
+    const store = new MemoryStore();
+    await store.set('code', '1234567890123456');
+    expect(await store.get('code')).toBe('1234567890123456');
+    await store.putEvent(event(1, 0));
     expect((await store.pending()).events).toHaveLength(1);
+    await store.markSynced([], [event(1, 0).id], '2026-11-01');
+    expect((await store.pending()).events).toHaveLength(0);
+    expect((await store.accepted()).eventIds).toEqual([event(1, 0).id]);
+    expect(await store.prune('2026-12-01')).toBe(1);
+    await store.wipe();
+    expect(await store.get('code')).toBeUndefined();
   });
 
   it('adds days across month ends', () => {

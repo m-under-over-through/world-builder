@@ -7,7 +7,7 @@ import {
 } from '@wb/contracts';
 import { api, type ApiResult } from './api.ts';
 import { makeBatches } from './batches.ts';
-import { localDay, type WorkshopStore } from './store.ts';
+import { localDay, type Store } from './store.ts';
 
 export interface SyncStatus {
   lastResult: 'never' | 'ok' | 'offline' | 'error';
@@ -30,7 +30,7 @@ export const PENDING_JOIN = 'pendingJoin';
  * when the network is back. Nothing is lost; the server refuses events, and GET /me, for a code
  * it does not know, so the join has to land first.
  */
-export async function queueJoin(store: WorkshopStore, join: JoinRequest): Promise<void> {
+export async function queueJoin(store: Store, join: JoinRequest): Promise<void> {
   await store.set(PENDING_JOIN, JSON.stringify(join));
 }
 
@@ -39,31 +39,31 @@ export async function queueJoin(store: WorkshopStore, join: JoinRequest): Promis
  * damaged row, an older shape) is forgotten on the spot, so it is not read and ignored on every
  * open from then on.
  */
-export async function pendingJoin(store: WorkshopStore): Promise<JoinRequest | null> {
+export async function pendingJoin(store: Store): Promise<JoinRequest | null> {
   const stored = await store.get(PENDING_JOIN);
   if (!stored) return null;
   try {
     return joinRequestSchema.parse(JSON.parse(stored));
   } catch {
-    await store.settings.delete(PENDING_JOIN);
+    await store.unset(PENDING_JOIN);
     return null;
   }
 }
 
 /** Send the queued join, if any. Null when there was nothing to send. */
 export async function sendPendingJoin(
-  store: WorkshopStore,
+  store: Store,
   slug: string,
 ): Promise<ApiResult<unknown> | null> {
   const join = await pendingJoin(store);
   if (!join) return null;
   const res = await api(`/${slug}/join`, { body: join });
-  if (res.ok) await store.settings.delete(PENDING_JOIN);
+  if (res.ok) await store.unset(PENDING_JOIN);
   return res;
 }
 
 /** The status after a request that failed: offline when nothing answered, otherwise the server's code. */
-async function failed(store: WorkshopStore, res: ApiResult<unknown> & { ok: false }) {
+async function failed(store: Store, res: ApiResult<unknown> & { ok: false }) {
   const remaining = await store.pending();
   return {
     lastResult: res.status === 0 ? 'offline' : 'error',
@@ -74,17 +74,13 @@ async function failed(store: WorkshopStore, res: ApiResult<unknown> & { ok: fals
 }
 
 /** Push the outbox in batches. Idempotent on the server, so a retry can never duplicate. */
-export async function syncNow(
-  store: WorkshopStore,
-  slug: string,
-  code: string,
-): Promise<SyncStatus> {
+export async function syncNow(store: Store, slug: string, code: string): Promise<SyncStatus> {
   const joined = await sendPendingJoin(store, slug);
   if (joined && !joined.ok) return failed(store, joined);
   return pushOutbox(store, slug, code);
 }
 
-async function pushOutbox(store: WorkshopStore, slug: string, code: string): Promise<SyncStatus> {
+async function pushOutbox(store: Store, slug: string, code: string): Promise<SyncStatus> {
   const { sessions, events } = await store.pending();
   for (const batch of makeBatches(sessions, events)) {
     const res = await api<unknown>(`/${slug}/sync`, { body: batch, code });
@@ -111,12 +107,13 @@ async function pushOutbox(store: WorkshopStore, slug: string, code: string): Pro
 
 /**
  * On open: ask the server what it holds, re-queue anything it lacks (a restored database refills
- * itself from the phones), and prune accepted events past the retention window. Returns the
- * server's view for the privacy panel. A caller that has just asked GET /me itself ("I have a
- * code" checks the code that way) hands the answer in, so the server is not asked twice.
+ * itself from the phones: sessions as well as events, since an event needs its session row), and
+ * prune accepted events past the retention window. Returns the server's view for the privacy
+ * panel. A caller that has just asked GET /me itself ("I have a code" checks the code that way)
+ * hands the answer in, so the server is not asked twice.
  */
 export async function reconcile(
-  store: WorkshopStore,
+  store: Store,
   slug: string,
   code: string,
   answer?: ApiResult<unknown>,
@@ -128,10 +125,12 @@ export async function reconcile(
   // server lacks everything", which would re-queue every retained event.
   const me = meResponseSchema.safeParse(res.data);
   if (!me.success) return { me: null, error: 'CLIENT_SYNC_FAILED' };
-  const serverIds = new Set(me.data.events.map((e) => e.id));
-  const local = await store.events.where('synced').equals(1).toArray();
-  const missing = local.filter((e) => !serverIds.has(e.id)).map((e) => e.id);
-  if (missing.length > 0) await store.markUnsynced(missing);
+  const serverSessions = new Set(me.data.sessions.map((s) => s.id));
+  const serverEvents = new Set(me.data.events.map((e) => e.id));
+  const local = await store.accepted();
+  const sessions = local.sessionIds.filter((id) => !serverSessions.has(id));
+  const events = local.eventIds.filter((id) => !serverEvents.has(id));
+  if (sessions.length > 0 || events.length > 0) await store.markUnsynced(sessions, events);
   await store.prune(localDay());
   return { me: me.data };
 }
@@ -143,7 +142,7 @@ export async function reconcile(
  * nothing else is asked, and the panel's "what we store" stays empty rather than wrong.
  */
 export async function syncOnOpen(
-  store: WorkshopStore,
+  store: Store,
   slug: string,
   code: string,
   answer?: ApiResult<unknown>,

@@ -109,6 +109,20 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
   });
 
+  it('intro 3, consent: SERVER_ERROR and JOIN_WAVE_UNKNOWN in their wording, never as codes', () => {
+    for (const code of ['SERVER_ERROR', 'JOIN_WAVE_UNKNOWN'] as const) {
+      const { unmount } = render(Intro, { app: state({ screen: 'consent', error: code }) });
+      expect(screen.getByText(copy.error(code))).toBeTruthy();
+      expect(screen.queryByText(code)).toBeNull();
+      unmount();
+    }
+  });
+
+  it('welcome after the stored code was refused: the explanation', () => {
+    render(Welcome, { app: state({ codeRefused: true }) });
+    expect(screen.getByText(copy.text('Welcome: code not accepted'))).toBeTruthy();
+  });
+
   it('intro 3 while a refused join waits for its retry: the "trying again" line', () => {
     render(Intro, { app: state({ screen: 'consent', retrying: true, joining: true }) });
     expect(screen.getByText(copy.item('App labels', 'retrying'))).toBeTruthy();

@@ -1443,3 +1443,39 @@ On the deploy preview: the footer's "How your answers are protected": seven numb
 ### Open
 
 - The scanner reports do not exist until someone runs the scans on the production address; the links will show "no result yet" until then. The ops item 4 runs them.
+
+---
+
+## 2026-11-03, Tuesday morning, later. UI item 9: the failure behaviour
+
+### What
+
+- **A stored code the server no longer knows.** `AUTH_CODE_UNKNOWN` from the sync on open forgets the code on the device and shows the welcome with the words of "Welcome: code not accepted"; never while a join is still queued, since then the server has simply not met the code yet (`AppState.syncOnOpen`).
+- **A browser that refuses storage** (`CLIENT_STORAGE_UNAVAILABLE`): `lib/store.ts` now has a `Store` interface, kept in IndexedDB by `WorkshopStore` and, for one open, in memory by `MemoryStore`. On open the first read of the store is tried; when it throws, the memory store takes over, the app warns with the code's one line on every screen, and the session runs as usual: the code is shown at its end, as session 1 always does, so it can be written down. Nothing survives the tab.
+- **Sync retries.** While anything waits in the outbox and the last sync did not succeed, the outbox is tried again after 5 seconds, then doubling up to 5 minutes, until it is empty or the workshop is closed; and at once when the browser says the network is back (`online`, from `App.svelte`). One loop at a time; the join's own `Retry-After` wait is untouched.
+- **After a restore**, sessions the server lacks are queued again with their events (`reconcile` compares both lists with `GET /me`; `Store.accepted` and `markUnsynced` take sessions too). **A re-queued event is never pruned**: prune deletes only rows the server has accepted, however old the day they were first accepted.
+- **`WORKSHOP_CLOSED` from a sync** shows the closed screen and no session is started; no new events are created.
+- **Review findings.** (a) `shown` is recorded once per card per session: `LiveSession.shown` is replayed from the events, and a resumed session or a card coming round again records nothing. (b) "Delete everything about me" also forgets `wb:lastWorkshop`. (e) `SERVER_ERROR` and `JOIN_WAVE_UNKNOWN` on the consent screen and `WORKSHOP_CLOSED` at join have screen tests.
+- The `RATE_LIMITED` join retry was built with the review fixes (pull request 29). Tests: the refused code forgotten, and kept while a join is queued; the closed screen from a sync; the retry with its waits of 5 and 10 seconds; `online`; the memory store (a session in memory, the warning, nothing kept); the last workshop forgotten; sessions re-queued; the prune rule; the memory store's rows; `shown` once; the three error wordings. 169 client tests, 392 in the repository (13 new).
+
+### Why
+
+Item 9 of the UI brief; docs/screen-map.md, "Offline and failure behaviour"; the runbook's client codes; the review of the client stack (findings a, b, e).
+
+### How to verify
+
+```
+npm run check                       # 392 tests
+```
+
+On the deploy preview: delete yourself from the privacy panel on one device while a second device holds the same code; open the second: the welcome with "The code this device remembered is no longer ours". Airplane mode on, answer a card, off: within five seconds "Waiting to sync" reads 0 without a tap. Safari, private browsing with "Block all cookies" on: the link opens with the warning line, a session runs, the code is shown at the end; the next open starts fresh. Reload mid-session: the panel's event count does not grow.
+
+### Decisions made on the way
+
+- **One interface for the store**, rather than a fake IndexedDB in the browser: the memory store is forty lines, and the test DOM keeps using the real one.
+- **The retry is a loop over `wait`**, the same hook the join and the card use, so a test runs it instantly; the stub answers every unlisted sync with the contract's shape so no test loops forever.
+- **`WORKSHOP_CLOSED` is remembered for the open** (`closedByServer`), so landing after the sync does not start a session on a closed workshop.
+
+### Open
+
+- The runbook's `CLIENT_STORAGE_UNAVAILABLE` entry says the client does not produce the code yet; it does now. The ops builder's file.

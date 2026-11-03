@@ -70,6 +70,7 @@ describe('a session is replayed from its seed and its events', () => {
     const live = replaySession(deck, config, s1, { sessions: [s1], events });
     expect(live.plan.queue.at(-1)).toBe(first);
     expect(live.dismissed.has(first)).toBe(true);
+    expect([...live.shown].sort()).toEqual([first, second].sort());
     expect(live.answered.has(second)).toBe(true);
     expect(live.nextSeq).toBe(4);
     expect(live.untouched).toBe(false);
@@ -157,9 +158,11 @@ describe('the bookkeeping around the engine', () => {
   it('withShown and withAnswer move the seq on; the input is never changed', () => {
     const s1 = session(1);
     const live = replaySession(deck, config, s1, { sessions: [s1], events: [] });
-    const shown = withShown(live);
+    const shown = withShown(live, live.plan.queue[0]!);
     expect(shown.nextSeq).toBe(1);
+    expect(shown.shown.has(live.plan.queue[0]!)).toBe(true);
     expect(live.nextSeq).toBe(0);
+    expect(live.shown.size).toBe(0);
     const answered = withAnswer(shown, live.plan.queue[0]!);
     expect(answered.nextSeq).toBe(2);
     expect(answered.untouched).toBe(false);

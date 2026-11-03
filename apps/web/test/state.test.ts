@@ -11,6 +11,8 @@ import { freshIndexedDb, JOINED, stubRoutes, SYNCED } from './helpers.ts';
  */
 const SLUG = 'rural-manufacturing';
 const workshop = findWorkshop(SLUG)!;
+/** The device's database behind a state, for a test to read the rows. */
+const db = (app: AppState) => app.store as WorkshopStore;
 
 beforeEach(freshIndexedDb);
 afterEach(() => vi.unstubAllGlobals());
@@ -56,7 +58,7 @@ describe('saving an answer', () => {
     expect(app.error).toBe('CLIENT_SEAL_FAILED');
     expect(app.cardState).toBe('fresh');
     expect(app.draft).toBe('a lone surrogate \uD83D cannot be encoded');
-    expect(await app.store!.events.count()).toBe(0);
+    expect(await db(app).events.count()).toBe(0);
   });
 
   it('a saved answer clears the draft, marks the card answered, and the next card comes', async () => {
@@ -70,9 +72,7 @@ describe('saving an answer', () => {
     expect(app.live!.answered.has(first.id)).toBe(true);
     expect(app.card!.id).not.toBe(first.id);
     expect(app.position).toEqual({ n: 2, total: 4 });
-    const kinds = (await app.store!.events.toArray())
-      .sort((a, b) => a.seq - b.seq)
-      .map((e) => e.kind);
+    const kinds = (await db(app).events.toArray()).sort((a, b) => a.seq - b.seq).map((e) => e.kind);
     expect(kinds).toEqual(['answered', 'shown']);
   });
 });
@@ -178,8 +178,9 @@ describe('a session on the deck engine', () => {
     await app.setAside();
     expect(app.screen).toBe('session-end');
     expect(app.card).toBeUndefined();
-    const events = (await app.store!.events.toArray()).sort((a, b) => a.seq - b.seq);
-    expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    const events = (await db(app).events.toArray()).sort((a, b) => a.seq - b.seq);
+    expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    // The set-aside card coming round again is not shown a second time (review finding a).
     expect(events.map((e) => `${e.kind}${e.cardId === first ? '*' : ''}`)).toEqual([
       'shown*',
       'dismissed*',
@@ -189,11 +190,10 @@ describe('a session on the deck engine', () => {
       'answered',
       'shown',
       'answered',
-      'shown*',
       'deferred*',
     ]);
     expect(events.every((e) => e.sessionId === app.live!.session.id)).toBe(true);
-    expect(await app.store!.sessions.count()).toBe(1);
+    expect(await db(app).sessions.count()).toBe(1);
   });
 
   it('a reload mid-session resumes the same card from the seed and the events, with no new session row', async () => {
@@ -209,11 +209,12 @@ describe('a session on the deck engine', () => {
     expect(again.live!.plan.queue).toEqual(app.live!.plan.queue);
     expect(again.live!.dismissed.has(first)).toBe(true);
     expect(again.hintOpen).toBe(false);
-    expect(await again.store!.sessions.count()).toBe(1);
-    const kinds = (await again.store!.events.toArray())
+    expect(await db(again).sessions.count()).toBe(1);
+    const kinds = (await db(again).events.toArray())
       .sort((a, b) => a.seq - b.seq)
       .map((e) => e.kind);
-    expect(kinds).toEqual(['shown', 'dismissed', 'shown', 'shown']);
+    // The resumed card was shown in this session already: no second `shown` (review finding a).
+    expect(kinds).toEqual(['shown', 'dismissed', 'shown']);
   });
 
   it('after the session end, the next open starts session 2 with the deferred card first', async () => {
@@ -232,7 +233,7 @@ describe('a session on the deck engine', () => {
     expect(next.sessionNo).toBe(2);
     expect(next.card!.id).toBe(first);
     expect(next.hintOpen).toBe(false);
-    expect(await next.store!.sessions.count()).toBe(2);
+    expect(await db(next).sessions.count()).toBe(2);
   });
 
   it("a second device with the same code continues the session from the server's rows", async () => {
@@ -288,7 +289,7 @@ describe('a session on the deck engine', () => {
     expect(app.live!.session.id).toBe(session.id);
     expect(app.card!.id).not.toBe(first);
     expect(app.position).toEqual({ n: 2, total: 4 });
-    expect(await app.store!.sessions.count()).toBe(0);
+    expect(await db(app).sessions.count()).toBe(0);
   });
 });
 
@@ -415,5 +416,148 @@ describe('the address bar', () => {
     await app.navigate();
     expect(app.screen).toBe('welcome');
     expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+  });
+});
+
+describe('failure behaviour', () => {
+  const ME = {
+    workshop: { slug: SLUG, name: 'x', closesDay: '2026-12-06', deleteDay: '2027-02-05' },
+    participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 0 },
+    sessions: [],
+    events: [],
+  };
+
+  async function storedCode() {
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', '1234567890123456');
+    store.close();
+  }
+
+  it('AUTH_CODE_UNKNOWN on a stored code forgets the code and shows the welcome with the explanation', async () => {
+    await storedCode();
+    stubRoutes({
+      [`/api/${SLUG}/me`]: [() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } })],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(app.screen).toBe('welcome');
+    expect(app.codeRefused).toBe(true);
+    expect(app.code).toBe('');
+    expect(await app.store!.get('code')).toBeUndefined();
+    expect(app.lastError).toBe('AUTH_CODE_UNKNOWN');
+  });
+
+  it('but never while a join is still queued: the code stays and the session goes on', async () => {
+    await storedCode();
+    const store = new WorkshopStore(SLUG);
+    await store.set('pendingJoin', JSON.stringify({ code: '1234567890123456', wave: 'wave-1' }));
+    store.close();
+    stubRoutes({
+      [`/api/${SLUG}/join`]: [() => 'offline'],
+      [`/api/${SLUG}/me`]: [() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } })],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(app.code).toBe('1234567890123456');
+    expect(app.codeRefused).toBe(false);
+    expect(['card', 'demo']).toContain(app.screen);
+  });
+
+  it('WORKSHOP_CLOSED from a sync shows the closed screen', async () => {
+    await storedCode();
+    const store = new WorkshopStore(SLUG);
+    await store.events.put({
+      id: '10000000-0000-4000-8000-000000000001',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      cardId: 'cool',
+      seq: 0,
+      kind: 'dismissed',
+      createdDay: '2026-11-16',
+      deckVersion: '0.1',
+      synced: 0,
+    });
+    store.close();
+    stubRoutes({
+      [`/api/${SLUG}/me`]: [() => ({ status: 200, body: ME })],
+      [`/api/${SLUG}/sync`]: [() => ({ status: 403, body: { error: 'WORKSHOP_CLOSED' } })],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(app.screen).toBe('closed');
+    expect(app.lastError).toBe('WORKSHOP_CLOSED');
+  });
+
+  it('a sync that fails is tried again on a timer with backoff until the outbox is empty', async () => {
+    const calls = stubRoutes({
+      [`/api/${SLUG}/join`]: [JOINED],
+      [`/api/${SLUG}/sync`]: [() => 'offline', () => 'offline', SYNCED],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    const waits: number[] = [];
+    app.wait = async (ms) => {
+      waits.push(ms);
+    };
+    await app.join();
+    await app.dismissDemo();
+    await app.setAside();
+    await vi.waitFor(() => expect(app.sync.lastResult).toBe('ok'));
+    expect(waits).toEqual([5000, 10000]);
+    expect(calls.filter((c) => c.path.endsWith('/sync'))).toHaveLength(3);
+  });
+
+  it('the "online" event sends the outbox at once', async () => {
+    stubRoutes({
+      [`/api/${SLUG}/join`]: [JOINED],
+      [`/api/${SLUG}/sync`]: [() => 'offline', SYNCED],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    let held = () => {};
+    app.wait = () =>
+      new Promise<void>((resolve) => {
+        held = resolve;
+      });
+    await app.join();
+    await app.dismissDemo();
+    await app.setAside();
+    await vi.waitFor(() => expect(app.sync.lastResult).toBe('offline'));
+    await app.reconnected();
+    expect(app.sync.lastResult).toBe('ok');
+    held();
+  });
+
+  it('a browser that refuses storage still runs one session in memory, warns, and keeps nothing', async () => {
+    const broken = {
+      open: () => {
+        throw new Error('storage refused');
+      },
+    };
+    vi.stubGlobal('indexedDB', broken);
+    const Dexie = (await import('dexie')).default;
+    Dexie.dependencies.indexedDB = broken as unknown as IDBFactory;
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED, SYNCED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(app.storageUnavailable).toBe(true);
+    expect(app.lastError).toBe('CLIENT_STORAGE_UNAVAILABLE');
+    expect(app.screen).toBe('welcome');
+    await app.join();
+    await app.dismissDemo();
+    expect(app.screen).toBe('card');
+    app.draft = 'An answer';
+    expect(await app.save()).toBe(true);
+    expect(app.sync.lastResult).toBe('ok');
+    while (app.screen === 'card') await app.setAside();
+    expect(app.screen).toBe('session-end');
+    expect(app.endStep).toBe('code');
+    freshIndexedDb();
+    const again = await opened(`/${SLUG}/join/wave-1`);
+    expect(again.code).toBe('');
+  });
+
+  it('"delete everything about me" also forgets the last workshop', async () => {
+    await storedCode();
+    stubRoutes({ [`/api/${SLUG}/me`]: [() => ({ status: 200, body: ME })] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(localStorage.getItem('wb:lastWorkshop')).toBe(SLUG);
+    app.go = () => {};
+    app.askDelete();
+    await app.deleteMe();
+    expect(localStorage.getItem('wb:lastWorkshop')).toBeNull();
   });
 });

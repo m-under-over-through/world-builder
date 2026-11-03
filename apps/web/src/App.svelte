@@ -28,8 +28,14 @@
       app.installOffer = event as AppState['installOffer'];
     };
     window.addEventListener('beforeinstallprompt', keep);
+    // The network is back: the outbox goes out now, not at the retry timer's next tick.
+    const online = () => void app.reconnected();
+    window.addEventListener('online', online);
     void app.open(location.pathname);
-    return () => window.removeEventListener('beforeinstallprompt', keep);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', keep);
+      window.removeEventListener('online', online);
+    };
   });
 </script>
 
@@ -41,6 +47,9 @@
     {/if}
   </nav>
 
+  {#if app.storageUnavailable}
+    <p class="warning" role="status">{app.copy.error('CLIENT_STORAGE_UNAVAILABLE')}</p>
+  {/if}
   {#if app.screen === 'loading'}
     <p class="muted">{app.copy.item('App labels', 'loading')}</p>
   {:else if app.screen === 'no-workshop'}

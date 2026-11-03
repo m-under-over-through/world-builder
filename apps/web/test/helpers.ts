@@ -22,7 +22,11 @@ export function stubRoutes(routes: Routes) {
         body: init.body ? JSON.parse(String(init.body)) : undefined,
       });
       const queue = routes[path] ?? [];
-      const answer = (queue.shift() ?? ((): Answer => ({ status: 200, body: {} })))();
+      // A path the test did not list answers 200 and {}; a sync answers the contract's shape, so
+      // the outbox empties and the retry loop (instant waits in tests) has nothing to wait for.
+      const fallback = (): Answer =>
+        path.endsWith('/sync') ? SYNCED() : { status: 200, body: {} };
+      const answer = (queue.shift() ?? fallback)();
       if (answer === 'offline') throw new TypeError('Failed to fetch');
       return new Response(JSON.stringify(answer.body), {
         status: answer.status,
