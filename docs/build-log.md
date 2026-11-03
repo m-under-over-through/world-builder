@@ -245,6 +245,8 @@ node tools/workshop/export.ts rural-manufacturing --key .secrets/dev-rural-manuf
 - The backup job, the Better Stack heartbeat, drills: Thursday and Friday.
 - Branch protection on `main`: Friday, after this lands.
 
+---
+
 ## 2026-10-28, Wednesday evening. Staging secrets set; the first deploy failed at the function; the function is now bundled
 
 ### What
@@ -287,6 +289,8 @@ Then the staging deploy: the Netlify deploy log has the line `bundle-api: wrote 
 - One thing the panel got wrong: "Version: local". Vite only exposes variables that start with `VITE_`, and Netlify's commit is `COMMIT_REF`. `apps/web/vite.config.ts` now defines `import.meta.env.VITE_COMMIT_REF` from it at build time, so the panel and `/api/health` report the same commit; on a laptop the panel still says "local". Verified on staging at commit `e87d838`: the panel and `/api/health` show the same version, and a reload of the page found the saved code and the four sealed events.
 - Staging verified after the redeploy, about 45 seconds after the push: `https://staging--worldbuilder-uot.netlify.app/api/health` answered 200 with `ok: true`, `version: fbec63f` (the pushed commit), `dbReachable: true`, no backup yet, and `rural-manufacturing` as `open`. The API answers with HSTS and no cookie; the client page carries the self-only Content Security Policy.
 
+---
+
 ## 2026-10-29, Thursday. The skeleton is on main; production serves the client; two gaps the production deploy showed, closed
 
 ### What
@@ -321,6 +325,8 @@ The last line prints the log line `SERVER_NOT_CONFIGURED DATABASE_URL is not set
 
 - Thursday's monitor in Better Stack goes on staging's health endpoint until production has its secrets; on production it would alert for a known reason, and `SERVER_NOT_CONFIGURED` is now the body it would see.
 - Next, per the plan: the backup job in the ops repository, the Backblaze application key, the monitor. Friday: restore and decrypt drills, branch protection on `main`, the walkthrough.
+
+---
 
 ## 2026-10-29, Thursday afternoon. The nightly backup job; Marco's first phone test
 
@@ -590,6 +596,8 @@ HSTS, for the record, since decision 6 asked for the explanation. The `Strict-Tr
 
 The brief's item 2. These three run inside the Netlify build (`migrate`, `sync`) or make a secret (`pepper`), and none had a test. The migrate refusal is the one that cost a deploy on 30 October; now its eight shapes are a test, and the build command cannot grow an argument by mistake.
 
+---
+
 ## 2026-11-02, Monday afternoon. Ops 1: the export tool, tested; the key checked first; today's file never replaced silently
 
 ### What
@@ -601,6 +609,8 @@ The brief's item 2. These three run inside the Netlify build (`migrate`, `sync`)
 ### Why
 
 The brief's item 1: the operator's tools must be tested and must not overwrite what they should not. The export is the one place answers are ever readable (ADR 0003), so its mistakes are the expensive ones: an export of the wrong workshop would have been a file of `[could not open]` rows found after the fact; a second run on the same day would have replaced the morning's file, scrub log and all. Fresh pseudonyms are what the architecture plan's section 14 promises in the hand-off package.
+
+---
 
 ## 2026-11-02, Monday, midday. The participant texts, drafted for the legal review
 
@@ -647,6 +657,8 @@ The brief's item 7: three sentences that were wrong or missing, each of which wo
 
 - Item 8, `workshop status`, starts only when items 1 to 7 are merged.
 
+---
+
 ## 2026-11-02, Monday afternoon. UI item 1: the component test harness and the copy loader
 
 ### What
@@ -660,6 +672,8 @@ The brief's item 7: three sentences that were wrong or missing, each of which wo
 ### Why
 
 The first item of the UI brief, because every later screen is text in a file the partner can edit, and because nothing rendered `App.svelte` in a test until now. Raw error codes in front of participants were a trust failure named in the gap list; they are gone.
+
+---
 
 ## 2026-11-02, Monday. API, 1 of 6: the byte cap counts bytes
 
@@ -865,6 +879,8 @@ Decision 3 of 2 November (`docs/briefs/week-2-plan.md`, section 4): with 30 a mi
 - The UI brief names the silent retry on `JOIN_CODE_TAKEN` but not the one retry on `RATE_LIMITED` with `Retry-After`; the integrator relays it to the UI builder (in the report of pull request 23).
 - The six API pull requests are open: 10, 11, 15, 18, 21, 23, each stacked on the one before. The runbook proposals from all six are in their reports, for the ops builder.
 
+---
+
 ## 2026-11-02, Monday evening. Ops 3: the runbook describes the code; the services section written
 
 ### What
@@ -895,6 +911,8 @@ The brief's item 3: the runbook must describe the code as it is, not as it was p
 
 - The API builder's and UI builder's runbook proposals, from their reports, are applied when the integrator passes them on.
 - Better Stack's paused staging monitor: the cause goes on `runbook/betterstack.md` once seen in the console.
+
+---
 
 ## 2026-11-02, Monday, early afternoon. The deck engine, item 1: the session plan and the seeded shuffle
 
@@ -1133,3 +1151,262 @@ Stacked pull requests from four streams all append to this file, so every merge 
 
 - The client's review fixes and items 5 to 10 (a second client session is proposed); the ops item 4 fixes and the two ops-repository pages; the API builder's three small follow-ups (`.returning` to a row count, the test that names a row count but asserts statuses, the `Retry-After` computed from a second clock).
 - The Better Stack monitor's definition, still Marco's to read.
+
+---
+
+## 2026-11-02, Monday afternoon, later. UI item 2: one component per screen, the state in one place, the router
+
+### What
+
+- **`App.svelte` is split.** `apps/web/src/screens/` holds one component per screen of the map that the skeleton had: `NotAWorkshop`, `Welcome`, `EnterCode`, `Consent` (Intro 3), `Card`, `SessionEnd` (with the code reveal), `Closed` (closed and not open yet), `PrivacyPanel`. Each renders what it is given and calls one function; what is local to a screen (the digits being typed, the answer being written, whether the code is revealed) stays in the screen.
+- **The state is one class, `AppState` in `apps/web/src/lib/state.svelte.ts`**, read top to bottom: which screen, the workshop and its copy, the code, the arrival, the session (cards, index, sync status), the panel's rows, and the functions that change them (`open`, `join`, `continueWithCode`, `save`, `setAside`, `openPanel`, `closePanel`, `deleteMe`). The fields are reactive, so a screen re-renders when one changes. `App.svelte` is now the frame: the nav, and the screen the state names.
+- **The router knows the pages a participant can open directly.** `lib/route.ts` reads `/<slug>/continue`, `/<slug>/panel` and `/<slug>/trust` (`PAGES`), and `pageHref` writes them. `/continue` lands on enter code; `/panel` lands on the privacy panel, and Back from there goes where the device would have landed (the next card with a code, the welcome without); `/trust` is read and waits for item 8's screen. Nothing else changes: the tests of item 1 pass unchanged.
+- Tests: every screen renders on its own from a state set up by hand (`test/screens.test.ts`, 14 tests: the three welcome cases, enter code with both lines, consent with an error, the card with its position, the nudge, each sync line and a sealing failure, the session end with and without answers waiting, closed, the panel with and without a code); the three pages and `pageHref` (`deck-and-route.test.ts`); `/continue`, `/panel` and Back from the panel in the rendered app (`app.test.ts`). 163 tests (19 new).
+
+### Why
+
+Item 2 of the UI brief: the next eight items each add a screen or a rule, and a 400-line component is not a place to add either. One class the operator can read answers "what does the app do when I tap this" for every tap.
+
+### How to verify
+
+```
+npm run check                       # 163 tests
+npx vitest run --project web        # the client's 60
+```
+
+On the deploy preview: the flow of item 1 behaves the same; `/rural-manufacturing/continue` opens on enter code; `/rural-manufacturing/panel` opens on the panel, and Back from it goes to the welcome (no code) or the next card (with one).
+
+### Decisions made on the way
+
+- **State in a class with reactive fields, not a Svelte store.** It reads like the plan: a named field per thing, a named function per action, and a test can set the fields by hand and render a screen.
+- **The panel remembers the screen it was opened from** and goes back there; opened directly at `/panel`, it goes where the device lands.
+- **The screen components keep the skeleton's markup and classes**; the look is item 10's.
+
+### Open
+
+- Every open of the app with a code creates a session row, with or without events (known since the skeleton; the panel on a much-reloaded laptop says "17 sessions, 4 events"). Item 5 can create the row at the first event instead; noted in the pull request's report.
+
+---
+
+## 2026-11-02, Monday, late afternoon. UI item 3: welcome's three cases, digits grouped as typed, /continue
+
+### What
+
+- **Welcome speaks to the three cases** decided in the phone-test entry of 29 October: next to "New here", when a wave or an invite is remembered, the block "Welcome: new here"; next to "I have a code", always, the block "Welcome: I have a code"; in place of "New here", when nothing is remembered, "Welcome: no link" ("To start, open the link you were sent."). The screen is `apps/web/src/screens/Welcome.svelte`.
+- **"I have a code" is the address `/<slug>/continue`.** `AppState.navigate(page)` puts the page's address in the address bar (replaced, not pushed, so the browser's back goes to where the person came from, never to a stale screen) and shows its screen; Back from enter code is `/<slug>/` and where the device lands. The route itself was read since item 2.
+- **Digits are grouped as typed, sixteen and no more.** `lib/code-input.ts`, `groupDigits`: digits only, in groups of four, cut at sixteen; a pasted `1234-5678-9012-3456` reads the same as the digits. The field keeps `inputmode="numeric"` (the keypad), gains `enterkeyhint="go"` and sits in a form, so the keypad's Enter is Continue. `RATE_LIMITED` and `AUTH_CODE_UNKNOWN` show their `copy.md` lines (tests since item 1).
+- Tests: `groupDigits` (groups, the cap, pasted separators, letters); the three welcome blocks in both states; "I have a code" changes the address to `/continue` and Back changes it back; typing seventeen digits leaves `1234 5678 9012 3456` in the field. 168 tests (5 new).
+
+### Why
+
+Item 3 of the UI brief. The 29 October phone test: "the code reads as a puzzle"; the welcome now says in words what each button is for and what to do with neither.
+
+### How to verify
+
+```
+npm run check            # 168 tests
+```
+
+On the deploy preview, in a fresh browser: open `/rural-manufacturing/` (no link): the welcome says to open the link you were sent, and under it "Been here before on another device?" with "I have a code". Tap it: the address is `/rural-manufacturing/continue`. Type `12345678901234567`: the field reads `1234 5678 9012 3456`. Press Enter on the keypad: "That code is not ours. Check the digits." Back: the address is `/rural-manufacturing/` again. Open `/rural-manufacturing/join/wave-1`: both "New here?" with its line and the code block.
+
+### Decisions made on the way
+
+- **The address is replaced, not pushed**, for moves inside the app. A pushed `/continue` would need the browser's back button handled on every screen; the brief's "/continue as its own route" is the address being openable and shown, which this is.
+- **The grouping lives in one pure function** the field calls on every input, and the caret moves to the end: a code is typed, not edited in the middle.
+
+### Open
+
+- Nothing for the integrator. Item 4 (the intro, the demo card, the dictation hint) is next; item 5 waits for `packages/deck`.
+
+---
+
+## 2026-11-02, Monday evening. UI item 4: the first session
+
+### What
+
+- **The intro.** `apps/web/src/screens/Intro.svelte` shows Intro 1 and Intro 2 (copy, Back and Next) and Intro 3, the consent, with "I understand" and Back. Back on Intro 1 is the welcome. The consent-only screen of item 2 is folded in.
+- **The join is sturdier.** `JOIN_CODE_TAKEN` is retried once, silently, with a fresh code; a second refusal is shown in its wording. Offline, the join is queued on the device (`pendingJoin` in the settings, the request as the contract spells it) and the session starts anyway; `syncNow` sends the queued join before anything else and forgets it once the server accepts it, so no event is ever sent for a code the server does not know. A queued join the server refuses later (a wave that filled meanwhile) stays queued and shows as the sync error.
+- **The demo card** (`DemoCard.svelte`) opens the first session: the "Demo card" block in a card, "Got it", nothing recorded. Returning sessions skip it.
+- **The dictation hint.** `lib/platform.ts` picks the platform from the browser's user agent string, on the device, for this one choice: iPhone and iPad (an iPad that calls itself a Mac is told apart by its touch points), Android, Mac, Windows, ChromeOS; nothing on Linux and unknown. On the first card of the first session the hint for that platform opens by itself, dismissible with "Got it"; "Prefer to talk?" on every card opens it again. On a platform with no hint neither appears.
+- `copy.md`: five entries in the Titles list (intro 1, intro 2, demo card, dictation hint, and consent stays). Tests: platform detection (eight user agents); the queued join (sent first, kept while offline, refused, damaged); the intro's three screens, the demo card and the hint on their own; the first session end to end in the rendered app, with Back, the demo card, the hint, "Got it" and "Prefer to talk?"; the retry on a taken code (two joins, two codes, nothing shown); a second taken code and a full wave shown in their wording; offline: the session starts and the join goes out before the first sync with the same code. 186 tests (18 new).
+
+### Why
+
+Item 4 of the UI brief. The 8.1 intro of the architecture plan, and the two failure paths of the consent screen the gap list named: a taken code and no network.
+
+### How to verify
+
+```
+npm run check            # 186 tests
+```
+
+On the deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`, "New here": Intro 1 with Next and Back; Next: Intro 2; Back and Next again; Next: the consent; "I understand": the demo card; "Got it": card 1 of 4 with the hint for your platform ("Press Windows + H" on Windows, "Tap the microphone on your keyboard" on a phone); "Got it" hides it; "Prefer to talk?" shows it again; set the card aside: the next card has no hint and still "Prefer to talk?". Offline (airplane mode after the intro loads): "I understand" still reaches the demo card; back online, the first Save or Set aside shows "Synced." and the privacy panel's "what we store" counts the session.
+
+### Decisions made on the way
+
+- **The queued join lives in the sync**, not in the join: the join only writes the record, and the first `syncNow` sends it, so one function owns the order "join, then events".
+- **The platform is read from the user agent string on the device and forgotten.** Nothing of it is stored, sent or logged; the CSP and the non-negotiables are untouched.
+- **The demo card and the hint key off the session number**, which the state already had to compute: session 1 and nothing else.
+- **The hint closes when the card changes**, so it reads as "the first card's hint"; "Prefer to talk?" brings it back anywhere.
+
+### Open
+
+- The demo card's swipe (item 5) is only described; the card is tapped away with "Got it" until the swipe exists.
+- When the server refuses a queued join after the fact, the participant sees the sync error line and the diagnostics; nothing else can be done on the device. Noted in the report.
+
+---
+
+## 2026-11-02, Monday, late evening. UI review fixes on items 1 to 4
+
+### What
+
+The independent reviewer's findings on the stack of pull requests 17, 20, 22 and 24, fixed on one branch on top of item 4, with a test for each. The build log of `main` and of the stack were merged by hand into one list in time order; no entry was lost.
+
+- **The draft survives "Your privacy".** The answer being written is `app.draft` in `lib/state.svelte.ts`, not a variable of `Card.svelte`; opening the panel unmounts the card, and Back now finds the words where they were. Save clears it on success, Set aside clears it; a sealing failure keeps it.
+- **The arrival address is restored.** `AppState` keeps `home`, the address the device arrived at (`/<slug>/join/<wave>` for a wave; `/<slug>/` otherwise, an invite having been replaced on purpose). `navigate()` without a page and Back from the panel put it back, so from a wave landing "I have a code" then Back leaves the wave in the address bar, as decided, and the page can still be shared. Back from the panel to enter code restores `/continue`; opened directly at `/panel`, Back restores the home, so a reload no longer reopens the panel.
+- **The sync on open happens before any screen.** `syncOnOpen` in `lib/sync.ts` is the one order that works: the queued join first (the server answers `AUTH_CODE_UNKNOWN` to everything else for a code it has not met), then `GET /me` and the re-queue of what the server lacks, then the outbox. With a stored code it runs on every open, opened at `/panel` or `/continue` as much as at the home; before, it waited for Back, and `reconcile` ran before the queued join, so the first online open after an offline consent was refused. `GET /me` is now checked against the contract's schema before it is believed: an answer of another shape re-queues nothing.
+- **A sealing failure is one thing to a participant.** `save` shows `CLIENT_SEAL_FAILED` and its wording whatever the crypto package threw; before, `CRYPTO_BAD_TEXT` reached the card as `[missing: Error: CRYPTO_BAD_TEXT]`.
+- **A damaged queued join is forgotten**, not read and ignored on every open.
+- **A join refused for the minute waits and tries once more.** `lib/api.ts` reads `Retry-After` on every 429 (seconds, read as 1 to 60; 5 when the header is missing); `join` waits that long, once, with the line "App labels: retrying" on the consent screen, then sends the join again. A second refusal is shown in `RATE_LIMITED`'s wording. The API builder's item 6 sends the header; until it merges the client waits its five seconds.
+- **The hint says "Prefer to talk?" once.** Its title is a visible heading inside the hint; the five lines under "Dictation hint" in `copy.md` no longer start with it (placeholders, structure only).
+- **Tests.** `test/helpers.ts` holds what the client's tests share, including `pretendUserAgent` and `restoreUserAgent`: the Windows test of item 4 redefined `navigator.userAgent` for every test after it; it is restored after each test, and a test proves the test DOM's own browser gets no hint. `test/setup.ts` makes Node's `TextEncoder` and the test DOM's `Uint8Array` agree, which they did not: sealing an answer failed in every test and nowhere else, which is why no test of the stack ever saved an answer. 21 tests new or extended; 266 in the repository.
+
+### Why
+
+The reviewer's findings on items 1 to 4, in order of weight: two medium (the draft, the address), the rest low. The integrator asked for one pull request for all of them on top of the stack.
+
+### How to verify
+
+```
+npm run check                       # 266 tests
+npx vitest run --project web        # the client's 104
+```
+
+On the deploy preview, in a fresh browser: open `/rural-manufacturing/join/wave-1`, "I have a code", Back: the address bar reads `/rural-manufacturing/join/wave-1` again. Through the intro to the first card, type half an answer, "Your privacy", Back: the words are still in the field. Open `/rural-manufacturing/panel` on a device with a code: "what we store" is filled without tapping Back; Back: the address is `/rural-manufacturing/join/wave-1` (or `/rural-manufacturing/`), and a reload shows the card, not the panel.
+
+### Decisions made on the way
+
+- **The address bar follows the screen, not the other way round.** `home` is set once on open from the route; every return to "no page" writes it. Pages (`/continue`, `/panel`) write their own address while they show.
+- **The panel opened directly does not ask `GET /me` twice.** The sync on open has just read it; `showPanel` renders it. "Your privacy" from a screen still asks afresh, so the rows are live.
+- **`GET /me` is validated before use** (Zod, as at every boundary). Treating a strange answer as "the server lacks everything" would have re-queued every retained event.
+- **`CLIENT_SEAL_FAILED` for every sealing failure.** The crypto package's codes name the cause for the operator (they stay in the thrown error); the participant needs one sentence.
+
+### Open
+
+- The two `GET /me` calls on "I have a code" (one to check the code, one in the sync on open) could be one; left as is, it is one extra request per typed code.
+- Without the API's `Retry-After` the five-second default usually falls in the same minute's budget, so the retry is refused too and shown; with the header (API item 6) it waits for the next minute.
+
+---
+
+## 2026-11-02, Monday, night. UI item 5: the core loop on the deck engine
+
+### What
+
+- **The session is the deck engine's.** `apps/web/src/lib/deck.ts` is gone; `lib/session.ts` feeds `@wb/deck` and keeps the bookkeeping around it. A session on the device is a `LiveSession`: the session row (its seed), the plan the engine made, and three sets for this session (answered, dismissed once, deferred), rebuilt from the stored rows and never stored itself. `replaySession` is the engine's resume recipe: `planSession` with the history as it stood when the session started (every answer from other sessions, never this session's own; the previous session's deferred cards in `seq` order), then this session's `dismissed` and `deferred` events through `applyDismiss` in `seq` order, each `dismissed` card joining the set after its own call. The history is the device's rows and the server's (`GET /me`) merged, a shared row counting once, so a second device with the same code continues the same session.
+- **Resume, not restart.** On open with a code, the latest session (highest number, on this device or on the server) is replayed; if the engine says it is not over, it continues on the same card. A reload mid-session lands where it was and adds no session row, which closes the "17 sessions, 4 events" of item 2's report. A session that is over, or none, starts the next number.
+- **`shown` on display.** Every time a card comes onto the screen, including a dismissed card coming round and a resumed session, a `shown` event is recorded first.
+- **Set aside, by button and by swipe.** `withDismissal` calls `applyDismiss` with the set as it stood before the call and adds the card after, only on a first dismissal (the hand-over's sharp edge). The first time the card goes to the end of the queue (`dismissed`); the second time it leaves for the next session (`deferred`). The swipe is a Svelte action in `lib/swipe.ts`: the card follows the finger sideways and leaves past 80 pixels or 35% of its width, springs back short of it, leaves vertical movement to the scroll, and never starts in the answer field or on a button. The button makes the card leave the same way. With "reduce motion" on, nothing animates. The demo card swipes away too.
+- **The states of a card, on the card.** `app.cardState`: `fresh`, then after Save `saving` (sealing, writing the outbox), `saved`, and `synced`, `offline` or `sync problem` once the sync answers; the line sits under the card that was answered, with its field and buttons off, and the next card comes after a beat (`SETTLE_MS`, 900 ms). A set-aside shows no line: the next card comes at once and the sync runs behind it. One sync runs at a time; a second request waits for the first.
+- **The session ends when the engine says** (`isSessionOver`): after the last checkpoint, or later if a warm-up set aside once is still owed its second showing. "Card n of total" counts what is done plus one, out of the queue as it stands.
+- **The demo card** shows once per device (`demoSeen`), and only while nothing has been done in the first session: a second device joining a first session under way goes straight to the card.
+- **Boundaries.** The answer to `POST /sync` is checked against the contract before anything is marked accepted; an answer of another shape leaves the batch in the outbox. "I have a code" hands the `GET /me` that checked the code into the sync on open, so the server is asked once, not twice (item A's open point).
+- `lib/text.ts` holds the code-point helpers that lived in `deck.ts`. `App.svelte` takes an optional state, so a test can hand in one with instant waits. Tests: `session.test.ts` (the replay, the deferred-first rule, own answers not history, the sharp edge, the merge, the latest session), `swipe.test.ts` (thresholds, where a swipe may start, left and right, spring back, vertical left alone, off while saving), the states on the card, and in the state and the rendered app: shown then dismissed then deferred with the seqs in order and the session end; a reload resumes the same card with no new session row and a `shown` recorded again; session 2 opens with the deferred card first; a second device continues from the server's rows; "Saved on this device." and "Synced." on the answered card before the next one; offline wording; the swipe. 291 tests (25 new, 2 moved).
+
+### Why
+
+Item 5 of the UI brief, on the deck engine of pull requests 12 and 14 and the hand-over in their reports.
+
+### How to verify
+
+```
+npm run check                       # 291 tests
+npx vitest run --project web        # the client's 129
+```
+
+On the deploy preview, in a fresh browser: the wave link, the intro, "I understand", the demo card: swipe it away. Card 1 of 4: set it aside with the button; card 2 shows at once and the panel's "what we store" counts `shown` and `dismissed`. Answer cards 2, 3 and 4 (each shows "Saved on this device." then "Synced." on the card, then the next). Card 1 comes round again as "Card 4 of 4"; swipe it away: "That is a session." Reload mid-session at any point: the same card, and the panel still says one session.
+
+### Decisions made on the way
+
+- **The plan is never stored, only replayed**, as the hand-over asked. The cost is a replay on every open, which for a four-card session is nothing.
+- **Resume over restart** is what makes "no empty sessions" true, rather than creating the row at the first event: with `shown` recorded on display, the first event comes at once anyway.
+- **Save keeps the card until the sync answers**, so the line always speaks of the answer under it; a slow network holds the card in "Saved on this device." until then. If that proves too long on a phone, a cap on the wait is one line.
+- **The demo card is per device and only for an untouched first session**; nothing in the map said what a second device should see, and a participant who has answered has seen it.
+- **A session on two devices at once** can produce two events with the same `seq` (each device counts on from what it knew); ids stay unique, nothing is lost, and the replay is in `seq` order with ties in store order. Rare enough to note, not to design for.
+
+### Open
+
+- The map's "the session ends after the last checkpoint" and the engine's "when the queue is exhausted" differ only when a warm-up set aside once comes round after the checkpoint; the engine's reading is kept (the deck builder's item 2 says why).
+- The `shown` events double the rows per session; the sync batches and the panel's counts take them in their stride, and the research gets "shown but not answered" for free. Say if the count on the panel should read answers only.
+
+---
+
+## 2026-11-03, Tuesday, small hours. UI item 6: session end and install
+
+### What
+
+- **The session end in steps** (`apps/web/src/screens/SessionEnd.svelte`, `app.endStep`). Session 1: the code first, in groups of four, masked, with reveal, copy and Next; then the install prompt while it is due; then "Come back another day" with what still waits to sync. Every later session goes straight to the last step, with the words of "Session end: another session". The order is section 8.1's: the code before the install, so the installed app can be given it.
+- **The install prompt** (`lib/install.ts`): the "Session end: install" words with the steps for this platform from the new "Install steps" list (iPhone and iPad, Android, Mac, Windows, ChromeOS; none on Linux and unknown, so no prompt there). "Not now" counts a dismissal in the device's settings; after two the prompt is never shown again; an app opened from the home screen (`display-mode: standalone`) never shows it. Where the browser makes its own install offer (`beforeinstallprompt`, Chrome on Android and desktops), an "Install" button opens the browser's dialog, once.
+- **The installable app** (`apps/web/pwa.ts`, vite-plugin-pwa 2.0.0 as ADR 0012 names it, with its workbox peers): the web app manifest, the icons (drawn by a script into `public/icons/`: a dark card on warm paper, 192, 512, a maskable 512, the Apple touch icon, an SVG favicon) and a service worker that keeps the client's own files, so an installed app opens offline. `/api/*` is never cached: no runtime caching at all, and a navigation to `/api/*` is never answered with the client's page (the deny list). The worker is registered from `main.ts` through the plugin's module, not an inline script, so the Content Security Policy (`script-src 'self'`) holds.
+- **The root address.** One deployment serves many workshops, so the manifest starts at `/`; the client remembers the last workshop opened on this device (`localStorage`, the slug only) and sends `/` on to it. With nothing remembered, `/` is "not a workshop", as before.
+- Tests: the install rules (due until two dismissals, never installed, never without steps; the stored count); the PWA options (starts at the root; no runtime caching, the deny list, the registration not inline); the three steps of the session end rendered; in the state: code then install then done on session 1, the prompt once more after one "Not now" and never after two, straight to "come back" without steps or when installed, "Install" using the offer once; `/` going on to the last workshop. 142 client tests, 365 in the repository (13 new).
+
+### Why
+
+Item 6 of the UI brief; architecture plan 8.1 (the order of the code and the install) and 6.2 (the installed app on iOS has its own storage, so the code must be seen before installing).
+
+### How to verify
+
+```
+npm run check                       # 365 tests
+npm run build:web                   # dist/sw.js, dist/manifest.webmanifest, dist/icons/
+```
+
+On the deploy preview on a phone: finish the first session (four cards). "That is a session." with the masked code, Reveal, Copy, Next. "Keep it close" with the steps for your phone, "Not now". "Come back another day", "Everything is synced". Safari's Share, "Add to Home Screen": the icon is a dark card on paper; opening it lands on the welcome (type the code) or the next card. In a browser's developer tools, Application, Service workers: `sw.js` active; the Network tab shows `/api/...` requests going to the network, never "from ServiceWorker".
+
+### Decisions made on the way
+
+- **"Never again after two dismissals" is read across sessions**: the prompt comes at the end of session 1 and, after one "Not now", once more at the end of the next session; the code reveal stays session 1 only. Two "Not now" and it is gone.
+- **The manifest starts at `/` and the client redirects**, rather than one manifest per workshop: the plugin writes one manifest, and the redirect is three lines and needs no build step. A device that has opened two workshops lands on the last one.
+- **No runtime caching.** The precache is the client's files; everything else goes to the network. Offline, an installed app opens, and the outbox carries the answers until the network is back, as before.
+- **Icons drawn by a script** (`python3`, no image library), so the files are reproducible and the repository has no binary of unknown origin. The partner's mark replaces them when it arrives.
+
+### Open
+
+- `theme_color` and the icon's colours are the visual pass's first tokens (item 10); the manifest and the icons will follow them.
+- The worker's own update: `registerType: 'autoUpdate'` swaps the files on the next open after a deploy. No "a new version is ready" line yet; the panel's version row says which commit is running.
+
+---
+
+## 2026-11-03, Tuesday, small hours, later. UI item 7: the privacy panel in full
+
+### What
+
+- **What we store, row by row** (`apps/web/src/screens/PrivacyPanel.svelte`). The rows of `GET /me` as they are, in plain words: the participant (joined on which day, came through which wave or an invite, invites left), every session (number and day), every event (kind in the words of the new "Event kinds" list, the card, the number in the session, the day, the deck version), and a sealed body shown as "sealed answer, N characters, unreadable here and on the server", never its text (ADR 0007). The summary line stays; the rows open under "Show every row". A code the server could not be asked about reads "could not be read from the server just now".
+- **Diagnostics.** The last sync result with the day of the last sync the server accepted (`lastSyncDay` in the device's settings, set by every successful push); what waits in the outbox as events in sessions; the last error code of any kind, server or client, with its one-line wording from `copy.md`. `AppState.lastError` is set wherever an error is shown or a sync or `GET /me` fails; it is the one place the code itself is shown to a participant, as the map says.
+- **The code** with Reveal, Hide and Copy (groups of four) and the line "this is the only thing that identifies you to us"; **the version** with a link to the source at the running commit; **the data management plan** and **the caveat** from section 13; **"I have a code"** from the panel, to `/continue`.
+- **Delete in two steps.** "Delete everything about me" shows the question on the screen with "Yes, delete everything" and "Keep my answers"; nothing is sent until "yes". Then `DELETE /me`, the device wiped, the workshop's home. The browser's `confirm()` dialog is gone.
+- `copy.md`: the "Privacy panel" list grows to 33 labels (rows, the summary, the outbox, the source, the plan, "another device"), a new "Event kinds" list, and `source` under "Trust page variables". `SyncStatus` counts sessions as well as events. Tests: every row from a `GET /me` fixture, the body shown as sealed and never its text; the last error with its line; the last sync day; the outbox counts; the source link at the version; "could not be read"; the two-step delete on the screen and in the rendered app (the first tap sends nothing, "keep" cancels, "yes" sends `DELETE /me` and wipes the device); "I have a code" from the panel; the copy button; a failed `GET /me` as the last error. 150 client tests, 373 in the repository (8 new).
+
+### Why
+
+Item 7 of the UI brief; architecture plan, section 13 (the panel is the live version of the trust page) and ADR 0007 (sealed bodies shown as sealed).
+
+### How to verify
+
+```
+npm run check                       # 373 tests
+```
+
+On the deploy preview with a code: "Your privacy". Reveal shows the digits, Copy puts them on the clipboard. "Show every row" lists the participant, the sessions and the events, each answer as "sealed answer, N characters". "Last sync: ok, on <today>"; "Waiting to sync: 0 events in 0 sessions"; "Last error: none" (turn on airplane mode, answer a card, open the panel again: `CLIENT_SYNC_FAILED` with its line). The version links to the commit on GitHub. "Delete": the question, "Keep my answers" closes it; "Delete", "Yes, delete everything": the welcome, and "I have a code" with the old code says it is not ours.
+
+### Decisions made on the way
+
+- **The rows are listed, not tabulated.** A phone is narrow; one line per row with the fields in words reads better than a table and needs no horizontal scroll. The summary line comes first and the rows open on request.
+- **The error code is shown as a code only here**, with its participant wording beside it, so the runbook lookup and the plain meaning sit together.
+- **`lastError` is separate from the screen's `error`.** A screen's error clears when the screen changes; the diagnostics remember the last one until the next.
+- **The two steps live on the panel**, not in a browser dialog: a dialog's words cannot come from `copy.md`, and the installed app on iOS shows system dialogs poorly.
+
+### Open
+
+- The runbook's `CLIENT_SEAL_FAILED` entry says the client shows the crypto package's own code; since the review fixes it shows `CLIENT_SEAL_FAILED` for every sealing failure. The ops builder's file; a line for the integrator.
+- A participant with hundreds of events gets a long list under "Show every row"; fine for this workshop's four cards a session, worth a page size the week after launch.

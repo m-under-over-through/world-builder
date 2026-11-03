@@ -38,11 +38,13 @@ Tap the card to answer. Swipe it away to set it aside. Come back any time; a ses
 
 [placeholder]
 
-- iPhone and iPad: Prefer to talk? Tap the microphone on your keyboard.
-- Android: Prefer to talk? Tap the microphone on your keyboard.
-- Mac: Prefer to talk? Press the microphone key twice, or Edit > Start Dictation.
-- Windows: Prefer to talk? Press Windows + H.
-- ChromeOS: Prefer to talk? Press Search + D.
+<!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
+
+- iPhone and iPad: Tap the microphone on your keyboard.
+- Android: Tap the microphone on your keyboard.
+- Mac: Press the microphone key twice, or Edit > Start Dictation.
+- Windows: Press Windows + H.
+- ChromeOS: Press Search + D.
 
 ## Card nudge (under 15 words)
 
@@ -56,8 +58,22 @@ That is a session. This code is you: it is random, and it is the only thing that
 
 ## Session end: install (under 40 words)
 
+<!-- The install prompt at the end of the first session. [per-platform steps] is filled from the "Install steps" list below. -->
+
 [placeholder]
 Add this to your home screen for next time. [per-platform steps]
+
+## Install steps (under 25 words, per platform)
+
+<!-- How to add the app to the home screen, one line per platform; the app shows the line for the phone or computer it runs on. -->
+
+[placeholder]
+
+- iPhone and iPad: In Safari, tap Share, then "Add to Home Screen".
+- Android: In the browser menu, tap "Add to Home screen" or "Install app".
+- Mac: In Safari, File > Add to Dock; in Chrome, the install icon at the right of the address bar.
+- Windows: In Chrome or Edge, the install icon at the right of the address bar.
+- ChromeOS: In Chrome, the install icon at the right of the address bar.
 
 ## Trust page variables
 
@@ -69,6 +85,7 @@ Add this to your home screen for next time. [per-platform steps]
 - hostname: worldbuilder.under-over-through.co
 - contact: privacy@under-over-through.co
 - key fingerprint: from workshop.json
+- source: https://github.com/m-under-over-through/world-builder
 
 ## Titles (one line each)
 
@@ -78,8 +95,13 @@ Add this to your home screen for next time. [per-platform steps]
 
 - not a workshop: World Builder
 - enter code: Your code
+- intro 1: What this is
+- intro 2: How it works
 - consent: Before you start
+- demo card: Try a card
+- dictation hint: Prefer to talk?
 - session end: That is a session.
+- install: Keep it close
 - closed: This workshop has closed.
 - not open yet: Not open yet.
 - privacy panel: Your privacy
@@ -109,6 +131,8 @@ Add this to your home screen for next time. [per-platform steps]
 - keep: Keep my answers
 - got it: Got it
 - prefer to talk: Prefer to talk?
+- install: Install
+- not now: Not now
 - trust page: How your answers are protected
 
 ## App labels
@@ -117,6 +141,7 @@ Add this to your home screen for next time. [per-platform steps]
 
 - loading: Loading…
 - app name: World Builder
+- retrying: Busy at the moment. Trying again in a moment.
 
 ## Not a workshop (under 30 words)
 
@@ -209,11 +234,12 @@ This opens on [day]. Keep the link and come back then.
 
 ## Privacy panel
 
-<!-- The labels of the rows. A row shows a live value read from the running app. -->
+<!-- The labels of the rows. A row shows a live value read from the running app. "What we store" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
 
 [placeholder]
 
 - code: Your code
+- code note: This is the only thing that identifies you to us. It is random, and it is yours to keep.
 - no code yet: none yet
 - cookies: Cookies set by this app
 - hosts: Hosts this app has contacted since it opened
@@ -222,13 +248,41 @@ This opens on [day]. Keep the link and come back then.
 - key: Your answers are encrypted to the key
 - stored: What we store about you
 - nothing stored: nothing yet
+- not reachable: could not be read from the server just now
 - stored summary: [sessions] sessions, [events] events, answers sealed
+- show rows: Show every row
+- joined: Joined on
+- came through: Came through
+- an invite: an invite
+- invites left: Invites left
+- sessions: Sessions
+- session row: Session [n], started [day]
+- events: Events
+- event row: [kind], card "[card]", number [seq], on [day], deck [version]
+- sealed body: sealed answer, [chars] characters, unreadable here and on the server
 - waiting: Waiting to sync
-- waiting summary: [n] events
+- outbox summary: [events] events in [sessions] sessions
 - last sync: Last sync
+- last sync day: on [day]
 - last error: Last error
 - no error: none
 - version: Version
+- source: The source code at this version
+- plan: How your answers are handled
+- another device: Have a code from another device?
+- delete: Delete
+
+## Event kinds
+
+<!-- What the server records for a card, in plain words. -->
+
+[placeholder]
+
+- shown: shown
+- answered: answered
+- dismissed: set aside
+- deferred: put off to another session
+- revisited: revisited
 
 ## Privacy panel: caveat (under 50 words)
 

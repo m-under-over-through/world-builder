@@ -1,12 +1,17 @@
 /**
- * The URL is /<slug>/ with optional /join/<wave> or /join/i/<token> (architecture plan, 5.1).
- * Nothing identifying ever appears in it: the code travels in a header, never in the URL.
+ * The URL is /<slug>/ with optional /join/<wave>, /join/i/<token>, or one of the pages a
+ * participant can open directly (architecture plan, 5.1; docs/screen-map.md). Nothing identifying
+ * ever appears in it: the code travels in a header, never in the URL.
  */
+export const PAGES = ['continue', 'panel', 'trust'] as const;
+export type Page = (typeof PAGES)[number];
+
 export interface Route {
   slug: string;
   wave?: string;
   invite?: string;
-  page?: 'panel' | 'trust';
+  /** /continue is "enter code", /panel the privacy panel, /trust the trust page. */
+  page?: Page;
 }
 
 export function parseRoute(pathname: string): Route | null {
@@ -16,9 +21,14 @@ export function parseRoute(pathname: string): Route | null {
   const route: Route = { slug };
   if (parts[1] === 'join' && parts[2] === 'i' && parts[3]) route.invite = parts[3];
   else if (parts[1] === 'join' && parts[2]) route.wave = parts[2];
-  else if (parts[1] === 'panel') route.page = 'panel';
-  else if (parts[1] === 'trust') route.page = 'trust';
+  else if (parts[1] && (PAGES as readonly string[]).includes(parts[1]))
+    route.page = parts[1] as Page;
   return route;
+}
+
+/** The address of a page of a workshop: pageHref('rural-manufacturing', 'continue'). */
+export function pageHref(slug: string, page?: Page): string {
+  return page ? `/${slug}/${page}` : `/${slug}/`;
 }
 
 /**
