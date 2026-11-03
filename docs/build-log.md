@@ -1550,3 +1550,30 @@ On the deploy preview on a phone, and once with the system font at its largest a
 
 - The trust page's first section shows the draft's backticks around `v1.` as typed; the words are the reviewers'.
 - `theme_color` and the icons' colours now match the tokens by hand; they are not derived from the stylesheet.
+
+## 2026-11-03, Tuesday afternoon. Marco's first try: the installed app opened "not a workshop"
+
+### What
+
+Marco added the staging app to his iPhone's home screen and opened it: "This address is not a workshop. Use the link you were sent." The manifest started every installed app at `/`, trusting the client to send `/` on to the workshop the device last opened. On an iPhone a home-screen app has its own storage, apart from Safari's, so nothing is remembered there and `/` has nowhere to go.
+
+Now there is one manifest per workshop folder, written into the build at `/<slug>/manifest.webmanifest`, starting and staying at `/<slug>/`, and the page points its manifest link at the workshop it opened before anything else runs (`apps/web/src/main.ts`). The root manifest stays for a page without a workshop. The workshop manifests are precached with the rest, so the installed app still opens offline.
+
+### Why
+
+An installed app must open where it was installed from, on every platform. Storage cannot carry that on iOS; the address can. The code, too, is not carried into an iPhone's home-screen app: it asks for it once, which is what the screen map's order (the code before the install prompt) was for. The screen-map row says so now.
+
+### How to verify
+
+1. `npm run check`: `apps/web/test/install.test.ts` has the manifest per workshop, the plugin writing each at its address, and the page's manifest link.
+2. `npm run build:web`, then `ls apps/web/dist/rural-manufacturing/manifest.webmanifest` and `grep -c rural-manufacturing/manifest.webmanifest apps/web/dist/sw.js` (1: precached).
+3. On staging, open the workshop's join link in Safari, Share, Add to Home Screen, open the icon: the workshop's welcome, not "not a workshop". The installed app asks for the code once (its own storage); on Android it continues where Chrome was.
+
+### Decisions made on the way
+
+- Manifests are written by a small Vite plugin in `apps/web/pwa.ts` from the folders under `workshops/`, the same folders `src/lib/workshops.ts` bundles; no manifest is served by the API.
+- The root manifest and the `/` fallback stay, so an address without a workshop still answers as before.
+
+### Open
+
+- Whether to offer the install prompt on iPhone at all, given that the installed app starts without the code: Marco's call (his notes of 2 November).

@@ -1,4 +1,6 @@
+import type { Plugin } from 'vite';
 import type { VitePWAOptions } from 'vite-plugin-pwa';
+import { manifestHref } from './src/lib/install.ts';
 
 /**
  * The installable app (docs/screen-map.md, Install prompt; ADR 0012 names vite-plugin-pwa): the
@@ -7,8 +9,13 @@ import type { VitePWAOptions } from 'vite-plugin-pwa';
  * network, and a navigation to `/api/*` is never answered with the client's page. Kept apart from
  * vite.config.ts so a test can read these rules without building anything.
  *
- * One deployment serves many workshops (ADR 0004), so the manifest starts at `/`, and the client
- * sends `/` on to the workshop this device last opened (lib/state.svelte.ts, open).
+ * One deployment serves many workshops (ADR 0004), so there is one manifest per workshop, at
+ * /<slug>/manifest.webmanifest, starting and staying in that workshop; the page points its
+ * manifest link at the workshop it opened (src/main.ts). An installed app on an iPhone has its
+ * own storage, apart from Safari's, so it cannot remember which workshop it belongs to: the
+ * address has to say. The root manifest, starting at `/`, remains for a page without a workshop;
+ * the client sends `/` on to the workshop this device last opened where storage is shared
+ * (lib/state.svelte.ts, open).
  */
 export const API_PATH = /^\/api\//;
 
@@ -49,3 +56,29 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   },
   devOptions: { enabled: false },
 };
+
+/** The manifest of one workshop: the root manifest, starting and staying at /<slug>/. */
+export function workshopManifest(slug: string): Record<string, unknown> {
+  const home = `/${slug}/`;
+  return { ...pwaOptions.manifest, id: home, start_url: home, scope: home };
+}
+
+/**
+ * Writes one manifest per workshop folder into the build, next to the root one. They are written
+ * before the service worker is generated, so they are kept offline like the root manifest.
+ */
+export function workshopManifests(slugs: readonly string[]): Plugin {
+  return {
+    name: 'wb-workshop-manifests',
+    apply: 'build',
+    generateBundle() {
+      for (const slug of slugs) {
+        this.emitFile({
+          type: 'asset',
+          fileName: manifestHref(slug).slice(1),
+          source: JSON.stringify(workshopManifest(slug), null, 2),
+        });
+      }
+    },
+  };
+}
