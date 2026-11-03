@@ -8,6 +8,8 @@ import Intro from '../src/screens/Intro.svelte';
 import NotAWorkshop from '../src/screens/NotAWorkshop.svelte';
 import PrivacyPanel from '../src/screens/PrivacyPanel.svelte';
 import SessionEnd from '../src/screens/SessionEnd.svelte';
+import TextPage from '../src/screens/TextPage.svelte';
+import Trust from '../src/screens/Trust.svelte';
 import Welcome from '../src/screens/Welcome.svelte';
 import { fill } from '../src/lib/copy.ts';
 import { currentCardId, replaySession, type LiveSession } from '../src/lib/session.ts';
@@ -244,9 +246,73 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.queryByText(MASKED_CODE)).toBeNull();
   });
 
-  it('closed', () => {
+  it('closed, with the way to the trust page', () => {
     render(Closed, { app: state() });
     expect(screen.getByText(copy.text('Closed'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'trust page') })).toBeTruthy();
+  });
+
+  it('the trust page: the seven sections in order, the fingerprint and the source filled in, the links', () => {
+    render(Trust, { app: state({ screen: 'trust' }) });
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(headings).toEqual(
+      copy.sections.get('Trust page headings')!.items &&
+        [
+          'what we store',
+          'what we never collect',
+          'how it is protected',
+          'check it yourself',
+          'your controls',
+          'who, where, until when',
+          'the honest limit',
+        ].map((k) => copy.item('Trust page headings', k as 'what we store')),
+    );
+    const text = document.body.textContent!;
+    expect(text).toContain(workshop.keyFingerprint);
+    expect(text).not.toContain('[key fingerprint]');
+    expect(text).not.toContain('[source]');
+    expect(text).toContain(copy.item('Trust page variables', 'source'));
+    const source = screen.getByRole('link', {
+      name: copy.item('Trust page links', 'source'),
+    }) as HTMLAnchorElement;
+    expect(source.href).toContain(copy.item('Trust page variables', 'source'));
+    expect(
+      (
+        screen.getByRole('link', {
+          name: copy.item('Trust page links', 'webbkoll'),
+        }) as HTMLAnchorElement
+      ).href,
+    ).toBe(copy.item('Trust page variables', 'webbkoll'));
+    expect(
+      (
+        screen.getByRole('link', {
+          name: copy.item('Trust page links', 'blacklight'),
+        }) as HTMLAnchorElement
+      ).href,
+    ).toBe(copy.item('Trust page variables', 'blacklight'));
+    expect(
+      screen.getByRole('button', { name: copy.item('Trust page links', 'terms') }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: copy.item('Trust page links', 'privacy policy') }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
+  });
+
+  it('the terms and the privacy policy: every paragraph, the lead-ins in bold, no stars on the screen', () => {
+    for (const [page, block] of [
+      ['terms', 'Terms'],
+      ['privacy', 'Privacy policy'],
+    ] as const) {
+      const { unmount } = render(TextPage, { app: state({ screen: page }) });
+      expect(
+        screen.getByText(copy.item('Titles', page === 'terms' ? 'terms' : 'privacy policy')),
+      ).toBeTruthy();
+      expect(document.querySelectorAll('p').length).toBe(copy.paragraphs(block).length);
+      expect(document.body.textContent).not.toContain('**');
+      expect(document.querySelectorAll('strong').length).toBeGreaterThan(3);
+      unmount();
+    }
   });
 
   it('the privacy panel: every row label, no code yet, nothing stored', () => {

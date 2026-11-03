@@ -167,7 +167,19 @@ export const COPY_LISTS = {
     'contact',
     'key fingerprint',
     'source',
+    'webbkoll',
+    'blacklight',
   ],
+  'Trust page headings': [
+    'what we store',
+    'what we never collect',
+    'how it is protected',
+    'check it yourself',
+    'your controls',
+    'who, where, until when',
+    'the honest limit',
+  ],
+  'Trust page links': ['source', 'webbkoll', 'blacklight', 'terms', 'privacy policy'],
   Titles: [
     'not a workshop',
     'enter code',
@@ -245,7 +257,6 @@ export const COPY_LISTS = {
     'source',
     'plan',
     'another device',
-    'delete',
   ],
   'Event kinds': ['shown', 'answered', 'dismissed', 'deferred', 'revisited'],
   Diagnostics: ['last sync', 'outbox', 'last error', 'never', 'ok', 'offline', 'error'],
@@ -263,6 +274,17 @@ export type ListKey<H extends ListHeading> = (typeof COPY_LISTS)[H][number];
 /** What a missing block looks like on the screen: visible, and naming what to add to copy.md. */
 export function missing(name: string): string {
   return `[missing: ${name}]`;
+}
+
+/**
+ * A paragraph split into plain and bold runs: the drafts in copy.md mark a lead-in with
+ * `**two stars**`, and a screen renders each run as text or as `<strong>`, never as HTML.
+ */
+export function inline(text: string): { bold: boolean; text: string }[] {
+  return text
+    .split('**')
+    .map((run, i) => ({ bold: i % 2 === 1, text: run }))
+    .filter((run) => run.text !== '');
 }
 
 /** Fill the `[slot]`s in a text: fill('Card [n] of [total]', { n: 1, total: 4 }). */

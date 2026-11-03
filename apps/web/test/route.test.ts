@@ -22,6 +22,8 @@ describe('routes', () => {
   it('reads the pages a participant can open directly: continue, panel, trust', () => {
     expect(parseRoute('/rural-manufacturing/continue')?.page).toBe('continue');
     expect(parseRoute('/rural-manufacturing/trust')?.page).toBe('trust');
+    expect(parseRoute('/rural-manufacturing/terms')?.page).toBe('terms');
+    expect(parseRoute('/rural-manufacturing/privacy')?.page).toBe('privacy');
     expect(parseRoute('/rural-manufacturing/elsewhere')).toEqual({ slug: 'rural-manufacturing' });
   });
 

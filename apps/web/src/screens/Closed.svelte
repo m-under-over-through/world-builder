@@ -4,8 +4,8 @@
 
   /**
    * Closed (docs/screen-map.md, Offline and failure behaviour): the workshop is past its close
-   * day, or, for a new arrival before the opening day, not open yet. The link to the trust page
-   * comes with item 8.
+   * day, or, for a new arrival before the opening day, not open yet. The trust page is one tap
+   * away, since what happens to the answers now is its subject.
    */
   let { app }: { app: AppState } = $props();
   /** "16 November 2026" in the phone's language; noon avoids the day shifting at a timezone edge. */
@@ -24,3 +24,6 @@
   <h1>{app.copy.item('Titles', 'closed')}</h1>
   <p>{app.copy.text('Closed')}</p>
 {/if}
+<div class="row">
+  <button onclick={() => app.openPage('trust')}>{app.copy.item('Buttons', 'trust page')}</button>
+</div>

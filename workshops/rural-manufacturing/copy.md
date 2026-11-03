@@ -86,6 +86,34 @@ Add this to your home screen for next time. [per-platform steps]
 - contact: privacy@under-over-through.co
 - key fingerprint: from workshop.json
 - source: https://github.com/m-under-over-through/world-builder
+- webbkoll: https://webbkoll.dataskydd.net/en/results?url=https%3A%2F%2Fworldbuilder.under-over-through.co%2F
+- blacklight: https://themarkup.org/blacklight?url=worldbuilder.under-over-through.co
+
+## Trust page headings
+
+<!-- The seven section headings of the trust page, in order. -->
+
+[placeholder]
+
+- what we store: 1. What we store
+- what we never collect: 2. What we never collect
+- how it is protected: 3. How it is protected
+- check it yourself: 4. Check it yourself
+- your controls: 5. Your controls
+- who, where, until when: 6. Who, where, until when
+- the honest limit: 7. The honest limit
+
+## Trust page links
+
+<!-- The names of the links on the trust page; the addresses are in "Trust page variables". -->
+
+[placeholder]
+
+- source: The source code
+- webbkoll: Webbkoll's report on this site
+- blacklight: Blacklight's report on this site
+- terms: Terms
+- privacy policy: Privacy policy
 
 ## Titles (one line each)
 
@@ -270,7 +298,6 @@ This opens on [day]. Keep the link and come back then.
 - source: The source code at this version
 - plan: How your answers are handled
 - another device: Have a code from another device?
-- delete: Delete
 
 ## Event kinds
 

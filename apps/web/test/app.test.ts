@@ -277,6 +277,48 @@ describe('the pages a participant can open directly', () => {
     );
   });
 
+  it('/terms opens the terms and /privacy the policy', async () => {
+    stubRoutes({});
+    const terms = await open(`/${SLUG}/terms`);
+    expect(terms.screen).toBe('terms');
+    expect(screen.getByText(copy.item('Titles', 'terms'))).toBeTruthy();
+    document.body.innerHTML = '';
+    const policy = await open(`/${SLUG}/privacy`);
+    expect(policy.screen).toBe('privacy');
+    expect(screen.getByText(copy.item('Titles', 'privacy policy'))).toBeTruthy();
+  });
+
+  it('Back from /trust opened directly lands where the device lands', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/trust`);
+    expect(screen.getByText(copy.item('Titles', 'trust page'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/`);
+  });
+
+  it('the footer reaches the trust page, the terms and the policy from the welcome, and Back returns there', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/join/wave-1`);
+    await user.click(screen.getByRole('button', { name: copy.item('Trust page links', 'terms') }));
+    expect(await screen.findByText(copy.item('Titles', 'terms'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/terms`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'trust page') }));
+    expect(await screen.findByText(copy.item('Titles', 'trust page'))).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: copy.item('Trust page links', 'privacy policy') }),
+    );
+    expect(await screen.findByText(copy.item('Titles', 'privacy policy'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/privacy`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+  });
+
   it('the panel opened from the welcome goes back to the welcome', async () => {
     stubApi(() => ({ status: 200, body: {} }));
     const user = userEvent.setup();

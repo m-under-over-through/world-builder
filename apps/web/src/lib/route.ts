@@ -3,14 +3,14 @@
  * participant can open directly (architecture plan, 5.1; docs/screen-map.md). Nothing identifying
  * ever appears in it: the code travels in a header, never in the URL.
  */
-export const PAGES = ['continue', 'panel', 'trust'] as const;
+export const PAGES = ['continue', 'panel', 'trust', 'terms', 'privacy'] as const;
 export type Page = (typeof PAGES)[number];
 
 export interface Route {
   slug: string;
   wave?: string;
   invite?: string;
-  /** /continue is "enter code", /panel the privacy panel, /trust the trust page. */
+  /** /continue is "enter code", /panel the privacy panel, /trust, /terms and /privacy the three pages. */
   page?: Page;
 }
 

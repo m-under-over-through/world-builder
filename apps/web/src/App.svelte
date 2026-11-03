@@ -9,6 +9,8 @@
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
   import PrivacyPanel from './screens/PrivacyPanel.svelte';
   import SessionEnd from './screens/SessionEnd.svelte';
+  import TextPage from './screens/TextPage.svelte';
+  import Trust from './screens/Trust.svelte';
   import Welcome from './screens/Welcome.svelte';
 
   /**
@@ -59,5 +61,22 @@
     <Closed {app} />
   {:else if app.screen === 'panel'}
     <PrivacyPanel {app} />
+  {:else if app.screen === 'trust'}
+    <Trust {app} />
+  {:else if app.screen === 'terms' || app.screen === 'privacy'}
+    <TextPage {app} />
+  {/if}
+  {#if app.workshop && app.screen !== 'trust' && app.screen !== 'terms' && app.screen !== 'privacy'}
+    <footer class="muted">
+      <button class="link" onclick={() => app.openPage('trust')}
+        >{app.copy.item('Buttons', 'trust page')}</button
+      >
+      <button class="link" onclick={() => app.openPage('terms')}
+        >{app.copy.item('Trust page links', 'terms')}</button
+      >
+      <button class="link" onclick={() => app.openPage('privacy')}
+        >{app.copy.item('Trust page links', 'privacy policy')}</button
+      >
+    </footer>
   {/if}
 </main>

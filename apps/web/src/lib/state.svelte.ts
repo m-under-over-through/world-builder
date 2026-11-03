@@ -75,7 +75,13 @@ export type Screen =
   | 'card'
   | 'session-end'
   | 'panel'
+  | 'trust'
+  | 'terms'
+  | 'privacy'
   | 'closed';
+
+/** The three pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
+export type TextPage = Extract<Page, 'trust' | 'terms' | 'privacy'>;
 
 /** The code as shown before "Reveal": four groups of four. */
 export const MASKED_CODE = '•••• •••• •••• ••••';
@@ -248,6 +254,10 @@ export class AppState {
       this.screen = 'enter-code';
       return;
     }
+    if (route.page === 'trust' || route.page === 'terms' || route.page === 'privacy') {
+      this.openPage(route.page);
+      return;
+    }
     if (route.page === 'panel') {
       // The sync on open has just read GET /me; the panel shows it rather than asking again.
       await this.showPanel();
@@ -286,7 +296,21 @@ export class AppState {
     this.tooShort = false;
     if (page === 'continue') this.screen = 'enter-code';
     else if (page === 'panel') await this.openPanel();
+    else if (page === 'trust' || page === 'terms' || page === 'privacy') this.openPage(page);
     else await this.land();
+  }
+
+  /** The trust page, the terms or the privacy policy, from any screen; Back returns there. */
+  openPage(page: TextPage): void {
+    if (!this.workshop) return;
+    if (this.screen !== page) this.before = this.screen;
+    history.replaceState(null, '', pageHref(this.workshop.config.slug, page));
+    this.screen = page;
+  }
+
+  /** Back from a page of text: the same rule as Back from the panel. */
+  async closePage(): Promise<void> {
+    await this.closePanel();
   }
 
   /**
@@ -622,7 +646,8 @@ export class AppState {
    */
   async closePanel(): Promise<void> {
     if (!this.workshop) return;
-    const back = this.before === 'loading' || this.before === 'panel' ? undefined : this.before;
+    const pages: Screen[] = ['loading', 'panel', 'trust', 'terms', 'privacy'];
+    const back = pages.includes(this.before) ? undefined : this.before;
     history.replaceState(
       null,
       '',

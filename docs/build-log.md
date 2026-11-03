@@ -1410,3 +1410,36 @@ On the deploy preview with a code: "Your privacy". Reveal shows the digits, Copy
 
 - The runbook's `CLIENT_SEAL_FAILED` entry says the client shows the crypto package's own code; since the review fixes it shows `CLIENT_SEAL_FAILED` for every sealing failure. The ops builder's file; a line for the integrator.
 - A participant with hundreds of events gets a long list under "Show every row"; fine for this workshop's four cards a session, worth a page size the week after launch.
+
+---
+
+## 2026-11-03, Tuesday morning. UI item 8: the trust page, the terms and the privacy policy
+
+### What
+
+- **The trust page** (`apps/web/src/screens/Trust.svelte`, at `/<slug>/trust`): the seven sections of section 13 from `copy.md`, under the headings of the new "Trust page headings" list, with `[key fingerprint]` filled from the workshop file and `[source]` from "Trust page variables", so the page cannot drift from the key it describes. Under them the links that need no trust in us: the source at the running commit, Webbkoll's and Blacklight's reports on the production address (the two new variables `webbkoll` and `blacklight`); then the terms, the policy and Back.
+- **The terms and the privacy policy** (`TextPage.svelte`, at `/<slug>/terms` and `/<slug>/privacy`): the drafts paragraph by paragraph, their `**lead-ins**` shown in bold through `inline()` in `lib/copy.ts`, which splits a paragraph into plain and bold runs; no HTML from the file is ever rendered.
+- **Reachable from everywhere.** A footer on every screen but the three pages links to them; the closed screen has the trust page button, as the map asks. `openPage` puts the page's address in the bar and remembers the screen it came from; Back is the panel's rule (`closePanel`), so a page opened directly lands where the device lands.
+- `copy.md`: "Trust page headings" (seven), "Trust page links" (five), two variables. Dropped: the unused "Privacy panel: delete" key the review named. Tests: `inline`; the two routes; the trust page (the seven headings in order, the fingerprint and the source filled, the three links' addresses, no slot left); the terms and the policy (every paragraph, bold lead-ins, no stars on the screen); the closed screen's button; in the rendered app: `/terms` and `/privacy`, Back from `/trust` opened directly, the footer to the terms and the policy and Back to the welcome with the wave address kept. 156 client tests, 379 in the repository (6 new).
+
+### Why
+
+Item 8 of the UI brief; architecture plan, section 13 (the checkable tier and its links); `docs/participant-texts.md` for the words.
+
+### How to verify
+
+```
+npm run check                       # 379 tests
+```
+
+On the deploy preview: the footer's "How your answers are protected": seven numbered sections, section 3 ending with `de7f-523e-d6db-ad50` (staging's fingerprint), section 4 naming the GitHub address; the three links open the source at this commit and the two scanners' pages; "Terms" and "Privacy policy" open the drafts with their lead-ins in bold and the reviewers' square brackets visible; Back returns to where you were, with the address you arrived at. `/rural-manufacturing/trust` opened directly: the page; Back: the welcome.
+
+### Decisions made on the way
+
+- **Bold is the one piece of formatting the drafts use**, so `inline()` handles only `**`; anything else in the file shows as typed.
+- **The scanner links point at the production address**, not at the preview, since a scan of a preview says nothing about what participants use; the pages are the scanners' own result pages.
+- **Links are buttons for the in-app pages** (they change the state, the address follows) and anchors for the outside pages.
+
+### Open
+
+- The scanner reports do not exist until someone runs the scans on the production address; the links will show "no result yet" until then. The ops item 4 runs them.

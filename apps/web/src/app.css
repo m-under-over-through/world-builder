@@ -118,3 +118,14 @@ dd {
   margin: 0;
   word-break: break-all;
 }
+footer {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 32px;
+}
+button.link {
+  border: none;
+  padding: 8px 0;
+  text-decoration: underline;
+}
