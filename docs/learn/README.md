@@ -13,3 +13,4 @@ Explainers for the ideas in this codebase, written for the operator: someone who
 | `07-bundling-the-function.md`    | Imports, links and why a deployed function must be one file; how the build makes it and how two tests hold it                                    |
 | `08-backups.md`                  | Logical dumps, sealing files with age, Object Lock, a heartbeat; what the nightly job does, step by step, how to check it, and the restore drill |
 | `09-seeded-shuffle.md`           | Pseudo-random generators, seeds, Fisher-Yates; why a stored seed replays a session; the three functions of the deck engine                       |
+| `10-the-installed-app.md`        | The manifest and its three addresses; why an iPhone's home-screen app starts empty; what the service worker keeps and never keeps                |

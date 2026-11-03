@@ -33,3 +33,23 @@ export function runsInstalled(): boolean {
     return true;
   return (navigator as { standalone?: boolean }).standalone === true;
 }
+
+/** The address of a workshop's own manifest (apps/web/pwa.ts, workshopManifests). */
+export function manifestHref(slug: string): string {
+  return `/${slug}/manifest.webmanifest`;
+}
+
+/**
+ * Point the page's manifest link at a workshop's manifest, so an app installed from this page
+ * starts in this workshop. The build writes a link to the root manifest; a page without one (the
+ * development server) gets one.
+ */
+export function pointManifest(doc: Document, href: string): void {
+  let link = doc.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+  if (!link) {
+    link = doc.createElement('link');
+    link.rel = 'manifest';
+    doc.head.appendChild(link);
+  }
+  link.href = href;
+}
