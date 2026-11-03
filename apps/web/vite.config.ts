@@ -16,9 +16,9 @@ const commitRef = process.env.COMMIT_REF ?? process.env.VITE_COMMIT_REF;
 
 // The workshop folders, the same ones src/lib/workshops.ts bundles: one manifest each (pwa.ts).
 const workshopsDir = fileURLToPath(new URL('../../workshops/', import.meta.url));
-const slugs = readdirSync(workshopsDir).filter((dir) =>
-  existsSync(join(workshopsDir, dir, 'workshop.json')),
-);
+const slugs = existsSync(workshopsDir)
+  ? readdirSync(workshopsDir).filter((dir) => existsSync(join(workshopsDir, dir, 'workshop.json')))
+  : [];
 
 export default defineConfig({
   define: commitRef ? { 'import.meta.env.VITE_COMMIT_REF': JSON.stringify(commitRef) } : {},

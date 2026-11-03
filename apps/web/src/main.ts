@@ -8,8 +8,9 @@ import { findWorkshop } from './lib/workshops.ts';
 
 // An app installed from a workshop's page opens at that workshop: its manifest, not the root one
 // (apps/web/pwa.ts). Done before anything else, so the browser reads the right one when asked.
+// Only in a build: the development server has no manifests at all.
 const slug = parseRoute(location.pathname)?.slug;
-if (slug && findWorkshop(slug)) pointManifest(document, manifestHref(slug));
+if (!import.meta.env.DEV && slug && findWorkshop(slug)) pointManifest(document, manifestHref(slug));
 
 mount(App, { target: document.getElementById('app')! });
 

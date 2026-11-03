@@ -10,12 +10,12 @@ import { manifestHref } from './src/lib/install.ts';
  * vite.config.ts so a test can read these rules without building anything.
  *
  * One deployment serves many workshops (ADR 0004), so there is one manifest per workshop, at
- * /<slug>/manifest.webmanifest, starting and staying in that workshop; the page points its
+ * /<slug>/manifest.webmanifest, starting and staying in that workshop. The page points its
  * manifest link at the workshop it opened (src/main.ts). An installed app on an iPhone has its
- * own storage, apart from Safari's, so it cannot remember which workshop it belongs to: the
- * address has to say. The root manifest, starting at `/`, remains for a page without a workshop;
- * the client sends `/` on to the workshop this device last opened where storage is shared
- * (lib/state.svelte.ts, open).
+ * own storage, apart from Safari's. It cannot remember which workshop it belongs to, so the
+ * address has to say (docs/learn/10-the-installed-app.md). The root manifest, starting at `/`,
+ * remains for a page without a workshop. Where storage is shared, the client sends `/` on to the
+ * workshop this device last opened (lib/state.svelte.ts, open).
  */
 export const API_PATH = /^\/api\//;
 

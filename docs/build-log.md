@@ -1555,9 +1555,9 @@ On the deploy preview on a phone, and once with the system font at its largest a
 
 ### What
 
-Marco added the staging app to his iPhone's home screen and opened it: "This address is not a workshop. Use the link you were sent." The manifest started every installed app at `/`, trusting the client to send `/` on to the workshop the device last opened. On an iPhone a home-screen app has its own storage, apart from Safari's, so nothing is remembered there and `/` has nowhere to go.
+Marco added the staging app to his iPhone's home screen and opened it: "This address is not a workshop. Use the link you were sent." The manifest started every installed app at `/`. The client was trusted to send `/` on to the workshop the device last opened. On an iPhone a home-screen app has its own storage, apart from Safari's. Nothing is remembered there, so `/` had nowhere to go.
 
-Now there is one manifest per workshop folder, written into the build at `/<slug>/manifest.webmanifest`, starting and staying at `/<slug>/`, and the page points its manifest link at the workshop it opened before anything else runs (`apps/web/src/main.ts`). The root manifest stays for a page without a workshop. The workshop manifests are precached with the rest, so the installed app still opens offline.
+Now there is one manifest per workshop folder, written into the build at `/<slug>/manifest.webmanifest`, starting and staying at `/<slug>/`. The page points its manifest link at the workshop it opened before anything else runs (`apps/web/src/main.ts`). The root manifest stays for a page without a workshop. The workshop manifests are precached with the rest, so the installed app still opens offline. The idea is in [docs/learn/10-the-installed-app.md](learn/10-the-installed-app.md).
 
 ### Why
 
@@ -1577,3 +1577,6 @@ An installed app must open where it was installed from, on every platform. Stora
 ### Open
 
 - Whether to offer the install prompt on iPhone at all, given that the installed app starts without the code: Marco's call (his notes of 2 November).
+- An app installed before this change keeps its old start address. Remove it from the home screen and add it again.
+- A fresh iPhone app has no stored arrival, so it joins through the first wave rather than the one the newsletter link named. The wave is lost for that device.
+- The reviewer's two nits left as they are: the plugin test checks names and contents, not the order against the service worker (the build step in "How to verify" does); the rule "only a known workshop gets its own manifest" lives in two lines of `main.ts` without a test of its own.
