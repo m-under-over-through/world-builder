@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import type { VitePWAOptions } from 'vite-plugin-pwa';
 import { manifestHref } from './src/lib/install.ts';
+import { reminderCalendar, reminderHref, type ReminderInput } from './src/lib/reminder.ts';
 
 /**
  * The installable app (docs/screen-map.md, Install prompt; ADR 0012 names vite-plugin-pwa): the
@@ -18,6 +19,7 @@ import { manifestHref } from './src/lib/install.ts';
  * workshop this device last opened (lib/state.svelte.ts, open).
  */
 export const API_PATH = /^\/api\//;
+export const REMINDER_PATH = /\/reminder\.ics$/;
 
 export const pwaOptions: Partial<VitePWAOptions> = {
   // Registered from main.ts through the virtual module: an inline script would break the
@@ -46,10 +48,12 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     ],
   },
   workbox: {
-    globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
-    // Any address of the client is the one page; the API is not the client.
+    // The reminder files are kept with the rest, so "Remind me" works in an installed app offline.
+    globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,ics}'],
+    // Any address of the client is the one page; the API is not the client, and neither is a
+    // calendar file: a tap on "Remind me" must reach the file, never the page.
     navigateFallback: '/index.html',
-    navigateFallbackDenylist: [API_PATH],
+    navigateFallbackDenylist: [API_PATH, REMINDER_PATH],
     // No runtime caching at all: what is not in the precache (the API) is fetched, never kept.
     runtimeCaching: [],
     cleanupOutdatedCaches: true,
@@ -79,6 +83,32 @@ export function workshopManifests(slugs: readonly string[]): Plugin {
           source: JSON.stringify(workshopManifest(slug), null, 2),
         });
       }
+    },
+  };
+}
+
+/**
+ * Writes one calendar file per workshop folder into the build, at /<slug>/reminder.ics
+ * (src/lib/reminder.ts; ADR 0013), the way the manifests are written; and serves the same bytes
+ * on the development server, so "Remind me" can be tried without a build. The Content-Type is
+ * Netlify's, from public/_headers; the development server sets the same one here.
+ */
+export function workshopReminders(reminders: readonly ReminderInput[]): Plugin {
+  const files = new Map(reminders.map((r) => [reminderHref(r.slug), reminderCalendar(r)]));
+  return {
+    name: 'wb-workshop-reminders',
+    generateBundle() {
+      for (const [href, source] of files) {
+        this.emitFile({ type: 'asset', fileName: href.slice(1), source });
+      }
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const file = files.get((req.url ?? '').split('?')[0] ?? '');
+        if (file === undefined) return next();
+        res.setHeader('content-type', 'text/calendar; charset=utf-8');
+        res.end(file);
+      });
     },
   };
 }

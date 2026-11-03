@@ -1,20 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
+import About from '../src/screens/About.svelte';
 import Card from '../src/screens/Card.svelte';
 import Closed from '../src/screens/Closed.svelte';
 import DemoCard from '../src/screens/DemoCard.svelte';
 import EnterCode from '../src/screens/EnterCode.svelte';
 import Intro from '../src/screens/Intro.svelte';
 import NotAWorkshop from '../src/screens/NotAWorkshop.svelte';
-import PrivacyPanel from '../src/screens/PrivacyPanel.svelte';
 import SessionEnd from '../src/screens/SessionEnd.svelte';
 import TextPage from '../src/screens/TextPage.svelte';
-import Trust from '../src/screens/Trust.svelte';
 import Welcome from '../src/screens/Welcome.svelte';
-import { fill } from '../src/lib/copy.ts';
+import { fill, TRUST_BLOCKS } from '../src/lib/copy.ts';
 import { currentCardId, replaySession, type LiveSession } from '../src/lib/session.ts';
-import { AppState, MASKED_CODE } from '../src/lib/state.svelte.ts';
+import { AppState } from '../src/lib/state.svelte.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
+
+/** A code as the screens show it: four groups of four. */
+const CODE = '1234567890123456';
+const SHOWN_CODE = '1234 5678 9012 3456';
 
 /**
  * Every screen renders on its own from a state a test sets up by hand, with the words of
@@ -56,15 +59,21 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.text('Not a workshop'))).toBeTruthy();
   });
 
-  it('welcome, arrived through a link: "New here" and "I have a code", each with its words', () => {
+  it('welcome, arrived through a link: the "New here" button, and under it one quiet line with the "I have a code" link', () => {
     render(Welcome, { app: state({ arrival: { wave: 'wave-1' } }) });
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'new here') })).toBeTruthy();
+    const newHere = screen.getByRole('button', { name: copy.item('Buttons', 'new here') });
+    expect(newHere.classList.contains('primary')).toBe(true);
     expect(screen.getByText(copy.text('Welcome: new here'))).toBeTruthy();
+    const haveACode = screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') });
+    // A text link, not a second button, in the line that introduces it.
+    expect(haveACode.classList.contains('link')).toBe(true);
+    expect(haveACode.closest('p')?.textContent).toContain(copy.text('Welcome: I have a code'));
     expect(
-      screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
+      newHere.compareDocumentPosition(haveACode) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByText(copy.text('Welcome: I have a code'))).toBeTruthy();
     expect(screen.queryByText(copy.text('Welcome: no link'))).toBeNull();
+    // The screen has one button in the accent.
+    expect(document.querySelectorAll('button.primary')).toHaveLength(1);
   });
 
   it('welcome, arrived through an invite: "New here" as well', () => {
@@ -80,7 +89,7 @@ describe('the screens render the words of copy.md', () => {
     expect(
       screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
     ).toBeTruthy();
-    expect(screen.getByText(copy.text('Welcome: I have a code'))).toBeTruthy();
+    expect(screen.getByText(copy.text('Welcome: I have a code'), { exact: false })).toBeTruthy();
   });
 
   it('enter code, with the too-short line and an error line in their wording', () => {
@@ -118,9 +127,15 @@ describe('the screens render the words of copy.md', () => {
     }
   });
 
-  it('welcome after the stored code was refused: the explanation', () => {
-    render(Welcome, { app: state({ codeRefused: true }) });
-    expect(screen.getByText(copy.text('Welcome: code not accepted'))).toBeTruthy();
+  it('welcome after the stored code was refused: one quiet line, not a box, and only then', () => {
+    const { unmount } = render(Welcome, { app: state({ codeRefused: true }) });
+    const line = screen.getByText(copy.text('Welcome: code not accepted'));
+    expect(line.getAttribute('role')).toBe('status');
+    expect(line.classList.contains('warning')).toBe(false);
+    expect(document.querySelector('.warning')).toBeNull();
+    unmount();
+    render(Welcome, { app: state() });
+    expect(screen.queryByText(copy.text('Welcome: code not accepted'))).toBeNull();
   });
 
   it('intro 3 while a refused join waits for its retry: the "trying again" line', () => {
@@ -202,90 +217,139 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.error('CLIENT_SEAL_FAILED'), { exact: false })).toBeTruthy();
   });
 
-  it('the session end, the code step: the masked code, reveal, copy and Next; nothing else yet', () => {
-    render(SessionEnd, { app: state({ code: '1234567890123456', endStep: 'code' }) });
-    expect(screen.getByText(MASKED_CODE)).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'reveal') })).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'next') })).toBeTruthy();
-    expect(screen.queryByText(copy.item('Session end', 'come back'))).toBeNull();
-    expect(screen.queryByText(copy.item('Titles', 'install'))).toBeNull();
-  });
+  /** The session end of a first session, on a phone, with the install offer due. */
+  function atTheEnd(patch: Partial<AppState> = {}): AppState {
+    const app = onACard({ code: CODE, card: undefined, installOffered: true, ...patch });
+    app.platform = patch.platform === undefined ? 'iPhone and iPad' : patch.platform;
+    return app;
+  }
 
-  it('the session end, the install step: the steps for this platform, "Not now", and "Install" only with an offer', () => {
-    const { unmount } = render(SessionEnd, {
-      app: state({ code: '1234567890123456', endStep: 'install', platform: 'iPhone and iPad' }),
-    });
+  it('the end of the first session: one heading, the code in its sentence with Copy, the install offer, the come-back line with "Remind me"', () => {
+    render(SessionEnd, { app: atTheEnd() });
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: copy.item('Titles', 'session end') })).toBeTruthy();
+    const sentence = copy.text('Session end: your code').split('[code]');
+    const code = screen.getByText(SHOWN_CODE);
+    expect(code.closest('p')?.textContent?.replace(/\s+/g, ' ')).toContain(sentence[0]!.trim());
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
     expect(screen.getByText(copy.item('Titles', 'install'))).toBeTruthy();
     expect(
       screen.getByText(copy.item('Install steps', 'iPhone and iPad'), { exact: false }),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'not now') })).toBeTruthy();
+    expect(screen.getAllByText(copy.text('Session end: come back'), { exact: false })).toHaveLength(
+      1,
+    );
+    const remind = screen.getByRole('link', { name: copy.item('Buttons', 'remind me') });
+    expect(remind.getAttribute('href')).toBe('/rural-manufacturing/reminder.ics');
+    // The code comes before the install offer, the come-back line after both (architecture plan 8.1).
+    const text = document.body.textContent!;
+    expect(text.indexOf(SHOWN_CODE)).toBeLessThan(text.indexOf(copy.item('Titles', 'install')));
+    expect(text.indexOf(copy.item('Titles', 'install'))).toBeLessThan(
+      text.indexOf(copy.text('Session end: come back')),
+    );
+  });
+
+  it('the session end never says the same thing twice, and nothing is masked', () => {
+    render(SessionEnd, { app: atTheEnd() });
+    const text = document.body.textContent!.replace(/\s+/g, ' ');
+    const title = copy.item('Titles', 'session end');
+    expect(text.split(title)).toHaveLength(2);
+    expect(text.split(copy.text('Session end: come back'))).toHaveLength(2);
+    expect(text).not.toContain('•');
+    expect(screen.queryByText(copy.item('Session end', 'waiting to sync'))).toBeNull();
+  });
+
+  it('the install offer: on an iPhone the steps say it asks for the code once, and no "Install" button; on Android with an offer, "Install"', () => {
+    const { unmount } = render(SessionEnd, { app: atTheEnd() });
+    expect(copy.item('Install steps', 'iPhone and iPad')).toContain('code');
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'install') })).toBeNull();
-    expect(screen.queryByText(MASKED_CODE)).toBeNull();
     unmount();
     const offer = Object.assign(new Event('beforeinstallprompt'), { prompt: async () => {} });
-    render(SessionEnd, {
-      app: state({ endStep: 'install', platform: 'Android', installOffer: offer }),
-    });
+    render(SessionEnd, { app: atTheEnd({ platform: 'Android', installOffer: offer }) });
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'install') })).toBeTruthy();
+    expect(screen.getByText(copy.item('Install steps', 'Android'), { exact: false })).toBeTruthy();
   });
 
-  it('the session end, the last step: come back, all synced, and no code', () => {
-    render(SessionEnd, { app: state({ code: '1234567890123456', endStep: 'done' }) });
-    expect(screen.getByText(copy.item('Session end', 'come back'))).toBeTruthy();
-    expect(screen.getByText(copy.item('Session end', 'all synced'))).toBeTruthy();
-    expect(screen.queryByText(MASKED_CODE)).toBeNull();
-    expect(screen.queryByText(copy.text('Session end: another session'))).toBeNull();
+  it('the end of the first session without the offer (installed, or no steps): the code and the come-back line only', () => {
+    render(SessionEnd, { app: atTheEnd({ installOffered: false }) });
+    expect(screen.getByText(SHOWN_CODE)).toBeTruthy();
+    expect(screen.queryByText(copy.item('Titles', 'install'))).toBeNull();
+    expect(screen.getByRole('link', { name: copy.item('Buttons', 'remind me') })).toBeTruthy();
   });
 
-  it('the session end with answers waiting: the count in its wording', () => {
-    render(SessionEnd, {
-      app: state({
-        code: '1234567890123456',
-        sync: { lastResult: 'offline', outboxSize: 3, outboxSessions: 0 },
-      }),
+  it('the session end with answers waiting: the quiet count in its wording; none when nothing waits', () => {
+    const { unmount } = render(SessionEnd, {
+      app: atTheEnd({ sync: { lastResult: 'offline', outboxSize: 3, outboxSessions: 0 } }),
     });
-    expect(
-      screen.getByText(fill(copy.item('Session end', 'waiting to sync'), { n: 3 })),
-    ).toBeTruthy();
+    const line = screen.getByText(fill(copy.item('Session end', 'waiting to sync'), { n: 3 }));
+    expect(line.classList.contains('muted')).toBe(true);
+    unmount();
+    render(SessionEnd, { app: atTheEnd() });
+    expect(document.body.textContent).not.toContain('waiting to sync');
   });
 
-  it('the end of a later session: its own words, come back, and no code', () => {
-    const app = onACard({ code: '1234567890123456', endStep: 'done' });
+  it('the end of a later session: thanks, the come-back line once with "Remind me", no code, no offer', () => {
+    const app = atTheEnd();
     app.live = { ...app.live!, session: { ...app.live!.session, sessionNo: 2 } };
     render(SessionEnd, { app });
-    expect(screen.getByText(copy.text('Session end: another session'))).toBeTruthy();
-    expect(screen.getByText(copy.item('Session end', 'come back'))).toBeTruthy();
-    expect(screen.queryByText(MASKED_CODE)).toBeNull();
+    expect(screen.getByRole('heading', { name: copy.item('Titles', 'session end') })).toBeTruthy();
+    expect(screen.getAllByText(copy.text('Session end: come back'), { exact: false })).toHaveLength(
+      1,
+    );
+    expect(screen.getByRole('link', { name: copy.item('Buttons', 'remind me') })).toBeTruthy();
+    expect(screen.queryByText(SHOWN_CODE)).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'copy') })).toBeNull();
+    expect(screen.queryByText(copy.item('Titles', 'install'))).toBeNull();
   });
 
-  it('closed, with the way to the trust page', () => {
+  it('closed: the words, and nothing else on the screen itself', () => {
     render(Closed, { app: state() });
     expect(screen.getByText(copy.text('Closed'))).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'trust page') })).toBeTruthy();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
-  it('the trust page: the seven sections in order, the fingerprint and the source filled in, the links', () => {
-    render(Trust, { app: state({ screen: 'trust' }) });
+  it("the page about the app: its sections in the brief's order, under one title", () => {
+    render(About, { app: state({ screen: 'about', code: CODE }) });
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(
-      copy.sections.get('Trust page headings')!.items &&
-        [
-          'what we store',
-          'what we never collect',
-          'how it is protected',
-          'check it yourself',
-          'your controls',
-          'who, where, until when',
-          'the honest limit',
-        ].map((k) => copy.item('Trust page headings', k as 'what we store')),
+    expect(headings).toEqual([
+      copy.item('Titles', 'trust page'),
+      copy.item('Privacy panel', 'code'),
+      copy.item('Titles', 'privacy panel'),
+    ]);
+    const text = document.body.textContent!.replace(/\s+/g, ' ');
+    const order = [
+      copy.text('About: what this is'),
+      copy.item('Titles', 'trust page'),
+      copy.item('Privacy panel', 'code'),
+      SHOWN_CODE,
+      copy.item('Titles', 'privacy panel'),
+      copy.text('About: delete'),
+      copy.item('Trust page links', 'terms'),
+    ].map((s) => text.indexOf(s));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(document.getElementById('about-protected')).toBeTruthy();
+    expect(document.getElementById('about-now')).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
+  });
+
+  it('the page about the app: how answers are protected, the six paragraphs in order, the fingerprint and the source filled in, the links', () => {
+    render(About, { app: state({ screen: 'about' }) });
+    const text = document.body.textContent!.replace(/\s+/g, ' ');
+    const slots = {
+      'key fingerprint': workshop.keyFingerprint,
+      source: copy.item('Trust page variables', 'source'),
+    };
+    const positions = TRUST_BLOCKS.map((block) =>
+      text.indexOf(fill(copy.paragraphs(block)[0]!, slots).slice(0, 40)),
     );
-    const text = document.body.textContent!;
+    expect(positions.every((i) => i >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(text).toContain(workshop.keyFingerprint);
     expect(text).not.toContain('[key fingerprint]');
     expect(text).not.toContain('[source]');
-    expect(text).toContain(copy.item('Trust page variables', 'source'));
     const source = screen.getByRole('link', {
       name: copy.item('Trust page links', 'source'),
     }) as HTMLAnchorElement;
@@ -310,7 +374,6 @@ describe('the screens render the words of copy.md', () => {
     expect(
       screen.getByRole('button', { name: copy.item('Trust page links', 'privacy policy') }),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
   });
 
   it('the terms and the privacy policy: every paragraph, the lead-ins in bold, no stars on the screen', () => {
@@ -329,8 +392,8 @@ describe('the screens render the words of copy.md', () => {
     }
   });
 
-  it('the privacy panel: every row label, no code yet, nothing stored', () => {
-    render(PrivacyPanel, { app: state() });
+  it('the page about the app without a code: every fact, no code yet, nothing stored, no delete', () => {
+    render(About, { app: state() });
     for (const key of [
       'code',
       'cookies',
@@ -345,12 +408,14 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.item('Privacy panel', 'no code yet'))).toBeTruthy();
     expect(screen.getByText(copy.item('Privacy panel', 'nothing stored'))).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'delete') })).toBeNull();
+    expect(screen.queryByText(copy.text('About: delete'))).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'copy') })).toBeNull();
   });
 
-  it('the privacy panel with a code: masked, with the delete button and the last error', () => {
-    render(PrivacyPanel, {
+  it('the page about the app with a code: the code shown plainly with Copy and no reveal, the delete line and button, the last error', () => {
+    render(About, {
       app: state({
-        code: '1234567890123456',
+        code: CODE,
         lastError: 'CLIENT_SYNC_FAILED',
         sync: {
           lastResult: 'error',
@@ -360,7 +425,11 @@ describe('the screens render the words of copy.md', () => {
         },
       }),
     });
-    expect(screen.getByText(MASKED_CODE)).toBeTruthy();
+    expect(screen.getByText(SHOWN_CODE)).toBeTruthy();
+    expect(document.body.textContent).not.toContain('•');
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
+    expect(screen.getByText(copy.item('Privacy panel', 'code note'))).toBeTruthy();
+    expect(screen.getByText(copy.text('About: delete'))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'delete') })).toBeTruthy();
     expect(screen.getByText('CLIENT_SYNC_FAILED')).toBeTruthy();
     expect(screen.getByText(copy.error('CLIENT_SYNC_FAILED'), { exact: false })).toBeTruthy();
@@ -369,8 +438,8 @@ describe('the screens render the words of copy.md', () => {
         fill(copy.item('Privacy panel', 'outbox summary'), { events: 2, sessions: 1 }),
       ),
     ).toBeTruthy();
-    expect(screen.getByText(copy.item('Privacy panel', 'code note'))).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
+    // One accent button at most: none here, until the delete is confirmed.
+    expect(document.querySelectorAll('button.primary')).toHaveLength(0);
   });
 
   const ME = {
@@ -422,10 +491,8 @@ describe('the screens render the words of copy.md', () => {
     ],
   };
 
-  it('the privacy panel: what we store, row by row and in plain words, the sealed body shown as sealed', () => {
-    render(PrivacyPanel, {
-      app: state({ code: '1234567890123456', me: ME, lastSyncDay: '2026-11-17' }),
-    });
+  it('the page about the app: what we hold, row by row and in plain words, the sealed body shown as sealed', () => {
+    render(About, { app: state({ code: CODE, me: ME, lastSyncDay: '2026-11-17' }) });
     const panel = copy.sections.get('Privacy panel')!.items;
     expect(
       screen.getByText(fill(panel['stored summary']!, { sessions: 1, events: 3 }), {
@@ -449,32 +516,31 @@ describe('the screens render the words of copy.md', () => {
     expect(text).toContain(`${panel['came through']} wave-1`);
     expect(text).toContain(`${panel['invites left']} 3`);
     expect(text).toContain(fill(panel['last sync day']!, { day: '2026-11-17' }));
-    expect(screen.getByText(copy.text('Data management plan'))).toBeTruthy();
     expect(screen.getByText(copy.text('Privacy panel: caveat'))).toBeTruthy();
+    // No way in for another code on this page, and no second copy of the plan: said once above.
     expect(
-      screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
-    ).toBeTruthy();
+      screen.queryByRole('button', { name: copy.item('Buttons', 'i have a code') }),
+    ).toBeNull();
   });
 
-  it('the privacy panel links to the source at the running version', () => {
-    render(PrivacyPanel, { app: state() });
-    const link = screen.getByRole('link', {
-      name: copy.item('Privacy panel', 'source'),
-    }) as HTMLAnchorElement;
-    expect(link.href).toContain(copy.item('Trust page variables', 'source'));
+  it('the page about the app links to the source at the running version, twice: with the checks and with the version', () => {
+    render(About, { app: state() });
+    const links = screen.getAllByRole('link') as HTMLAnchorElement[];
+    const source = copy.item('Trust page variables', 'source');
+    expect(links.filter((a) => a.href.startsWith(source))).toHaveLength(2);
   });
 
-  it('the privacy panel, a code the server could not be asked about: "could not be read"', () => {
-    render(PrivacyPanel, { app: state({ code: '1234567890123456', me: null }) });
+  it('the page about the app, a code the server could not be asked about: "could not be read"', () => {
+    render(About, { app: state({ code: CODE, me: null }) });
     expect(screen.getByText(copy.item('Privacy panel', 'not reachable'))).toBeTruthy();
   });
 
-  it('the privacy panel, delete in two steps: the question with "yes" and "keep" only after the first tap', () => {
-    const { unmount } = render(PrivacyPanel, { app: state({ code: '1234567890123456' }) });
+  it('the page about the app, delete in two steps: the question with "yes" and "keep" only after the first tap', () => {
+    const { unmount } = render(About, { app: state({ code: CODE }) });
     expect(screen.queryByText(copy.text('Privacy panel: delete confirm'))).toBeNull();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'yes delete') })).toBeNull();
     unmount();
-    render(PrivacyPanel, { app: state({ code: '1234567890123456', confirmingDelete: true }) });
+    render(About, { app: state({ code: CODE, confirmingDelete: true }) });
     expect(screen.getByText(copy.text('Privacy panel: delete confirm'))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'yes delete') })).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'keep') })).toBeTruthy();

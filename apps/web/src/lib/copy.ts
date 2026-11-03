@@ -129,7 +129,7 @@ export const COPY_TEXT = [
   'Card nudge',
   'Session end: your code',
   'Session end: install',
-  'Session end: another session',
+  'Session end: come back',
   'Not a workshop',
   'Welcome: new here',
   'Welcome: I have a code',
@@ -139,19 +139,29 @@ export const COPY_TEXT = [
   'Enter code: too short',
   'Closed',
   'Not open yet',
+  'About: what this is',
+  'About: delete',
   'Privacy panel: caveat',
   'Privacy panel: delete confirm',
-  'Data management plan',
   'Terms',
   'Privacy policy',
   'Trust page: what we store',
   'Trust page: what we never collect',
   'Trust page: how it is protected',
   'Trust page: check it yourself',
-  'Trust page: your controls',
   'Trust page: who, where, until when',
   'Trust page: the honest limit',
 ] as const;
+
+/** The paragraphs under "How your answers are protected", in the order they are shown. */
+export const TRUST_BLOCKS = [
+  'Trust page: what we store',
+  'Trust page: what we never collect',
+  'Trust page: how it is protected',
+  'Trust page: check it yourself',
+  'Trust page: who, where, until when',
+  'Trust page: the honest limit',
+] as const satisfies readonly TextHeading[];
 
 /** The lists the client reads, with the keys it reads from each. */
 export const COPY_LISTS = {
@@ -170,15 +180,6 @@ export const COPY_LISTS = {
     'webbkoll',
     'blacklight',
   ],
-  'Trust page headings': [
-    'what we store',
-    'what we never collect',
-    'how it is protected',
-    'check it yourself',
-    'your controls',
-    'who, where, until when',
-    'the honest limit',
-  ],
   'Trust page links': ['source', 'webbkoll', 'blacklight', 'terms', 'privacy policy'],
   Titles: [
     'not a workshop',
@@ -192,13 +193,14 @@ export const COPY_LISTS = {
     'install',
     'closed',
     'not open yet',
-    'privacy panel',
+    'about',
     'trust page',
+    'privacy panel',
     'terms',
     'privacy policy',
   ],
   Buttons: [
-    'privacy',
+    'about',
     'new here',
     'i have a code',
     'continue',
@@ -207,8 +209,6 @@ export const COPY_LISTS = {
     'i understand',
     'save',
     'set aside',
-    'reveal',
-    'hide',
     'copy',
     'copied',
     'delete',
@@ -217,13 +217,12 @@ export const COPY_LISTS = {
     'got it',
     'prefer to talk',
     'install',
-    'not now',
-    'trust page',
+    'remind me',
   ],
   'App labels': ['loading', 'app name', 'retrying'],
   'Card labels': ['position', 'placeholder', 'counter', 'could not save'],
   'Card states': ['saving', 'saved', 'synced', 'offline', 'sync problem'],
-  'Session end': ['come back', 'waiting to sync', 'all synced'],
+  'Session end': ['waiting to sync'],
   'Privacy panel': [
     'code',
     'code note',
@@ -255,11 +254,10 @@ export const COPY_LISTS = {
     'no error',
     'version',
     'source',
-    'plan',
-    'another device',
   ],
   'Event kinds': ['shown', 'answered', 'dismissed', 'deferred', 'revisited'],
   Diagnostics: ['last sync', 'outbox', 'last error', 'never', 'ok', 'offline', 'error'],
+  Reminder: ['summary', 'description'],
 } as const;
 
 /** One line per error code, server and client, under "Error: <CODE>". */

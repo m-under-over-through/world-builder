@@ -9,7 +9,7 @@
    * The card (docs/screen-map.md, Core loop): the question, the answer field, Save and Set aside,
    * and, after Save, the line that says where the answer is (`app.cardState`), on this card,
    * before the next one comes. The answer being written is `app.draft`, kept in the state rather
-   * than here, so it survives "Your privacy" and Back; the limit is counted in code points so an
+   * than here, so it survives "About this app" and Back; the limit is counted in code points so an
    * emoji is never cut in half. A swipe sideways sets the card aside as the button does
    * (lib/swipe.ts); the button makes the card leave the same way before recording it.
    *

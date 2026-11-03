@@ -1,28 +1,34 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { AppState } from './lib/state.svelte.ts';
+  import About from './screens/About.svelte';
   import Card from './screens/Card.svelte';
   import Closed from './screens/Closed.svelte';
   import DemoCard from './screens/DemoCard.svelte';
   import EnterCode from './screens/EnterCode.svelte';
   import Intro from './screens/Intro.svelte';
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
-  import PrivacyPanel from './screens/PrivacyPanel.svelte';
   import SessionEnd from './screens/SessionEnd.svelte';
   import TextPage from './screens/TextPage.svelte';
-  import Trust from './screens/Trust.svelte';
   import Welcome from './screens/Welcome.svelte';
 
   /**
    * The client: one component per screen of docs/screen-map.md under src/screens/, the state and
    * everything that changes it in lib/state.svelte.ts, and this file, which reads the address on
    * open and shows the screen the state says. Every word comes from the workshop's copy.md.
+   *
+   * The top bar is the workshop's name and nothing else. The foot of every screen is one small
+   * link, "About this app": the one place that explains the app, shows the code and the facts,
+   * and deletes everything (ADR 0013). The page itself and the two texts have their own foot.
    */
   // A test may hand in its own state (with an instant `wait`); the app makes one.
   let { app = new AppState() }: { app?: AppState } = $props();
+  const onAPage = $derived(
+    app.screen === 'about' || app.screen === 'terms' || app.screen === 'privacy',
+  );
 
   onMount(() => {
-    // Chrome's own install offer, if it makes one: kept for the install prompt (lib/install.ts).
+    // Chrome's own install offer, if it makes one: kept for the install offer (lib/install.ts).
     const keep = (event: Event) => {
       event.preventDefault();
       app.installOffer = event as AppState['installOffer'];
@@ -42,9 +48,6 @@
 <main>
   <nav>
     <span>{app.workshop?.config.name ?? app.copy.item('App labels', 'app name')}</span>
-    {#if app.screen !== 'loading' && app.screen !== 'no-workshop' && app.screen !== 'panel'}
-      <button onclick={() => app.openPanel()}>{app.copy.item('Buttons', 'privacy')}</button>
-    {/if}
   </nav>
 
   {#if app.storageUnavailable}
@@ -68,23 +71,15 @@
     <SessionEnd {app} />
   {:else if app.screen === 'closed'}
     <Closed {app} />
-  {:else if app.screen === 'panel'}
-    <PrivacyPanel {app} />
-  {:else if app.screen === 'trust'}
-    <Trust {app} />
+  {:else if app.screen === 'about'}
+    <About {app} />
   {:else if app.screen === 'terms' || app.screen === 'privacy'}
     <TextPage {app} />
   {/if}
-  {#if app.workshop && app.screen !== 'trust' && app.screen !== 'terms' && app.screen !== 'privacy'}
+  {#if app.workshop && !onAPage}
     <footer class="muted">
-      <button class="link" onclick={() => app.openPage('trust')}
-        >{app.copy.item('Buttons', 'trust page')}</button
-      >
-      <button class="link" onclick={() => app.openPage('terms')}
-        >{app.copy.item('Trust page links', 'terms')}</button
-      >
-      <button class="link" onclick={() => app.openPage('privacy')}
-        >{app.copy.item('Trust page links', 'privacy policy')}</button
+      <button class="link" onclick={() => app.openAbout()}
+        >{app.copy.item('Buttons', 'about')}</button
       >
     </footer>
   {/if}

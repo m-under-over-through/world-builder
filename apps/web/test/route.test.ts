@@ -19,8 +19,9 @@ describe('routes', () => {
     expect(parseRoute('/')).toBeNull();
   });
 
-  it('reads the pages a participant can open directly: continue, panel, trust', () => {
+  it('reads the pages a participant can open directly: continue, about, and the older panel and trust', () => {
     expect(parseRoute('/rural-manufacturing/continue')?.page).toBe('continue');
+    expect(parseRoute('/rural-manufacturing/about')?.page).toBe('about');
     expect(parseRoute('/rural-manufacturing/trust')?.page).toBe('trust');
     expect(parseRoute('/rural-manufacturing/terms')?.page).toBe('terms');
     expect(parseRoute('/rural-manufacturing/privacy')?.page).toBe('privacy');
@@ -29,6 +30,7 @@ describe('routes', () => {
 
   it('writes the address of a page, and never anything else', () => {
     expect(pageHref('rural-manufacturing', 'continue')).toBe('/rural-manufacturing/continue');
+    expect(pageHref('rural-manufacturing', 'about')).toBe('/rural-manufacturing/about');
     expect(pageHref('rural-manufacturing')).toBe('/rural-manufacturing/');
   });
 });

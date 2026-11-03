@@ -2,15 +2,19 @@
  * The URL is /<slug>/ with optional /join/<wave>, /join/i/<token>, or one of the pages a
  * participant can open directly (architecture plan, 5.1; docs/screen-map.md). Nothing identifying
  * ever appears in it: the code travels in a header, never in the URL.
+ *
+ * /about is the one page about the app (ADR 0013). /panel and /trust are older addresses for
+ * what is now two sections of it, kept because a newsletter may carry them: they open the same
+ * page at that section.
  */
-export const PAGES = ['continue', 'panel', 'trust', 'terms', 'privacy'] as const;
+export const PAGES = ['continue', 'about', 'panel', 'trust', 'terms', 'privacy'] as const;
 export type Page = (typeof PAGES)[number];
 
 export interface Route {
   slug: string;
   wave?: string;
   invite?: string;
-  /** /continue is "enter code", /panel the privacy panel, /trust, /terms and /privacy the three pages. */
+  /** /continue is "enter code"; /about, /panel and /trust the one page; /terms and /privacy the two texts. */
   page?: Page;
 }
 

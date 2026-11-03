@@ -1,19 +1,21 @@
 <script lang="ts">
   import { formatCode } from '@wb/contracts';
-  import { fill } from '../lib/copy.ts';
-  import { MASKED_CODE, type AppState } from '../lib/state.svelte.ts';
+  import { reminderHref } from '../lib/reminder.ts';
+  import type { AppState } from '../lib/state.svelte.ts';
 
   /**
-   * Session end (docs/screen-map.md, Core loop), in steps (`app.endStep`): on session 1 the code
-   * reveal (the code in groups of four, masked by default, reveal and copy), then the install
-   * prompt with the steps for this platform while it is due, then "come back another day" with
-   * what still waits to sync. Every later session goes straight to the last step with its own
-   * words. The order is section 8.1's: the code before the install, so the installed app can be
-   * given it.
+   * The session end (docs/screen-map.md, Session end; ADR 0013): one heading, "Thank you", and
+   * nothing said twice. On the first session, the code in one sentence with Copy, then the
+   * install offer where it is due (`app.installOffered`), with the steps for this platform; on
+   * every session, "the next cards wait for you another day" once, with the "Remind me" link to
+   * the workshop's calendar file (lib/reminder.ts), and, only while answers still wait on the
+   * phone, the quiet line that says so. The order is the architecture plan's (8.1): the code
+   * before the install, so the installed app can be given it.
    */
   let { app }: { app: AppState } = $props();
-  let revealed = $state(false);
   let copied = $state(false);
+  /** The sentence around the code: the words before `[code]` and the words after. */
+  const codeSentence = $derived(app.copy.text('Session end: your code').split('[code]'));
 
   async function copyCode() {
     await app.copyCode();
@@ -22,45 +24,39 @@
   }
 </script>
 
-{#if app.endStep === 'code'}
-  <h1>{app.copy.item('Titles', 'session end')}</h1>
-  <p>{fill(app.copy.text('Session end: your code'), { code: '' })}</p>
-  <p class="code">{revealed ? formatCode(app.code) : MASKED_CODE}</p>
+<h1>{app.copy.item('Titles', 'session end')}</h1>
+{#if app.sessionNo === 1}
+  <p>
+    {codeSentence[0]}<span class="code">{formatCode(app.code)}</span>{codeSentence[1] ?? ''}
+  </p>
   <div class="row">
-    <button onclick={() => (revealed = !revealed)}
-      >{revealed ? app.copy.item('Buttons', 'hide') : app.copy.item('Buttons', 'reveal')}</button
-    >
     <button onclick={copyCode}
       >{copied ? app.copy.item('Buttons', 'copied') : app.copy.item('Buttons', 'copy')}</button
     >
-    <button class="primary" onclick={() => app.nextFromCode()}
-      ><span>{app.copy.item('Buttons', 'next')}</span></button
-    >
   </div>
-{:else if app.endStep === 'install'}
-  <h1>{app.copy.item('Titles', 'install')}</h1>
-  <p>
-    {fill(app.copy.text('Session end: install'), {
-      'per-platform steps': app.platform ? app.copy.item('Install steps', app.platform) : '',
-    })}
-  </p>
-  <div class="row">
-    {#if app.installOffer}
-      <button class="primary" onclick={() => app.install()}
-        ><span>{app.copy.item('Buttons', 'install')}</span></button
-      >
-    {/if}
-    <button onclick={() => app.dismissInstall()}>{app.copy.item('Buttons', 'not now')}</button>
-  </div>
-{:else}
-  <h1>{app.copy.item('Titles', 'session end')}</h1>
-  {#if app.sessionNo > 1}
-    <p>{app.copy.text('Session end: another session')}</p>
+  {#if app.installOffered && app.platform}
+    <aside class="hint">
+      <h2>{app.copy.item('Titles', 'install')}</h2>
+      <p>
+        {app.copy.text('Session end: install').split('[per-platform steps]')[0]}
+        {app.copy.item('Install steps', app.platform)}
+      </p>
+      {#if app.installOffer}
+        <button class="primary" onclick={() => app.install()}
+          ><span>{app.copy.item('Buttons', 'install')}</span></button
+        >
+      {/if}
+    </aside>
   {/if}
-  <p class="muted">{app.copy.item('Session end', 'come back')}</p>
+{/if}
+<p>
+  {app.copy.text('Session end: come back')}
+  {#if app.workshop}
+    <a href={reminderHref(app.workshop.config.slug)}>{app.copy.item('Buttons', 'remind me')}</a>
+  {/if}
+</p>
+{#if app.sync.outboxSize > 0}
   <p class="muted">
-    {#if app.sync.outboxSize > 0}{fill(app.copy.item('Session end', 'waiting to sync'), {
-        n: app.sync.outboxSize,
-      })}{:else}{app.copy.item('Session end', 'all synced')}{/if}
+    {app.copy.item('Session end', 'waiting to sync').split('[n]').join(String(app.sync.outboxSize))}
   </p>
 {/if}

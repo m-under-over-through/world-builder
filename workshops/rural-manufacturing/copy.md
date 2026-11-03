@@ -51,17 +51,19 @@ Tap the card to answer. Swipe it away to set it aside. Come back any time; a ses
 [placeholder]
 Please do not name real people.
 
-## Session end: your code (under 60 words)
+## Session end: your code (under 40 words)
+
+<!-- Shown under the title at the end of the first session. [code] is the code, which the app sets on its own line with a Copy button. -->
 
 [placeholder]
-That is a session. This code is you: it is random, and it is the only thing that identifies you to us. Save it if you want to continue on another device. [code]
+If you ever want to continue on another phone, this is you: [code]
 
 ## Session end: install (under 40 words)
 
-<!-- The install prompt at the end of the first session. [per-platform steps] is filled from the "Install steps" list below. -->
+<!-- The install offer at the end of the first session, under the title "Keep it close" (Titles, install). [per-platform steps] is filled from the "Install steps" list below. -->
 
 [placeholder]
-Add this to your home screen for next time. [per-platform steps]
+Add this to your home screen and you have a way back without the newsletter. [per-platform steps]
 
 ## Install steps (under 25 words, per platform)
 
@@ -69,7 +71,7 @@ Add this to your home screen for next time. [per-platform steps]
 
 [placeholder]
 
-- iPhone and iPad: In Safari, tap Share, then "Add to Home Screen".
+- iPhone and iPad: In Safari, tap Share, then "Add to Home Screen". The app asks for your code once.
 - Android: In the browser menu, tap "Add to Home screen" or "Install app".
 - Mac: In Safari, File > Add to Dock; in Chrome, the install icon at the right of the address bar.
 - Windows: In Chrome or Edge, the install icon at the right of the address bar.
@@ -89,23 +91,9 @@ Add this to your home screen for next time. [per-platform steps]
 - webbkoll: https://webbkoll.dataskydd.net/en/results?url=https%3A%2F%2Fworldbuilder.under-over-through.co%2F
 - blacklight: https://themarkup.org/blacklight?url=worldbuilder.under-over-through.co
 
-## Trust page headings
-
-<!-- The seven section headings of the trust page, in order. -->
-
-[placeholder]
-
-- what we store: 1. What we store
-- what we never collect: 2. What we never collect
-- how it is protected: 3. How it is protected
-- check it yourself: 4. Check it yourself
-- your controls: 5. Your controls
-- who, where, until when: 6. Who, where, until when
-- the honest limit: 7. The honest limit
-
 ## Trust page links
 
-<!-- The names of the links on the trust page; the addresses are in "Trust page variables". -->
+<!-- The names of the links under "How your answers are protected" and at the end of "About this app"; the addresses are in "Trust page variables". -->
 
 [placeholder]
 
@@ -128,12 +116,13 @@ Add this to your home screen for next time. [per-platform steps]
 - consent: Before you start
 - demo card: Try a card
 - dictation hint: Prefer to talk?
-- session end: That is a session.
+- session end: Thank you.
 - install: Keep it close
 - closed: This workshop has closed.
 - not open yet: Not open yet.
-- privacy panel: Your privacy
+- about: About this app
 - trust page: How your answers are protected
+- privacy panel: Right now, from this phone
 - terms: Terms
 - privacy policy: Privacy policy
 
@@ -141,7 +130,7 @@ Add this to your home screen for next time. [per-platform steps]
 
 [placeholder]
 
-- privacy: Your privacy
+- about: About this app
 - new here: New here
 - i have a code: I have a code
 - continue: Continue
@@ -150,18 +139,15 @@ Add this to your home screen for next time. [per-platform steps]
 - i understand: I understand
 - save: Save
 - set aside: Set aside
-- reveal: Reveal
-- hide: Hide
 - copy: Copy
 - copied: Copied
-- delete: Delete everything about me
+- delete: Delete everything I sent
 - yes delete: Yes, delete everything
 - keep: Keep my answers
 - got it: Got it
 - prefer to talk: Prefer to talk?
 - install: Install
-- not now: Not now
-- trust page: How your answers are protected
+- remind me: Remind me
 
 ## App labels
 
@@ -183,12 +169,12 @@ This address is not a workshop. Use the link you were sent.
 [placeholder]
 New here? It takes a minute to read what this is, and then the first card is yours.
 
-## Welcome: I have a code (under 40 words)
+## Welcome: I have a code (under 15 words)
 
-<!-- Shown next to the "I have a code" button, always. -->
+<!-- The small line under "New here", always, with the "I have a code" link at its end. -->
 
 [placeholder]
-Been here before on another device? Enter the code you were shown at the end of your first session.
+Been here before on another phone?
 
 ## Welcome: no link (under 40 words)
 
@@ -197,12 +183,12 @@ Been here before on another device? Enter the code you were shown at the end of 
 [placeholder]
 To start, open the link you were sent. This page cannot start you on its own.
 
-## Welcome: code not accepted (under 50 words)
+## Welcome: code not accepted (under 40 words)
 
-<!-- Shown on the welcome screen after the code this device remembered was refused by the server, for instance after "delete everything about me" on another device. -->
+<!-- One quiet line on the welcome screen after the code this phone remembered was refused by the server, for instance after "delete everything I sent" on another phone. -->
 
 [placeholder]
-The code this device remembered is no longer ours, so we have forgotten it here. Start again with the link you were sent, or enter another code.
+The code this phone remembered is not in use any more, so it has been forgotten here. Start again from your link, or enter another code.
 
 ## Enter code (under 40 words)
 
@@ -237,18 +223,18 @@ That is not a 16-digit code yet.
 
 ## Session end (under 30 words each)
 
-[placeholder]
-
-- come back: Come back another day for the next cards.
-- waiting to sync: [n] answers are still waiting to sync. Keep the app open a moment when you are online.
-- all synced: Everything is synced.
-
-## Session end: another session (under 40 words)
-
-<!-- Shown at the end of every session after the first, instead of the code and the install prompt. -->
+<!-- The quiet line at the foot of the session end, only while answers wait on the phone. -->
 
 [placeholder]
-That is a session. Thank you. The next cards wait for you another day.
+
+- waiting to sync: [n] answers are still on this phone, waiting to sync. Keep the app open a moment when you are online.
+
+## Session end: come back (under 20 words)
+
+<!-- Shown once at the end of every session, with the "Remind me" link after it: after the code and the install offer on the first session, right under the title on the others. -->
+
+[placeholder]
+The next cards wait for you another day.
 
 ## Closed (under 40 words)
 
@@ -260,24 +246,40 @@ Thank you. The answers are being read now.
 [placeholder]
 This opens on [day]. Keep the link and come back then.
 
+## About: what this is (under 50 words)
+
+<!-- The two sentences at the top of the "About this app" page, before "How your answers are protected". -->
+
+[placeholder]
+Under Over Through and Mechanism are asking a few questions about the future of local manufacturing in rural America, one card at a time. You answer in your own words, and nobody asks who you are.
+
+## Reminder
+
+<!-- The calendar reminder behind "Remind me" at the session end: a repeating event the phone's own calendar shows twice a week until the close day. Nothing about the person is in it. [link] is the workshop's home address, filled in when the app is built. -->
+
+[placeholder]
+
+- summary: World Builder: a few more cards
+- description: A few quiet minutes with the next cards, whenever it suits you. [link]
+
 ## Privacy panel
 
-<!-- The labels of the rows. A row shows a live value read from the running app. "What we store" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
+<!-- The labels of the rows under "Right now, from this phone" on the "About this app" page, and of the "Your code" section above them. A row shows a live value read from the running app. "What we hold" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
 
 [placeholder]
 
 - code: Your code
-- code note: This is the only thing that identifies you to us. It is random, and it is yours to keep.
-- no code yet: none yet
+- code note: This is you: random, and the only thing that identifies you to us. Keep it if you ever want to continue on another phone.
+- no code yet: You have no code yet. One is made for you when you start.
 - cookies: Cookies set by this app
-- hosts: Hosts this app has contacted since it opened
+- hosts: Hosts this app has talked to since it opened
 - permissions: Microphone, camera, location
 - permissions value: blocked by policy
-- key: Your answers are encrypted to the key
-- stored: What we store about you
+- key: Your answers are locked to the key
+- stored: What we hold about you
 - nothing stored: nothing yet
 - not reachable: could not be read from the server just now
-- stored summary: [sessions] sessions, [events] events, answers sealed
+- stored summary: [sessions] sessions, [events] events, every answer sealed
 - show rows: Show every row
 - joined: Joined on
 - came through: Came through
@@ -296,8 +298,6 @@ This opens on [day]. Keep the link and come back then.
 - no error: none
 - version: Version
 - source: The source code at this version
-- plan: How your answers are handled
-- another device: Have a code from another device?
 
 ## Event kinds
 
@@ -313,13 +313,24 @@ This opens on [day]. Keep the link and come back then.
 
 ## Privacy panel: caveat (under 50 words)
 
+<!-- The quiet line under the rows. -->
+
 [placeholder]
-These numbers are produced by the same app that makes the claims. They are honest, but the independent checks on the trust page are what make them believable.
+These numbers come from the same app that makes the claims. They are honest; the three checks above are what make them believable.
+
+## About: delete (under 40 words)
+
+<!-- The line above the "Delete everything I sent" button, at the end of "About this app", only once the phone has a code. -->
+
+[placeholder]
+Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026.
 
 ## Privacy panel: delete confirm (under 40 words)
 
+<!-- The second step, with "Yes, delete everything" and "Keep my answers". -->
+
 [placeholder]
-Delete everything about you, on this device and on our server? This cannot be undone.
+Delete everything you sent, from this phone and from our server? It cannot be brought back.
 
 ## Diagnostics
 
@@ -335,13 +346,6 @@ Delete everything about you, on this device and on our server? This cannot be un
 - offline: offline
 - error: failed
 
-## Data management plan (under 150 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
-
-[placeholder]
-Answers are locked on each phone with the research team's key and sent to a database in the United States. Every night a copy is locked again with a second key and kept for fourteen days in two places. On 6 December 2026 collection closes; the team unlocks the answers on one computer, removes any names, and produces the research spreadsheet. On 5 February 2027 the database and its backups are deleted, and the key that locks the answers is destroyed.
-
 ## Terms (under 300 words)
 
 <!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
@@ -355,7 +359,7 @@ Answers are locked on each phone with the research team's key and sent to a data
 
 **What we ask of you.** Answer honestly, or set a question aside. Do not share your 16-digit code with anyone: it is the only key to what you wrote.
 
-**Ending.** You can stop at any time by closing the app. You can delete everything you wrote at any time until 6 December 2026, from "Your privacy" in the app. After that date the answers are part of the research set and can no longer be removed one by one; everything is deleted on 5 February 2027. We may close the project earlier, in which case the app says so.
+**Ending.** You can stop at any time by closing the app. You can delete everything you wrote at any time until 6 December 2026, from "About this app". After that date the answers are part of the research set and can no longer be removed one by one; everything is deleted on 5 February 2027. We may close the project earlier, in which case the app says so.
 
 **No promises beyond these.** The app is provided as it is. If it fails, nothing you wrote is sent anywhere else, and your phone keeps unsent answers for fourteen days and sends them when it can.
 
@@ -378,7 +382,7 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Where.** The servers and the backup copies are in the United States.
 
-**Your controls.** "Your privacy" in the app shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
+**Your controls.** "About this app" shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 
@@ -386,51 +390,34 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Contact.** [contact address].
 
-## Trust page: what we store (under 120 words)
+## Trust page: what we store (under 80 words)
 
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+<!-- The six "Trust page" blocks are the paragraphs under "How your answers are protected" on the "About this app" page, in this order, without headings of their own. Shortened on 3 November 2026 from the drafts of 2 November in docs/participant-texts.md, which the legal review reads; the words in square brackets are the reviewers' decisions. -->
 
 [placeholder]
-The list from the privacy policy, with one real example row from the database: a code's scrambled form, a day, a card id, a kind, a sequence number, and a locked answer that reads like `v1.` followed by letters and digits. That is the whole of it.
+For each participant we keep a random code in scrambled form, the day they joined, which link they came through, and how many invites they have left. For each card, whether it was shown, answered or set aside, in what order, on which day. Each answer is a locked block of text our server cannot read. That is the whole of it.
 
 ## Trust page: what we never collect (under 60 words)
 
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+[placeholder]
+We never collect your name, email, phone, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, analytics identifiers, the page you came from, or audio.
+
+## Trust page: how it is protected (under 80 words)
 
 [placeholder]
-Name, email, phone, address, location, IP address, device or browser, exact time, cookies, analytics identifiers, referrer, audio.
+Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
 
-## Trust page: how it is protected (under 100 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+## Trust page: check it yourself (under 100 words)
 
 [placeholder]
-Your answers are locked on your phone with the research team's key. Our servers store scrambled text they cannot read. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
+Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database has no column for a name or an email.
 
-## Trust page: check it yourself (under 120 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+## Trust page: who, where, until when (under 100 words)
 
 [placeholder]
-Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database schema has no column for a name or an email.
-
-## Trust page: your controls (under 60 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
-
-[placeholder]
-"Your privacy", one tap away on every screen, shows everything we hold about you as it is stored, and deletes all of it on request, any time until 6 December 2026.
-
-## Trust page: who, where, until when (under 120 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
-
-[placeholder]
-Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system, and the spreadsheet is shared with Mechanism at the end. Everything is stored in the United States. Collection closes 6 December 2026, the spreadsheet is produced the week after, and everything on the server is deleted on 5 February 2027, backups included.
+Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer, removes any names, and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
 
 ## Trust page: the honest limit (under 60 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
 
 [placeholder]
 Nobody can prove that a server keeps no record of a connection. That is why this one is built to hold nothing worth taking: no names, no readable answers, no way back from a code to a person.
