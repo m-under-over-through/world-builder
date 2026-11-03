@@ -108,7 +108,7 @@ function safeHost(base: string): string {
 export function escapeText(text: string): string {
   return text
     .replaceAll('\\', '\\\\')
-    .replaceAll(';', '\;')
+    .replaceAll(';', '\\;')
     .replaceAll(',', '\\,')
     .replaceAll(/\r?\n/g, '\\n');
 }

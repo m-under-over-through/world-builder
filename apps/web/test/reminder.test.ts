@@ -92,7 +92,7 @@ describe('the calendar reminder', () => {
   });
 
   it('escapes the characters the format reserves and folds long lines without cutting a character', () => {
-    expect(escapeText('a, b; c\\d\nnext')).toBe('a\\, b\; c\\\\d\\nnext');
+    expect(escapeText('a, b; c\\d\nnext')).toBe('a\\, b\\; c\\\\d\\nnext');
     const long = 'é'.repeat(60);
     const folded = fold(`DESCRIPTION:${long}`);
     for (const part of folded.split('\r\n'))
