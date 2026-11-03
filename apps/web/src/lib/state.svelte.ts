@@ -152,6 +152,8 @@ export class AppState {
   live = $state.raw<LiveSession | null>(null);
   /** The card on the screen. It stays while its answer is saved and synced; then the next one comes. */
   card = $state.raw<Card | undefined>(undefined);
+  /** "Card n": the number of the card on the screen, kept while its answer is saved and synced. */
+  cardNo = $state(0);
   cardState = $state<CardState>('fresh');
   joining = $state(false);
   hintOpen = $state(false);
@@ -475,6 +477,7 @@ export class AppState {
     }
     const id = currentCardId(this.live);
     this.card = this.workshop.deck.cards.find((c) => c.id === id);
+    this.cardNo = position(this.live).n;
     this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
     // Once per card per session: a resumed session or a card coming round again is not a new showing.
     if (this.card && !this.live.shown.has(this.card.id)) {
@@ -648,7 +651,7 @@ export class AppState {
     this.cardState = 'saving';
     await this.record('answered', sealed);
     this.live = withAnswer(this.live, this.card.id);
-    this.draft = '';
+    // The words stay on the card, greyed, until the next card comes; nothing readable is stored.
     this.cardState = 'saved';
     const status = await this.requestSync();
     this.cardState =

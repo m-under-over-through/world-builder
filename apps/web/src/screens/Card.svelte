@@ -32,7 +32,7 @@
 
 {#if app.card}
   <p class="muted">
-    {fill(app.copy.item('Card labels', 'position'), app.position)}
+    {fill(app.copy.item('Card labels', 'position'), { n: app.cardNo, total: app.position.total })}
   </p>
   <div
     class="card"
@@ -67,7 +67,19 @@
         >
       {/if}
     </div>
-    <p class="muted state" aria-live="polite">
+    <p class="state" aria-live="polite">
+      {#if app.cardState === 'synced' || app.cardState === 'saved'}
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M4 10.5l4 4 8-9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      {/if}
       {#if app.cardState !== 'fresh'}{app.copy.item('Card states', app.cardState)}{/if}
     </p>
   </div>

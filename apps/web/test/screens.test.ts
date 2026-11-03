@@ -47,7 +47,7 @@ function onACard(patch: Partial<AppState> = {}): AppState {
     { sessions: [], events: [] },
   );
   const card = workshop.deck.cards.find((c) => c.id === currentCardId(live));
-  return state({ live, card, ...patch });
+  return state({ live, card, cardNo: 1, ...patch });
 }
 
 describe('the screens render the words of copy.md', () => {

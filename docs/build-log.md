@@ -1479,3 +1479,40 @@ On the deploy preview: delete yourself from the privacy panel on one device whil
 ### Open
 
 - The runbook's `CLIENT_STORAGE_UNAVAILABLE` entry says the client does not produce the code yet; it does now. The ops builder's file.
+
+---
+
+## 2026-11-03, Tuesday, late morning. UI item 10: the visual pass
+
+### What
+
+- **One stylesheet of tokens** (`apps/web/src/app.css`): warm paper, dark ink, one accent for the one action on a screen, one green for the two saved states, every colour, size, radius and shadow a custom property on `:root`, with a dark scheme on the same roles. The partner's colours replace `--accent` and `--accent-deep` in two lines. Fonts are the system stacks, as the brief allows: a humanist sans for reading at 18 pixels, a serif with character (Iowan Old Style, Palatino, Charter, Georgia) for the question and the headings, a monospace with tabular numerals for the code.
+- **Cards that read as cards**: the card on paper with a soft offset shadow and the next card hinted behind it, a little tilted; the question in the serif at 26 pixels; the answer field as paper on the card; the saved and synced lines in green with a drawn tick (an SVG, not a glyph). "Card n of total" and the words stay on the answered card until the next one comes.
+- **Controls** 44 pixels tall at least; one accent button per screen, the rest hairlines; link buttons for the foot; a visible focus ring, a themed caret and selection; sections spaced; the panel's rows in two columns, one under 360 pixels; the warning box in the accent's hairline.
+- **Motion**: the card leaving and the tick appearing; everything off under `prefers-reduced-motion`.
+- **Checked** on the dev server at 375 and 320 pixels wide, light and dark: no horizontal scroll at 320, the smallest control 44 pixels, the welcome, the consent, the card in each state, the panel and the trust page. The bundled detector (`impeccable detect`) reports nothing. `DESIGN.md` at the root records the tokens and the rules in the DESIGN.md format, as the brief's `document` step.
+- Tests unchanged in number: 392; the screen tests gained the card's number.
+
+### Why
+
+Item 10 of the UI brief, by its design direction of 2 November 2026: warm, creative, informal; a conversation on paper, not a form; not the look of an AI product.
+
+### How to verify
+
+```
+npm run check                       # 392 tests
+.claude/skills/impeccable/scripts/impeccable detect --json apps/web/src   # []
+```
+
+On the deploy preview on a phone, and once with the system font at its largest and once with "reduce motion" on: the welcome's title in the serif and one orange button; the card with the stack behind it; Save shows the tick and "Synced." in green on the same card; the panel's rows readable at 320 pixels; the trust page's seven headings.
+
+### Decisions made on the way
+
+- **System fonts, not a bundled file.** The brief allows either; a bundled face would be a download of unknown provenance made without Marco, and the serif stack already gives the question its character. One line replaces it.
+- **The critique and the polish ran in one context**, reading the sources and the rendered screens, with the detector as the mechanical check; the skill's two-agent critique was not run, to keep the day's budget for the items. The snapshot is this entry.
+- **The words on the answered card stay greyed** until the next card, so the saved line speaks of something visible; nothing readable is stored.
+
+### Open
+
+- The trust page's first section shows the draft's backticks around `v1.` as typed; the words are the reviewers'.
+- `theme_color` and the icons' colours now match the tokens by hand; they are not derived from the stylesheet.
