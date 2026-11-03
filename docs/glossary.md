@@ -28,3 +28,5 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 - **integrator**: the role that holds the whole picture, owns the contracts, writes briefs, reviews and merges.
 - **builder**: an agent session with a brief, bounded to a set of files.
 - **operator**: Marco. The one person who runs the system and holds the keys.
+- **queue**: the ordered card ids of one session, as the deck engine plans them: warm-ups then checkpoints, deferred cards first within their set. Dismiss moves a card to its end; a second dismiss removes it.
+- **bucket**: one counter of the rate limiter, keyed by route, minute and subject (a workshop, a code hash, or everyone). Its **budget** is the number of requests the minute allows.
