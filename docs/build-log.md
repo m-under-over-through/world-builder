@@ -640,7 +640,7 @@ Read the file against the plan's sections it cites; every claim in it is a fact 
 - `apps/web/public/_headers`: `Strict-Transport-Security` gains `includeSubDomains` (decision 6 of 2 November; no `preload`), and `Cross-Origin-Embedder-Policy: require-corp` joins the opener and resource policies it completes: the first ZAP scan's one real finding (rule 90004). The app loads nothing cross-origin, so it changes nothing a participant sees.
 - `tools/ops/test/headers.test.ts`, five tests that read the headers file: one rule for every path; every Content-Security-Policy directive is `'self'` or `'none'` and nothing else, with `img-src 'self' data:` as the one exception, the twelve directives all present and nothing unsafe anywhere; Permissions-Policy denies camera, microphone and geolocation; HSTS is a year or more with `includeSubDomains` and without `preload`; no referrer, no sniffing, no framing, origin isolation. A loosened directive now fails `npm run check` before it reaches a deploy.
 - `.github/workflows/ci.yml` gains `npm audit --omit=dev --audit-level=high`: a high or critical advisory in a dependency that ships (the client bundle, the function bundle) blocks the merge. The development tools are not in the gate; the comment in the workflow and the ops page say why and what covers them.
-- In the ops repository, on the branch `scans` (its pull request follows the first report): `scripts/scan-headers.sh` fetches a page with a GET, reads the response headers and holds them to the same rules as the test, one line per check, exit 1 on a finding; `scripts/test-scan-headers.sh` runs it with a curl stand-in, 21 checks (the good set clean, each of seventeen weakenings a finding and only that one, an unreachable host, the usage line); `.github/workflows/scan.yml` runs the headers scan against staging and production and the OWASP ZAP baseline scan against staging every Monday and on demand, the report kept as the run's artifact and never as an issue; `.zap/rules.tsv` lists the accepted findings; `checks.yml` runs the new test.
+- In the ops repository, on the branch `scans` (its pull request follows the first report): `scripts/scan-headers.sh` fetches a page with a GET, reads the response headers and holds them to the same rules as the test, one line per check, exit 1 on a finding; `scripts/test-scan-headers.sh` runs it with a curl stand-in, 22 checks (the good set clean, each of eighteen weakenings a finding and only that one, an unreachable host, the usage line); `.github/workflows/scan.yml` runs the headers scan against staging and production and the OWASP ZAP baseline scan against staging every Monday and on demand, the report kept as the run's artifact and never as an issue; `.zap/rules.tsv` lists the accepted findings; `checks.yml` runs the new test.
 - Found on the way: Netlify sends `max-age=31536000; includeSubDomains; preload` on every `*.netlify.app` address (staging, the previews, the site's own `.netlify.app` name) whatever the headers file says, because `netlify.app` is on the browsers' preload list; on `worldbuilder.under-over-through.co` the header is exactly what the file says. So the scan notes `preload` on a netlify.app host as Netlify's and flags it on our own hostname, where decision 6 holds.
 
 ### Why
@@ -652,7 +652,7 @@ The brief's item 4 and section 12 of the architecture plan ("dependencies: audit
 - `npm test -- tools/ops/test/headers.test.ts`; then loosen one directive in `_headers` (say `img-src 'self' data: https:`) and watch it fail.
 - `npm audit --omit=dev --audit-level=high` prints `found 0 vulnerabilities`; `npm audit` without the flag lists the development tools' advisories, which are the next entry's list.
 - On the deploy preview: `curl -sI https://deploy-preview-<n>--worldbuilder-uot.netlify.app/ | grep -i strict` shows `includeSubDomains` (and Netlify's `preload`, see above); after the merge, the same on `https://worldbuilder.under-over-through.co/` shows `max-age=31536000; includeSubDomains` and nothing more.
-- In the ops repository: `bash scripts/test-scan-headers.sh` prints `ok: 21 checks passed`; `bash scripts/scan-headers.sh https://staging--worldbuilder-uot.netlify.app/` prints the checks and, until this merges and deploys, one finding on production: `HSTS lacks includeSubDomains`.
+- In the ops repository: `bash scripts/test-scan-headers.sh` prints `ok: 22 checks passed`; `bash scripts/scan-headers.sh https://staging--worldbuilder-uot.netlify.app/` prints the checks and, until this merges and deploys, one finding on production: `HSTS lacks includeSubDomains`.
 
 ### Decisions made on the way
 
@@ -660,11 +660,13 @@ The brief's item 4 and section 12 of the architecture plan ("dependencies: audit
 - **The scan runs against production too, for the headers only.** The headers are public and the check is one GET; ZAP's spider stays on staging, as the brief says.
 - **ZAP writes no issue.** The action's default files the report as a GitHub issue; on a public repository that would describe the site's weak points to anyone. The report is the run's artifact in the private ops repository.
 - **A WARN fails the scan.** Every finding is either fixed or accepted on the rules list with its reason; a scan that only warns is a report nobody reads.
+- **`Cross-Origin-Embedder-Policy: require-corp` stays.** The first ZAP run's one real finding (rule 90004). With a CSP that allows nothing cross-origin it is harmless, it completes the opener and resource policies already set, and it closes the finding rather than accepting it.
 
 ### Open
 
 - The first ZAP report, and the accepted list written from it, are the ops pull request of item 4.
 - Dependabot: a proposal for the integrator, below.
+
 ## 2026-11-02, Monday, late. Ops 7: the small corrections
 
 ### What
