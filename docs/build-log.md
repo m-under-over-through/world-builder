@@ -1444,3 +1444,109 @@ On the deploy preview with a code: "Your privacy". Reveal shows the digits, Copy
 
 - The runbook's `CLIENT_SEAL_FAILED` entry says the client shows the crypto package's own code; since the review fixes it shows `CLIENT_SEAL_FAILED` for every sealing failure. The ops builder's file; a line for the integrator.
 - A participant with hundreds of events gets a long list under "Show every row"; fine for this workshop's four cards a session, worth a page size the week after launch.
+
+---
+
+## 2026-11-03, Tuesday morning. UI item 8: the trust page, the terms and the privacy policy
+
+### What
+
+- **The trust page** (`apps/web/src/screens/Trust.svelte`, at `/<slug>/trust`): the seven sections of section 13 from `copy.md`, under the headings of the new "Trust page headings" list, with `[key fingerprint]` filled from the workshop file and `[source]` from "Trust page variables", so the page cannot drift from the key it describes. Under them the links that need no trust in us: the source at the running commit, Webbkoll's and Blacklight's reports on the production address (the two new variables `webbkoll` and `blacklight`); then the terms, the policy and Back.
+- **The terms and the privacy policy** (`TextPage.svelte`, at `/<slug>/terms` and `/<slug>/privacy`): the drafts paragraph by paragraph, their `**lead-ins**` shown in bold through `inline()` in `lib/copy.ts`, which splits a paragraph into plain and bold runs; no HTML from the file is ever rendered.
+- **Reachable from everywhere.** A footer on every screen but the three pages links to them; the closed screen has the trust page button, as the map asks. `openPage` puts the page's address in the bar and remembers the screen it came from; Back is the panel's rule (`closePanel`), so a page opened directly lands where the device lands.
+- `copy.md`: "Trust page headings" (seven), "Trust page links" (five), two variables. Dropped: the unused "Privacy panel: delete" key the review named. Tests: `inline`; the two routes; the trust page (the seven headings in order, the fingerprint and the source filled, the three links' addresses, no slot left); the terms and the policy (every paragraph, bold lead-ins, no stars on the screen); the closed screen's button; in the rendered app: `/terms` and `/privacy`, Back from `/trust` opened directly, the footer to the terms and the policy and Back to the welcome with the wave address kept. 156 client tests, 379 in the repository (6 new).
+
+### Why
+
+Item 8 of the UI brief; architecture plan, section 13 (the checkable tier and its links); `docs/participant-texts.md` for the words.
+
+### How to verify
+
+```
+npm run check                       # 379 tests
+```
+
+On the deploy preview: the footer's "How your answers are protected": seven numbered sections, section 3 ending with `de7f-523e-d6db-ad50` (staging's fingerprint), section 4 naming the GitHub address; the three links open the source at this commit and the two scanners' pages; "Terms" and "Privacy policy" open the drafts with their lead-ins in bold and the reviewers' square brackets visible; Back returns to where you were, with the address you arrived at. `/rural-manufacturing/trust` opened directly: the page; Back: the welcome.
+
+### Decisions made on the way
+
+- **Bold is the one piece of formatting the drafts use**, so `inline()` handles only `**`; anything else in the file shows as typed.
+- **The scanner links point at the production address**, not at the preview, since a scan of a preview says nothing about what participants use; the pages are the scanners' own result pages.
+- **Links are buttons for the in-app pages** (they change the state, the address follows) and anchors for the outside pages.
+
+### Open
+
+- The scanner reports do not exist until someone runs the scans on the production address; the links will show "no result yet" until then. The ops item 4 runs them.
+
+---
+
+## 2026-11-03, Tuesday morning, later. UI item 9: the failure behaviour
+
+### What
+
+- **A stored code the server no longer knows.** `AUTH_CODE_UNKNOWN` from the sync on open forgets the code on the device and shows the welcome with the words of "Welcome: code not accepted"; never while a join is still queued, since then the server has simply not met the code yet (`AppState.syncOnOpen`).
+- **A browser that refuses storage** (`CLIENT_STORAGE_UNAVAILABLE`): `lib/store.ts` now has a `Store` interface, kept in IndexedDB by `WorkshopStore` and, for one open, in memory by `MemoryStore`. On open the first read of the store is tried; when it throws, the memory store takes over, the app warns with the code's one line on every screen, and the session runs as usual: the code is shown at its end, as session 1 always does, so it can be written down. Nothing survives the tab.
+- **Sync retries.** While anything waits in the outbox and the last sync did not succeed, the outbox is tried again after 5 seconds, then doubling up to 5 minutes, until it is empty or the workshop is closed; and at once when the browser says the network is back (`online`, from `App.svelte`). One loop at a time; the join's own `Retry-After` wait is untouched.
+- **After a restore**, sessions the server lacks are queued again with their events (`reconcile` compares both lists with `GET /me`; `Store.accepted` and `markUnsynced` take sessions too). **A re-queued event is never pruned**: prune deletes only rows the server has accepted, however old the day they were first accepted.
+- **`WORKSHOP_CLOSED` from a sync** shows the closed screen and no session is started; no new events are created.
+- **Review findings.** (a) `shown` is recorded once per card per session: `LiveSession.shown` is replayed from the events, and a resumed session or a card coming round again records nothing. (b) "Delete everything about me" also forgets `wb:lastWorkshop`. (e) `SERVER_ERROR` and `JOIN_WAVE_UNKNOWN` on the consent screen and `WORKSHOP_CLOSED` at join have screen tests.
+- The `RATE_LIMITED` join retry was built with the review fixes (pull request 29). Tests: the refused code forgotten, and kept while a join is queued; the closed screen from a sync; the retry with its waits of 5 and 10 seconds; `online`; the memory store (a session in memory, the warning, nothing kept); the last workshop forgotten; sessions re-queued; the prune rule; the memory store's rows; `shown` once; the three error wordings. 169 client tests, 392 in the repository (13 new).
+
+### Why
+
+Item 9 of the UI brief; docs/screen-map.md, "Offline and failure behaviour"; the runbook's client codes; the review of the client stack (findings a, b, e).
+
+### How to verify
+
+```
+npm run check                       # 392 tests
+```
+
+On the deploy preview: delete yourself from the privacy panel on one device while a second device holds the same code; open the second: the welcome with "The code this device remembered is no longer ours". Airplane mode on, answer a card, off: within five seconds "Waiting to sync" reads 0 without a tap. Safari, private browsing with "Block all cookies" on: the link opens with the warning line, a session runs, the code is shown at the end; the next open starts fresh. Reload mid-session: the panel's event count does not grow.
+
+### Decisions made on the way
+
+- **One interface for the store**, rather than a fake IndexedDB in the browser: the memory store is forty lines, and the test DOM keeps using the real one.
+- **The retry is a loop over `wait`**, the same hook the join and the card use, so a test runs it instantly; the stub answers every unlisted sync with the contract's shape so no test loops forever.
+- **`WORKSHOP_CLOSED` is remembered for the open** (`closedByServer`), so landing after the sync does not start a session on a closed workshop.
+
+### Open
+
+- The runbook's `CLIENT_STORAGE_UNAVAILABLE` entry says the client does not produce the code yet; it does now. The ops builder's file.
+
+---
+
+## 2026-11-03, Tuesday, late morning. UI item 10: the visual pass
+
+### What
+
+- **One stylesheet of tokens** (`apps/web/src/app.css`): warm paper, dark ink, one accent for the one action on a screen, one green for the two saved states, every colour, size, radius and shadow a custom property on `:root`, with a dark scheme on the same roles. The partner's colours replace `--accent` and `--accent-deep` in two lines. Fonts are the system stacks, as the brief allows: a humanist sans for reading at 18 pixels, a serif with character (Iowan Old Style, Palatino, Charter, Georgia) for the question and the headings, a monospace with tabular numerals for the code.
+- **Cards that read as cards**: the card on paper with a soft offset shadow and the next card hinted behind it, a little tilted; the question in the serif at 26 pixels; the answer field as paper on the card; the saved and synced lines in green with a drawn tick (an SVG, not a glyph). "Card n of total" and the words stay on the answered card until the next one comes.
+- **Controls** 44 pixels tall at least; one accent button per screen, the rest hairlines; link buttons for the foot; a visible focus ring, a themed caret and selection; sections spaced; the panel's rows in two columns, one under 360 pixels; the warning box in the accent's hairline.
+- **Motion**: the card leaving and the tick appearing; everything off under `prefers-reduced-motion`.
+- **Checked** on the dev server at 375 and 320 pixels wide, light and dark: no horizontal scroll at 320, the smallest control 44 pixels, the welcome, the consent, the card in each state, the panel and the trust page. The bundled detector (`impeccable detect`) reports nothing. `DESIGN.md` at the root records the tokens and the rules in the DESIGN.md format, as the brief's `document` step.
+- Tests unchanged in number: 392; the screen tests gained the card's number.
+
+### Why
+
+Item 10 of the UI brief, by its design direction of 2 November 2026: warm, creative, informal; a conversation on paper, not a form; not the look of an AI product.
+
+### How to verify
+
+```
+npm run check                       # 392 tests
+.claude/skills/impeccable/scripts/impeccable detect --json apps/web/src   # []
+```
+
+On the deploy preview on a phone, and once with the system font at its largest and once with "reduce motion" on: the welcome's title in the serif and one orange button; the card with the stack behind it; Save shows the tick and "Synced." in green on the same card; the panel's rows readable at 320 pixels; the trust page's seven headings.
+
+### Decisions made on the way
+
+- **System fonts, not a bundled file.** The brief allows either; a bundled face would be a download of unknown provenance made without Marco, and the serif stack already gives the question its character. One line replaces it.
+- **The critique and the polish ran in one context**, reading the sources and the rendered screens, with the detector as the mechanical check; the skill's two-agent critique was not run, to keep the day's budget for the items. The snapshot is this entry.
+- **The words on the answered card stay greyed** until the next card, so the saved line speaks of something visible; nothing readable is stored.
+
+### Open
+
+- The trust page's first section shows the draft's backticks around `v1.` as typed; the words are the reviewers'.
+- `theme_color` and the icons' colours now match the tokens by hand; they are not derived from the stylesheet.

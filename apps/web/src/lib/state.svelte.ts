@@ -42,9 +42,10 @@ import {
   withShown,
   type LiveSession,
 } from './session.ts';
-import { localDay, WorkshopStore } from './store.ts';
+import { localDay, MemoryStore, WorkshopStore, type Store } from './store.ts';
 import {
   LAST_SYNC_DAY,
+  pendingJoin,
   queueJoin,
   reconcile,
   syncNow,
@@ -75,7 +76,13 @@ export type Screen =
   | 'card'
   | 'session-end'
   | 'panel'
+  | 'trust'
+  | 'terms'
+  | 'privacy'
   | 'closed';
+
+/** The three pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
+export type TextPage = Extract<Page, 'trust' | 'terms' | 'privacy'>;
 
 /** The code as shown before "Reveal": four groups of four. */
 export const MASKED_CODE = '•••• •••• •••• ••••';
@@ -95,11 +102,23 @@ export type EndStep = 'code' | 'install' | 'done';
 /** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
 export const LAST_WORKSHOP = 'wb:lastWorkshop';
 
+/** The sync is retried while the outbox is not empty: first after this long, then doubling, up to the cap. */
+export const RETRY_FIRST_MS = 5_000;
+export const RETRY_MAX_MS = 5 * 60_000;
+
 export class AppState {
   screen = $state<Screen>('loading');
   workshop = $state.raw<Workshop | undefined>(undefined);
   copy = $state.raw<Copy>(defaultCopy());
-  store: WorkshopStore | undefined;
+  store: Store | undefined;
+  /** True when the browser refused storage: this open runs in memory and the code must be written down. */
+  storageUnavailable = $state(false);
+  /** True when the stored code was refused on open (AUTH_CODE_UNKNOWN) and forgotten: the welcome says so. */
+  codeRefused = $state(false);
+  /** True while the retry loop runs, so only one does. */
+  private retryLoop = false;
+  /** The server said WORKSHOP_CLOSED: the closed screen, and no session is started. */
+  private closedByServer = false;
   code = $state('');
   arrival = $state<Arrival>({});
   /** The error code of the last failure on this screen, shown through its copy.md wording. */
@@ -133,6 +152,8 @@ export class AppState {
   live = $state.raw<LiveSession | null>(null);
   /** The card on the screen. It stays while its answer is saved and synced; then the next one comes. */
   card = $state.raw<Card | undefined>(undefined);
+  /** "Card n": the number of the card on the screen, kept while its answer is saved and synced. */
+  cardNo = $state(0);
   cardState = $state<CardState>('fresh');
   joining = $state(false);
   hintOpen = $state(false);
@@ -165,11 +186,49 @@ export class AppState {
     this.lastError = code;
   }
 
-  /** A sync status as it comes back: kept, and its error, if any, remembered for the diagnostics. */
+  /**
+   * A sync status as it comes back: kept, its error, if any, remembered for the diagnostics, a
+   * closed workshop shown, and a retry scheduled while anything waits.
+   */
   private note(status: SyncStatus): SyncStatus {
     this.sync = status;
     if (status.lastError) this.lastError = status.lastError;
+    if (status.lastError === 'WORKSHOP_CLOSED') {
+      this.closedByServer = true;
+      this.screen = 'closed';
+    }
+    if (status.lastResult !== 'ok' && status.outboxSize + status.outboxSessions > 0)
+      void this.retryWhileWaiting();
     return status;
+  }
+
+  /**
+   * The outbox is tried again on a timer, 5 seconds then doubling up to 5 minutes, until it is
+   * empty or the workshop is closed; and at once when the browser says the network is back
+   * (`online`, from App.svelte). One loop at a time.
+   */
+  private async retryWhileWaiting(): Promise<void> {
+    if (this.retryLoop) return;
+    this.retryLoop = true;
+    try {
+      let delay = RETRY_FIRST_MS;
+      while (this.code && this.screen !== 'closed' && this.store) {
+        await this.wait(delay);
+        const status = await this.requestSync();
+        if (status.lastResult === 'ok' || status.outboxSize + status.outboxSessions === 0) return;
+        delay = Math.min(delay * 2, RETRY_MAX_MS);
+      }
+    } finally {
+      this.retryLoop = false;
+    }
+  }
+
+  /** The browser's `online` event: try the outbox now rather than at the timer's next tick. */
+  async reconnected(): Promise<void> {
+    if (!this.code || !this.store) return;
+    const { sessions, events } = await this.store.pending();
+    if (sessions.length + events.length > 0 || (await pendingJoin(this.store)))
+      await this.requestSync();
   }
 
   /** 1 for the participant's first session: the demo card and the hint show only then. */
@@ -215,7 +274,7 @@ export class AppState {
     this.copy = this.workshop.copy;
     this.rememberWorkshop(route.slug);
     this.platform = detectPlatform(navigator.userAgent, navigator.maxTouchPoints);
-    this.store = new WorkshopStore(route.slug);
+    this.store = await this.openStore(route.slug);
     const saved = await this.store.get('code');
     const stored = parseArrival(await this.store.get('arrival'));
     this.home = pageHref(route.slug);
@@ -248,12 +307,33 @@ export class AppState {
       this.screen = 'enter-code';
       return;
     }
+    if (route.page === 'trust' || route.page === 'terms' || route.page === 'privacy') {
+      this.openPage(route.page);
+      return;
+    }
     if (route.page === 'panel') {
       // The sync on open has just read GET /me; the panel shows it rather than asking again.
       await this.showPanel();
       return;
     }
     await this.land();
+  }
+
+  /**
+   * The device's store, or, when the browser refuses it (private browsing with storage blocked,
+   * a full disk), one in memory for this open: the app still runs one session, warns, and shows
+   * the code at the end (docs/screen-map.md, CLIENT_STORAGE_UNAVAILABLE).
+   */
+  private async openStore(slug: string): Promise<Store> {
+    try {
+      const store = new WorkshopStore(slug);
+      await store.get('code');
+      return store;
+    } catch {
+      this.storageUnavailable = true;
+      this.lastError = 'CLIENT_STORAGE_UNAVAILABLE';
+      return new MemoryStore();
+    }
   }
 
   private lastWorkshop(): string | null {
@@ -286,7 +366,21 @@ export class AppState {
     this.tooShort = false;
     if (page === 'continue') this.screen = 'enter-code';
     else if (page === 'panel') await this.openPanel();
+    else if (page === 'trust' || page === 'terms' || page === 'privacy') this.openPage(page);
     else await this.land();
+  }
+
+  /** The trust page, the terms or the privacy policy, from any screen; Back returns there. */
+  openPage(page: TextPage): void {
+    if (!this.workshop) return;
+    if (this.screen !== page) this.before = this.screen;
+    history.replaceState(null, '', pageHref(this.workshop.config.slug, page));
+    this.screen = page;
+  }
+
+  /** Back from a page of text: the same rule as Back from the panel. */
+  async closePage(): Promise<void> {
+    await this.closePanel();
   }
 
   /**
@@ -295,7 +389,7 @@ export class AppState {
    * device before any request, so the screen does not depend on the API answering.
    */
   private async land(): Promise<void> {
-    if (this.today() !== 'open') this.screen = 'closed';
+    if (this.today() !== 'open' || this.closedByServer) this.screen = 'closed';
     else if (this.code) await this.enterSession();
     else this.screen = 'welcome';
   }
@@ -316,6 +410,15 @@ export class AppState {
     this.me = me;
     if (error) this.lastError = error;
     this.note(sync);
+    // The stored code is not the server's any more (the participant deleted themselves from
+    // another device, or the workshop was reset): forgotten, and the welcome says so. Never while
+    // a join is still queued: then the server has simply not met the code yet.
+    if (error === 'AUTH_CODE_UNKNOWN' && !(await pendingJoin(this.store))) {
+      await this.store.unset('code');
+      this.code = '';
+      this.me = null;
+      this.codeRefused = true;
+    }
   }
 
   /**
@@ -346,7 +449,7 @@ export class AppState {
         b.toString(16).padStart(2, '0'),
       ).join(''),
     };
-    await this.store.sessions.put({ ...session, synced: 0 });
+    await this.store.putSession({ ...session, synced: 0 });
     this.live = replaySession(deck, config, session, history);
     await this.showCard();
   }
@@ -374,9 +477,13 @@ export class AppState {
     }
     const id = currentCardId(this.live);
     this.card = this.workshop.deck.cards.find((c) => c.id === id);
+    this.cardNo = position(this.live).n;
     this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
-    await this.record('shown');
-    this.live = withShown(this.live);
+    // Once per card per session: a resumed session or a card coming round again is not a new showing.
+    if (this.card && !this.live.shown.has(this.card.id)) {
+      await this.record('shown');
+      this.live = withShown(this.live, this.card.id);
+    }
     this.screen = 'card';
   }
 
@@ -510,7 +617,7 @@ export class AppState {
   /** One event, as the contract spells it, with this session's next seq; the engine names the kind. */
   private async record(kind: EventKind, body?: string): Promise<void> {
     if (!this.store || !this.workshop || !this.live || !this.card) return;
-    await this.store.events.put({
+    await this.store.putEvent({
       id: crypto.randomUUID(),
       sessionId: this.live.session.id,
       cardId: this.card.id,
@@ -544,7 +651,7 @@ export class AppState {
     this.cardState = 'saving';
     await this.record('answered', sealed);
     this.live = withAnswer(this.live, this.card.id);
-    this.draft = '';
+    // The words stay on the card, greyed, until the next card comes; nothing readable is stored.
     this.cardState = 'saved';
     const status = await this.requestSync();
     this.cardState =
@@ -622,7 +729,8 @@ export class AppState {
    */
   async closePanel(): Promise<void> {
     if (!this.workshop) return;
-    const back = this.before === 'loading' || this.before === 'panel' ? undefined : this.before;
+    const pages: Screen[] = ['loading', 'panel', 'trust', 'terms', 'privacy'];
+    const back = pages.includes(this.before) ? undefined : this.before;
     history.replaceState(
       null,
       '',
@@ -653,6 +761,11 @@ export class AppState {
       return;
     }
     await this.store.wipe();
+    try {
+      localStorage.removeItem(LAST_WORKSHOP);
+    } catch {
+      /* nothing to remove where storage is refused */
+    }
     this.go(pageHref(this.workshop.config.slug));
   }
 

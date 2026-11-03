@@ -9,6 +9,8 @@
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
   import PrivacyPanel from './screens/PrivacyPanel.svelte';
   import SessionEnd from './screens/SessionEnd.svelte';
+  import TextPage from './screens/TextPage.svelte';
+  import Trust from './screens/Trust.svelte';
   import Welcome from './screens/Welcome.svelte';
 
   /**
@@ -26,8 +28,14 @@
       app.installOffer = event as AppState['installOffer'];
     };
     window.addEventListener('beforeinstallprompt', keep);
+    // The network is back: the outbox goes out now, not at the retry timer's next tick.
+    const online = () => void app.reconnected();
+    window.addEventListener('online', online);
     void app.open(location.pathname);
-    return () => window.removeEventListener('beforeinstallprompt', keep);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', keep);
+      window.removeEventListener('online', online);
+    };
   });
 </script>
 
@@ -39,6 +47,9 @@
     {/if}
   </nav>
 
+  {#if app.storageUnavailable}
+    <p class="warning" role="status">{app.copy.error('CLIENT_STORAGE_UNAVAILABLE')}</p>
+  {/if}
   {#if app.screen === 'loading'}
     <p class="muted">{app.copy.item('App labels', 'loading')}</p>
   {:else if app.screen === 'no-workshop'}
@@ -59,5 +70,22 @@
     <Closed {app} />
   {:else if app.screen === 'panel'}
     <PrivacyPanel {app} />
+  {:else if app.screen === 'trust'}
+    <Trust {app} />
+  {:else if app.screen === 'terms' || app.screen === 'privacy'}
+    <TextPage {app} />
+  {/if}
+  {#if app.workshop && app.screen !== 'trust' && app.screen !== 'terms' && app.screen !== 'privacy'}
+    <footer class="muted">
+      <button class="link" onclick={() => app.openPage('trust')}
+        >{app.copy.item('Buttons', 'trust page')}</button
+      >
+      <button class="link" onclick={() => app.openPage('terms')}
+        >{app.copy.item('Trust page links', 'terms')}</button
+      >
+      <button class="link" onclick={() => app.openPage('privacy')}
+        >{app.copy.item('Trust page links', 'privacy policy')}</button
+      >
+    </footer>
   {/if}
 </main>

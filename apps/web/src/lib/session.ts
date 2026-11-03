@@ -16,6 +16,8 @@ export interface History {
 export interface LiveSession {
   session: Session;
   plan: SessionPlan;
+  /** Card ids shown in this session, so a card is recorded as shown once however often it is displayed. */
+  shown: ReadonlySet<string>;
   /** Card ids answered in this session. Answers do not change the queue; they mark cards done. */
   answered: ReadonlySet<string>;
   /** Card ids set aside once in this session: still in the queue, at the end, owed a second showing. */
@@ -87,10 +89,12 @@ export function replaySession(
     answeredIds: answeredBefore,
     deferredIds: deferredBefore(history, session),
   });
+  const shown = new Set<string>();
   const answered = new Set<string>();
   const dismissed = new Set<string>();
   const deferred = new Set<string>();
   for (const event of own) {
+    if (event.kind === 'shown') shown.add(event.cardId);
     if (event.kind === 'answered') answered.add(event.cardId);
     if (event.kind === 'dismissed' || event.kind === 'deferred') {
       const result = applyDismiss(plan, event.cardId, dismissed);
@@ -103,6 +107,7 @@ export function replaySession(
   return {
     session,
     plan,
+    shown,
     answered,
     dismissed,
     deferred,
@@ -160,7 +165,7 @@ export function withDismissal(
   };
 }
 
-/** A `shown` event was recorded: the seq moves on, nothing else. */
-export function withShown(live: LiveSession): LiveSession {
-  return { ...live, nextSeq: live.nextSeq + 1 };
+/** A `shown` event was recorded for this card: the seq moves on, and the card is not recorded shown again. */
+export function withShown(live: LiveSession, cardId: string): LiveSession {
+  return { ...live, shown: new Set([...live.shown, cardId]), nextSeq: live.nextSeq + 1 };
 }

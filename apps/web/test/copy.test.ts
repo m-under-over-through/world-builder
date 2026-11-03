@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CLIENT_ERROR_CODES, ERROR_CODES } from '@wb/contracts';
-import { Copy, fill, missing, parseCopy } from '../src/lib/copy.ts';
+import { Copy, fill, inline, missing, parseCopy } from '../src/lib/copy.ts';
 
 const SAMPLE = `# Copy: sample
 
@@ -128,4 +128,16 @@ describe('every workshop folder has the words the client reads', () => {
       }
     });
   }
+});
+
+describe('a paragraph with bold lead-ins', () => {
+  it('splits into plain and bold runs, and a text without stars is one plain run', () => {
+    expect(inline('**What this is.** A set of questions, **not** a test.')).toEqual([
+      { bold: true, text: 'What this is.' },
+      { bold: false, text: ' A set of questions, ' },
+      { bold: true, text: 'not' },
+      { bold: false, text: ' a test.' },
+    ]);
+    expect(inline('Plain words.')).toEqual([{ bold: false, text: 'Plain words.' }]);
+  });
 });

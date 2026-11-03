@@ -277,6 +277,48 @@ describe('the pages a participant can open directly', () => {
     );
   });
 
+  it('/terms opens the terms and /privacy the policy', async () => {
+    stubRoutes({});
+    const terms = await open(`/${SLUG}/terms`);
+    expect(terms.screen).toBe('terms');
+    expect(screen.getByText(copy.item('Titles', 'terms'))).toBeTruthy();
+    document.body.innerHTML = '';
+    const policy = await open(`/${SLUG}/privacy`);
+    expect(policy.screen).toBe('privacy');
+    expect(screen.getByText(copy.item('Titles', 'privacy policy'))).toBeTruthy();
+  });
+
+  it('Back from /trust opened directly lands where the device lands', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/trust`);
+    expect(screen.getByText(copy.item('Titles', 'trust page'))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/`);
+  });
+
+  it('the footer reaches the trust page, the terms and the policy from the welcome, and Back returns there', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/join/wave-1`);
+    await user.click(screen.getByRole('button', { name: copy.item('Trust page links', 'terms') }));
+    expect(await screen.findByText(copy.item('Titles', 'terms'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/terms`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'trust page') }));
+    expect(await screen.findByText(copy.item('Titles', 'trust page'))).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: copy.item('Trust page links', 'privacy policy') }),
+    );
+    expect(await screen.findByText(copy.item('Titles', 'privacy policy'))).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/privacy`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+  });
+
   it('the panel opened from the welcome goes back to the welcome', async () => {
     stubApi(() => ({ status: 200, body: {} }));
     const user = userEvent.setup();
@@ -387,6 +429,19 @@ describe('the first session', () => {
     expect(screen.queryByText('JOIN_WAVE_FULL')).toBeNull();
   });
 
+  it('a workshop closed at join shows the closed screen with the trust page link', async () => {
+    stubRoutes({
+      [`/api/${SLUG}/join`]: [() => ({ status: 403, body: { error: 'WORKSHOP_CLOSED' } })],
+    });
+    const user = userEvent.setup();
+    await throughTheIntro(user);
+    expect(await screen.findByText(copy.text('Closed'))).toBeTruthy();
+    // The closed screen's own button, and the footer's.
+    expect(
+      screen.getAllByRole('button', { name: copy.item('Buttons', 'trust page') }).length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
   it('a join refused for the minute (RATE_LIMITED) is retried once after Retry-After, and a second refusal is shown', async () => {
     const limited = () => ({
       status: 429,
@@ -432,12 +487,19 @@ describe('the privacy panel', () => {
     await store.set('code', '1234567890123456');
     store.close();
   }
+  const ME = () => ({
+    status: 200,
+    body: {
+      workshop: { slug: SLUG, name: 'x', closesDay: '2026-12-06', deleteDay: '2027-02-05' },
+      participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 0 },
+      sessions: [],
+      events: [],
+    },
+  });
 
   it('"Delete everything about me" asks first, "Keep my answers" sends nothing, "Yes" deletes and wipes the device', async () => {
     await withACode();
-    const calls = stubRoutes({
-      [`/api/${SLUG}/me`]: [() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } })],
-    });
+    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
     const user = userEvent.setup();
     const gone: string[] = [];
     const app = await open(`/${SLUG}/panel`);
@@ -484,9 +546,7 @@ describe('the privacy panel', () => {
 
   it('the copy button puts the code on the clipboard in groups of four', async () => {
     await withACode();
-    stubRoutes({
-      [`/api/${SLUG}/me`]: [() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } })],
-    });
+    stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
     // userEvent.setup() lends the test DOM a clipboard; what the button wrote is read back from it.
     const user = userEvent.setup();
     await open(`/${SLUG}/panel`);

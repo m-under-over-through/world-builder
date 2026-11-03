@@ -14,6 +14,9 @@
 
 <h1>{app.workshop?.config.name}</h1>
 <p>{app.workshop?.config.purpose}</p>
+{#if app.codeRefused}
+  <p class="warning" role="status">{app.copy.text('Welcome: code not accepted')}</p>
+{/if}
 {#if canJoin}
   <section>
     <p>{app.copy.text('Welcome: new here')}</p>

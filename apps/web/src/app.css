@@ -1,34 +1,191 @@
+/*
+ * The look of the client (UI brief, design direction, decided 2 November 2026): warm, creative,
+ * informal. A conversation on paper, not a form. Every colour, size and radius is a token on
+ * :root, so the partner's colours replace the accent in one line. Fonts are the system stacks
+ * (the CSP is `self`): a humanist sans for reading, a serif with character for the question and
+ * the headings. Type is large, contrast is 4.5 to 1 or better, every control is 44 pixels tall,
+ * and nothing moves when the system asks for reduced motion.
+ */
 :root {
   color-scheme: light dark;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
-  --gap: 16px;
+
+  /* paper and ink */
+  --paper: #f6f0e5;
+  --paper-deep: #ece4d4;
+  --card: #fffcf7;
+  --ink: #2b2520;
+  --ink-soft: #5e554c;
+  --line: #d9cfbf;
+  /* the one action on a screen */
+  --accent: #a4441f;
+  --accent-deep: #83351a;
+  --on-accent: #fffaf3;
+  /* the second colour, only for states: saved, synced */
+  --state: #2e6b4c;
+
+  --font-read:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-display:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Charter, 'Book Antiqua', Georgia, ui-serif,
+    serif;
+
+  --size-small: 0.9375rem;
+  --size-body: 1.125rem;
+  --size-lead: 1.25rem;
+  --size-question: 1.625rem;
+  --size-title: 1.75rem;
+  --leading: 1.55;
+
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+  --gap: var(--space-2);
+
+  --radius-card: 20px;
+  --radius-control: 12px;
+  --tap: 44px;
+
+  --shadow-card: 0 12px 28px -14px rgb(43 37 32 / 0.4), 0 1px 2px rgb(43 37 32 / 0.08);
+  --shadow-stack: 0 6px 16px -12px rgb(43 37 32 / 0.35);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family: var(--font-read);
+  font-size: var(--size-body);
+  line-height: var(--leading);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1e1a16;
+    --paper-deep: #15120f;
+    --card: #2a2420;
+    --ink: #f3ece1;
+    --ink-soft: #c2b7a8;
+    --line: #4a4138;
+    --accent: #e0805a;
+    --accent-deep: #f0a384;
+    --on-accent: #1e1a16;
+    --state: #8fcfae;
+    --shadow-card: 0 12px 28px -14px rgb(0 0 0 / 0.7), 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-stack: 0 6px 16px -12px rgb(0 0 0 / 0.6);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
+  background: var(--paper);
 }
 main {
   max-width: 36rem;
   margin: 0 auto;
-  padding: var(--gap);
-  line-height: 1.5;
+  padding: var(--space-2) var(--space-2) var(--space-5);
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  margin: var(--space-4) 0 var(--space-2);
 }
 h1 {
-  font-size: 1.4rem;
+  font-size: var(--size-title);
+  line-height: 1.2;
 }
+h2 {
+  font-size: var(--size-lead);
+  line-height: 1.3;
+  margin-top: var(--space-4);
+}
+p {
+  margin: 0 0 var(--space-2);
+  max-width: 65ch;
+}
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+a:hover {
+  color: var(--accent-deep);
+}
+strong {
+  font-weight: 650;
+}
+code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+ul {
+  padding-left: 1.2em;
+}
+li {
+  margin-bottom: var(--space-1);
+}
+
+/* the top bar: the workshop's name, quiet, and the one way to the privacy panel */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--size-small);
+  color: var(--ink-soft);
+  min-height: var(--tap);
+}
+nav span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+nav button {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  font-size: var(--size-small);
+}
+
+/* the card: a card, on paper, with the stack behind it */
 .card {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-  border-radius: 16px;
-  padding: 24px var(--gap);
-  margin: var(--gap) 0;
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+  box-shadow: var(--shadow-card);
   /* Sideways is the swipe (lib/swipe.ts); up and down stays the page's scroll. */
   touch-action: pan-y;
+}
+.card::before {
+  /* the next card, hinted behind this one, a little tilted */
+  content: '';
+  position: absolute;
+  inset: 10px -4px -8px 6px;
+  z-index: -1;
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  transform: rotate(1.6deg);
+  box-shadow: var(--shadow-stack);
 }
 .card.swiping {
   cursor: grabbing;
@@ -38,83 +195,220 @@ h1 {
   transform: translateX(-120%) rotate(-5deg);
   transition: transform 220ms ease-in;
 }
-@media (prefers-reduced-motion: reduce) {
-  .card.leaving {
-    transition: none;
-  }
+.card p.question {
+  font-family: var(--font-display);
+  font-size: var(--size-question);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  margin: 0 0 var(--space-2);
+}
+.card .state {
+  margin: var(--space-2) 0 0;
+  color: var(--state);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 .card .state:empty {
   display: none;
 }
-.card p.question {
-  font-size: 1.3rem;
-  margin-top: 0;
+.card .state svg {
+  flex: none;
 }
+
+/* the answer field: paper to write on */
 textarea {
+  display: block;
   width: 100%;
-  min-height: 8rem;
+  min-height: 9rem;
   font: inherit;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  background: transparent;
+  line-height: var(--leading);
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--paper);
   color: inherit;
+  caret-color: var(--accent);
+  resize: vertical;
 }
+textarea::placeholder,
+input::placeholder {
+  color: var(--ink-soft);
+  opacity: 1;
+}
+textarea:disabled {
+  color: var(--ink-soft);
+}
+
+/* buttons: one in the accent per screen, the rest quiet */
 button {
   font: inherit;
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  background: transparent;
-  color: inherit;
+  font-weight: 600;
+  min-height: var(--tap);
+  padding: var(--space-1) 20px;
+  border-radius: var(--radius-control);
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
   cursor: pointer;
+  transition:
+    background-color 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+button:hover {
+  background: var(--paper-deep);
+}
+button:active {
+  transform: translateY(1px);
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+  transform: none;
 }
 button.primary {
-  background: currentColor;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 button.primary span {
-  color: Canvas;
+  color: inherit;
+}
+button.primary:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+button.link {
+  border: none;
+  background: none;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: var(--space-1) 0;
+}
+button.link:hover {
+  background: none;
+  color: var(--accent-deep);
 }
 .row {
   display: flex;
-  gap: 12px;
+  gap: var(--space-1) 12px;
   flex-wrap: wrap;
-  margin-top: var(--gap);
+  align-items: center;
+  margin-top: var(--space-2);
+}
+
+section {
+  margin: 0 0 var(--space-4);
+}
+section .row {
+  margin-top: var(--space-1);
 }
 .muted {
-  opacity: 0.7;
-  font-size: 0.95rem;
+  color: var(--ink-soft);
+  font-size: var(--size-small);
 }
+.warning {
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-control);
+  padding: 12px var(--space-2);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+}
+
+/* the code, in groups of four */
 .code {
-  font-family: ui-monospace, monospace;
-  font-size: 1.3rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--size-question);
   letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
 }
 input.code {
+  display: block;
   width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  background: transparent;
+  min-height: var(--tap);
+  padding: 12px var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--card);
   color: inherit;
+  caret-color: var(--accent);
 }
-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
+
+/* the dictation hint, a note beside the card */
+.hint {
+  background: var(--paper-deep);
+  border-radius: var(--radius-control);
+  padding: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+.hint h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--size-body);
+}
+.hint p {
+  margin-bottom: var(--space-2);
+}
+
+/* the privacy panel's rows */
+dl {
+  margin: var(--space-2) 0;
 }
 dl div {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  grid-template-columns: minmax(8rem, 2fr) 3fr;
+  gap: var(--space-1) var(--space-2);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
 }
 dt {
-  opacity: 0.7;
+  color: var(--ink-soft);
+  font-size: var(--size-small);
 }
 dd {
   margin: 0;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+dd .row {
+  margin-top: var(--space-1);
+}
+details {
+  margin-top: var(--space-1);
+}
+summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+
+/* the foot of every screen: the trust page, the terms, the policy */
+footer {
+  display: flex;
+  gap: var(--space-1) var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 360px) {
+  dl div {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  .card.leaving {
+    transition: none;
+  }
 }
