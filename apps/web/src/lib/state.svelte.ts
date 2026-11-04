@@ -376,11 +376,11 @@ export class AppState {
     }
     const aside: AsideTile[] = [];
     if (this.live) {
-      const { answered, dismissed, deferred, plan } = this.live;
-      const ids = [
-        ...plan.queue.filter((id) => dismissed.has(id)),
-        ...[...deferred].filter((id) => !dismissed.has(id)),
-      ];
+      // From the round's own record of what was set aside, in the order it happened, and never
+      // from the queue: a card set aside may leave the queue (the deck engine decides where it
+      // comes back), and the list must keep it all the same.
+      const { answered, dismissed, deferred } = this.live;
+      const ids = new Set([...dismissed, ...deferred]);
       for (const id of ids) {
         const card = cards.get(id);
         if (!card || answered.has(id)) continue;

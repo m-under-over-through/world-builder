@@ -631,7 +631,7 @@ describe('the core loop', () => {
     await waitFor(() => expect(app.sync.lastResult).toBe('ok'));
   });
 
-  it('Set aside by the button: no toast, the next card is the front with its area as the label, and the card comes round again at the end', async () => {
+  it('Set aside by the button: no toast, the next card is the front with its area as the label, and the card is listed under "Set aside"', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const user = userEvent.setup();
     const app = await toTheFirstCard(user);
@@ -641,7 +641,6 @@ describe('the core loop', () => {
       expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
     );
     expect(document.querySelector('[role="status"]')).toBeNull();
-    expect(app.live!.plan.queue.at(-1)).toBe(first.id);
     expect(app.live!.dismissed.has(first.id)).toBe(true);
     const next = app.card!;
     expect((await frontCard()).querySelector('.label')!.textContent).toBe(next.area);

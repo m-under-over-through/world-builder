@@ -1910,6 +1910,7 @@ Marco went through every screen of the preview on his phone and on a laptop and 
 - **The first card is recorded `shown` only when the onboarding card goes**: it is not shown while it is covered, and `untouched` stays true for the dictation hint.
 - **Set aside sends the onboarding card away**, as a swipe does, so the row under the stack stays where it is; nothing is recorded.
 - **The "Demo card" words were shortened** to fit 32 pixels in the card on a small phone: "Open a card to answer. Swipe it away to set it aside." (placeholder, under 15 words).
+- **The set-aside list is read from the round's `dismissed` and `deferred` sets**, minus the answered cards, in the order they were set aside, never from the queue: the integrator's request, since fix 19 takes a card set aside out of its round's queue. The tests touched here no longer assume a card set aside comes round at the end of its round.
 - **The set-aside tiles come after the answered ones in the sheet too** (the chips came first there): a tile is taller than a chip, and the answers are what the sheet is for. The sheet's body scrolls as one; a swipe down closes the sheet from its head only.
 - **The terms and the policy got Back at the top but no foot links**: they had none, and the brief's foot is the about page's.
 - **The consent sentences moved unchanged**, including "we cannot find out", which predates ADR 0018; the note in `copy.md` hands it to the reviewers.

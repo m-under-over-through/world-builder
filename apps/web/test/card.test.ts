@@ -283,7 +283,7 @@ describe('the counter', () => {
 });
 
 describe('set aside', () => {
-  it('the button: no toast; the card goes to the end of the round, and the second time it leaves the round', async () => {
+  it('the button: no toast and no status line; the card is set aside and listed under "Set aside", even once it is out of the queue', async () => {
     const app = await onACard();
     const user = userEvent.setup();
     renderApp(app);
@@ -293,11 +293,13 @@ describe('set aside', () => {
     expect(app.live!.dismissed.has(first.id)).toBe(true);
     expect(app.world.aside.map((c) => c.cardId)).toEqual([first.id]);
     expect(document.querySelector('[role="status"]')).toBeNull();
-    while (app.card!.id !== first.id) await app.setAside();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
-    await waitFor(() => expect(app.live!.deferred.has(first.id)).toBe(true));
-    expect(app.live!.plan.queue).not.toContain(first.id);
-    expect(document.querySelector('[role="status"]')).toBeNull();
+    // The list is the round's record of what was set aside, not a reading of the queue: a card
+    // the engine takes out of the queue stays listed (fix 19 moves a card set aside to a later round).
+    app.live = {
+      ...app.live!,
+      plan: { ...app.live!.plan, queue: app.live!.plan.queue.filter((id) => id !== first.id) },
+    };
+    expect(app.world.aside.map((c) => c.cardId)).toEqual([first.id]);
   });
 
   it('a swipe of more than 100 pixels sets the card aside; one of 100 brings it back; a drag of 7 pixels does not open the card', async () => {
