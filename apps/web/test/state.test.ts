@@ -178,10 +178,11 @@ describe('a session on the deck engine', () => {
     return app;
   }
 
-  it('records shown on display, dismissed then deferred on two set-asides, and ends when the engine says', async () => {
+  it('records shown on display, dismissed then deferred on two set-asides, and starts the next round when the engine says this one is over', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await joined();
     const first = app.card!.id;
+    const roundOne = app.live!.session.id;
     await app.setAside();
     expect(app.card!.id).not.toBe(first);
     for (let i = 0; i < 3; i++) {
@@ -193,9 +194,13 @@ describe('a session on the deck engine', () => {
     expect(app.card!.id).toBe(first);
     expect(app.position).toEqual({ n: 4, total: 4 });
     await app.setAside();
-    expect(app.screen).toBe('session-end');
-    expect(app.card).toBeUndefined();
-    const events = (await db(app).events.toArray()).sort((a, b) => a.seq - b.seq);
+    // No screen between rounds (ADR 0017): the stack goes on with round 2.
+    expect(app.screen).toBe('card');
+    expect(app.sessionNo).toBe(2);
+    expect(app.card).toBeDefined();
+    const events = (await db(app).events.toArray())
+      .filter((e) => e.sessionId === roundOne)
+      .sort((a, b) => a.seq - b.seq);
     expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
     // The set-aside card coming round again is not shown a second time (review finding a).
     expect(events.map((e) => `${e.kind}${e.cardId === first ? '*' : ''}`)).toEqual([
@@ -209,11 +214,10 @@ describe('a session on the deck engine', () => {
       'answered',
       'deferred*',
     ]);
-    expect(events.every((e) => e.sessionId === app.live!.session.id)).toBe(true);
-    expect(await db(app).sessions.count()).toBe(1);
+    expect(await db(app).sessions.count()).toBe(2);
   });
 
-  it('a reload mid-session resumes the same card from the seed and the events, with no new session row', async () => {
+  it('a reload mid-round resumes the same card from the seed and the events, with no new session row', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await joined();
     const first = app.card!.id;
@@ -234,23 +238,93 @@ describe('a session on the deck engine', () => {
     expect(kinds).toEqual(['shown', 'dismissed', 'shown']);
   });
 
-  it('after the session end, the next open starts session 2 with the deferred card first', async () => {
+  it("a round's end starts the next round at once in the same open, with the deferred card first and sessionNo 2; a reload resumes it", async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await joined();
     const first = app.card!.id;
+    const roundOne = app.live!.session.id;
     await app.setAside();
     for (let i = 0; i < 3; i++) {
       app.draft = `Answer ${i}`;
       await app.save();
     }
     await app.setAside();
-    expect(app.screen).toBe('session-end');
-    const next = await opened(`/${SLUG}/join/wave-1`);
-    expect(next.screen).toBe('card');
-    expect(next.sessionNo).toBe(2);
-    expect(next.card!.id).toBe(first);
-    expect(next.hintOpen).toBe(false);
-    expect(await db(next).sessions.count()).toBe(2);
+    expect(app.screen).toBe('card');
+    expect(app.sessionNo).toBe(2);
+    expect(app.live!.session.id).not.toBe(roundOne);
+    expect(app.card!.id).toBe(first);
+    expect(app.cardNo).toBe(1);
+    // The demo card and the hint belong to the first round of the first open only.
+    expect(app.hintOpen).toBe(false);
+    expect(await db(app).sessions.count()).toBe(2);
+    const roundTwo = (await db(app).events.toArray()).filter(
+      (e) => e.sessionId === app.live!.session.id,
+    );
+    expect(roundTwo.map((e) => `${e.kind}:${e.seq}`)).toEqual(['shown:0']);
+    // The world keeps round 1's answers; round 2 has nothing set aside yet.
+    expect(app.world.tiles).toHaveLength(3);
+    expect(app.world.chips).toEqual([]);
+
+    const again = await opened(`/${SLUG}/join/wave-1`);
+    expect(again.screen).toBe('card');
+    expect(again.sessionNo).toBe(2);
+    expect(again.live!.session.id).toBe(app.live!.session.id);
+    expect(again.card!.id).toBe(first);
+    expect(await db(again).sessions.count()).toBe(2);
+  });
+
+  /** A state with its own small deck and counts, a store with the demo seen, a code, and no screen yet. */
+  async function withDeck(
+    cards: typeof workshop.deck.cards,
+    warmupsPerSession: number,
+    checkpointsPerSession: number,
+  ): Promise<AppState> {
+    const app = new AppState();
+    app.workshop = {
+      ...workshop,
+      deck: { ...workshop.deck, cards },
+      config: { ...workshop.config, warmupsPerSession, checkpointsPerSession },
+    };
+    app.copy = workshop.copy;
+    app.store = new WorkshopStore(SLUG);
+    await app.store.set('demoSeen', '2026-11-16');
+    app.code = '1234567890123456';
+    app.wait = async () => {};
+    return app;
+  }
+
+  it('with every card answered, the next round brings the answered cards round again: the deck has no end', async () => {
+    stubRoutes({});
+    const warmup = workshop.deck.cards.find((c) => c.set === 'warmup')!;
+    const checkpoint = workshop.deck.cards.find((c) => c.set === 'checkpoint')!;
+    const app = await withDeck([warmup, checkpoint], 1, 1);
+    await app.enterSession();
+    for (const round of [1, 2, 3]) {
+      expect(app.screen).toBe('card');
+      expect(app.sessionNo).toBe(round);
+      expect(app.card!.id).toBe(warmup.id);
+      app.draft = `Warm-up, round ${round}`;
+      await app.save();
+      expect(app.card!.id).toBe(checkpoint.id);
+      app.draft = `Checkpoint, round ${round}`;
+      await app.save();
+    }
+    expect(app.sessionNo).toBe(4);
+    expect(app.card!.id).toBe(warmup.id);
+    // Every answer of every round is in the world, round by round.
+    expect(app.world.tiles.map((t) => t.sessionNo)).toEqual([1, 1, 2, 2, 3, 3]);
+    expect(await db(app).sessions.count()).toBe(4);
+  });
+
+  it('a workshop that plans no cards shows an empty stack and starts no round after round', async () => {
+    stubRoutes({});
+    const app = await withDeck(workshop.deck.cards, 0, 0);
+    await app.enterSession();
+    expect(app.screen).toBe('card');
+    expect(app.card).toBeUndefined();
+    await app.enterSession();
+    expect(app.card).toBeUndefined();
+    expect(await db(app).sessions.count()).toBe(1);
   });
 
   it("a second device with the same code continues the session from the server's rows", async () => {
@@ -307,74 +381,6 @@ describe('a session on the deck engine', () => {
     expect(app.card!.id).not.toBe(first);
     expect(app.position).toEqual({ n: 2, total: 4 });
     expect(await db(app).sessions.count()).toBe(0);
-  });
-});
-
-describe('the session end', () => {
-  async function toTheEnd(app: AppState): Promise<void> {
-    while (app.screen === 'card') {
-      app.draft = 'An answer';
-      await app.save();
-    }
-    expect(app.screen).toBe('session-end');
-  }
-
-  it('session 1 on a phone offers the install; session 2 on the same phone does not, with nothing stored about it', async () => {
-    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
-    const app = await opened(`/${SLUG}/join/wave-1`);
-    app.platform = 'Android';
-    await app.join();
-    await app.dismissDemo();
-    await toTheEnd(app);
-    expect(app.sessionNo).toBe(1);
-    expect(app.installOffered).toBe(true);
-    expect(await app.store!.get('installDismissals')).toBeUndefined();
-
-    const second = await opened(`/${SLUG}/join/wave-1`);
-    second.platform = 'Android';
-    expect(second.sessionNo).toBe(2);
-    await toTheEnd(second);
-    expect(second.installOffered).toBe(false);
-  });
-
-  it('a platform without steps, or an app already installed, gets no install offer on session 1', async () => {
-    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
-    const app = await opened(`/${SLUG}/join/wave-1`);
-    app.platform = null;
-    await app.join();
-    await app.dismissDemo();
-    await toTheEnd(app);
-    expect(app.installOffered).toBe(false);
-
-    freshIndexedDb();
-    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('standalone') }));
-    const installed = await opened(`/${SLUG}/join/wave-1`);
-    installed.platform = 'iPhone and iPad';
-    await installed.join();
-    await installed.dismissDemo();
-    await toTheEnd(installed);
-    expect(installed.sessionNo).toBe(1);
-    expect(installed.installOffered).toBe(false);
-  });
-
-  it('"Install" uses the browser\'s offer once, and the offer leaves the screen', async () => {
-    stubRoutes({});
-    const app = new AppState();
-    app.workshop = workshop;
-    app.copy = workshop.copy;
-    app.store = new WorkshopStore(SLUG);
-    let prompted = 0;
-    app.installOffer = Object.assign(new Event('beforeinstallprompt'), {
-      prompt: async () => {
-        prompted++;
-      },
-      userChoice: Promise.resolve({ outcome: 'accepted' as const }),
-    });
-    app.installOffered = true;
-    await app.install();
-    expect(prompted).toBe(1);
-    expect(app.installOffer).toBeNull();
-    expect(app.installOffered).toBe(false);
   });
 });
 
@@ -568,7 +574,7 @@ describe('failure behaviour', () => {
     held();
   });
 
-  it('a browser that refuses storage still runs one session in memory, warns, and keeps nothing', async () => {
+  it('a browser that refuses storage still runs the cards in memory, round after round, warns, and keeps nothing', async () => {
     const broken = {
       open: () => {
         throw new Error('storage refused');
@@ -588,9 +594,9 @@ describe('failure behaviour', () => {
     app.draft = 'An answer';
     expect(await app.save()).toBe(true);
     expect(app.sync.lastResult).toBe('ok');
-    while (app.screen === 'card') await app.setAside();
-    expect(app.screen).toBe('session-end');
-    expect(app.sessionNo).toBe(1);
+    while (app.sessionNo === 1) await app.setAside();
+    expect(app.screen).toBe('card');
+    expect(app.sessionNo).toBe(2);
     freshIndexedDb();
     const again = await opened(`/${SLUG}/join/wave-1`);
     expect(again.code).toBe('');

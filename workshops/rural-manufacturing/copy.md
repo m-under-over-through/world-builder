@@ -32,7 +32,7 @@ This is a research project by Under Over Through and Mechanism about the future 
 ## Demo card (under 40 words)
 
 [placeholder]
-Tap the card to answer. Swipe it away to set it aside. Come back any time; a session is only a few cards.
+Tap the card to answer. Swipe it away to set it aside. Stop whenever you like, and come back any time.
 
 ## Dictation hint (under 25 words, per platform)
 
@@ -52,32 +52,6 @@ Tap the card to answer. Swipe it away to set it aside. Come back any time; a ses
 
 [placeholder]
 Please don't name real people.
-
-## Session end: your code (under 40 words)
-
-<!-- Shown under the title at the end of the first session. [code] is the code, which the app sets on its own line with a Copy button. -->
-
-[placeholder]
-If you ever want to continue on another phone, this is you: [code]
-
-## Session end: install (under 40 words)
-
-<!-- The install offer at the end of the first session, under the title "Keep it close" (Titles, install). [per-platform steps] is filled from the "Install steps" list below. -->
-
-[placeholder]
-Add this to your home screen and you have a way back without the newsletter. [per-platform steps]
-
-## Install steps (under 25 words, per platform)
-
-<!-- How to add the app to the home screen, one line per platform; the app shows the line for the phone or computer it runs on. -->
-
-[placeholder]
-
-- iPhone and iPad: In Safari, tap Share, then "Add to Home Screen". The app asks for your code once.
-- Android: In the browser menu, tap "Add to Home screen" or "Install app".
-- Mac: In Safari, File > Add to Dock; in Chrome, the install icon at the right of the address bar.
-- Windows: In Chrome or Edge, the install icon at the right of the address bar.
-- ChromeOS: In Chrome, the install icon at the right of the address bar.
 
 ## Trust page variables
 
@@ -118,8 +92,6 @@ Add this to your home screen and you have a way back without the newsletter. [pe
 - consent: Before you start
 - demo card: Try a card
 - dictation hint: Prefer to talk?
-- session end: Thank you.
-- install: Keep it close
 - closed: This workshop has closed.
 - not open yet: Not open yet.
 - about: About this app
@@ -148,7 +120,6 @@ Add this to your home screen and you have a way back without the newsletter. [pe
 - keep: Keep my answers
 - got it: Got it
 - prefer to talk: Prefer to talk?
-- install: Install
 - remind me: Remind me
 
 ## App labels
@@ -195,7 +166,7 @@ The code this phone remembered is not in use any more, so it has been forgotten 
 ## Enter code (under 40 words)
 
 [placeholder]
-The 16 digits you were shown at the end of your first session. Spaces do not matter.
+The 16 digits under "Your code" on the "About this app" page of your other phone. Spaces do not matter.
 
 ## Enter code: too short (under 20 words)
 
@@ -220,7 +191,7 @@ That is not a 16-digit code yet.
 
 ## Card states (under 10 words each)
 
-<!-- "saving" is the Save button's label while the answer is sealed. The others are the small pill under the top bar after Save or Set aside: "saved" at once; "synced" when the server took the answer while the pill is still up, and "offline" or "sync problem" if it could not; "dismissed" for a card set aside, "deferred" for a card set aside a second time, which leaves this session. -->
+<!-- "saving" is the Save button's label while the answer is sealed. The others are the small pill under the top bar after Save or Set aside: "saved" at once; "synced" when the server took the answer while the pill is still up, and "offline" or "sync problem" if it could not; "dismissed" for a card set aside, "deferred" for a card set aside a second time, which comes back first once the cards in front of it are done. -->
 
 [placeholder]
 
@@ -230,7 +201,7 @@ That is not a 16-digit code yet.
 - offline: Saved on this device. Syncs when you are online.
 - sync problem: Saved on this device. Not synced yet.
 - dismissed: Set aside
-- deferred: Set aside for another day
+- deferred: Set aside for later
 
 ## Your world (under 40 words each)
 
@@ -251,20 +222,12 @@ That is not a 16-digit code yet.
 - progress: [n] of [total] answered
 - close: Close
 
-## Session end (under 30 words each)
+## Remind me (under 20 words)
 
-<!-- The quiet line at the foot of the session end, only while answers wait on the phone. -->
-
-[placeholder]
-
-- waiting to sync: [n] answers are still on this phone, waiting to sync. Keep the app open a moment when you are online.
-
-## Session end: come back (under 20 words)
-
-<!-- Shown once at the end of every session, with the "Remind me" link after it: after the code and the install offer on the first session, right under the title on the others. -->
+<!-- One quiet line with the "Remind me" link (Buttons, remind me) after it, which adds the "Reminder" below to the phone's own calendar. Shown in two places: at the foot of "Your world so far", in the sheet on a phone and in the column on a laptop, under the tiles and the set-aside cards; and on the "About this app" page, under "what this is". -->
 
 [placeholder]
-The next cards wait for you another day.
+Come back whenever you like. Your calendar can nudge you twice a week.
 
 ## Closed (under 40 words)
 
@@ -285,7 +248,7 @@ Under Over Through and Mechanism are asking a few questions about the future of 
 
 ## Reminder
 
-<!-- The calendar reminder behind "Remind me" at the session end: a repeating event the phone's own calendar shows twice a week until the close day. Nothing about the person is in it. [link] is the workshop's home address, filled in when the app is built. -->
+<!-- The calendar reminder behind "Remind me" (the block above): a repeating event the phone's own calendar shows twice a week until the close day. Nothing about the person is in it. [link] is the workshop's home address, filled in when the app is built. -->
 
 [placeholder]
 
@@ -540,7 +503,7 @@ The server is not ready. Your answers stay on this device; try again later.
 ## Error: CLIENT_STORAGE_UNAVAILABLE (one line)
 
 [placeholder]
-This browser will not keep anything between visits. You can still do one session; write down your code at the end.
+This browser will not keep anything between visits. You can still answer while this page is open; your code is under "About this app".
 
 ## Error: CLIENT_SEAL_FAILED (one line)
 

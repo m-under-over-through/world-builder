@@ -1,13 +1,14 @@
 <script lang="ts">
   import { formatCode, type EventKind } from '@wb/contracts';
   import { fill, inline, TRUST_BLOCKS } from '../lib/copy.ts';
+  import { reminderHref } from '../lib/reminder.ts';
   import type { AppState } from '../lib/state.svelte.ts';
   import { ENV, VERSION } from '../lib/workshops.ts';
 
   /**
    * The one page about the app (docs/screen-map.md, Always reachable; ADR 0013), reached from
-   * the small "About this app" link at the foot of every screen. In this order: what this is;
-   * how answers are protected (the trust page's six paragraphs, the key fingerprint and the
+   * the small "About this app" link at the foot of every screen. In this order: what this is,
+   * with the "Remind me" line under it (ADR 0017); how answers are protected (the trust page's six paragraphs, the key fingerprint and the
    * source address filled in, the links that need no trust in us); your code, with Copy; the
    * facts read from the running app (the privacy panel's rows: cookies, hosts, the permissions
    * policy, the key, what the server holds, the diagnostics, the version); "delete everything I
@@ -45,6 +46,12 @@
 
 <h1>{app.copy.item('Titles', 'about')}</h1>
 <p class="lead">{app.copy.text('About: what this is')}</p>
+{#if app.workshop}
+  <p class="remind">
+    {app.copy.text('Remind me')}
+    <a href={reminderHref(app.workshop.config.slug)}>{app.copy.item('Buttons', 'remind me')}</a>
+  </p>
+{/if}
 
 <section id="about-protected">
   <h2>{app.copy.item('Titles', 'trust page')}</h2>

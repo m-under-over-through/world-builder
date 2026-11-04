@@ -692,6 +692,22 @@ describe('the core loop', () => {
     release();
   });
 
+  it('the foot of "Your world so far" on a phone carries the "Remind me" line, with the link to the calendar file', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const user = userEvent.setup();
+    await toTheFirstCard(user);
+    await user.click(
+      screen.getByRole('button', { name: fill(copy.item('Your world', 'pill label'), { n: 0 }) }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    const remind = screen.getByRole('link', { name: copy.item('Buttons', 'remind me') });
+    expect(dialog.contains(remind)).toBe(true);
+    expect(remind.getAttribute('href')).toBe(`/${SLUG}/reminder.ics`);
+    expect(remind.closest('p')!.textContent).toContain(copy.text('Remind me'));
+    // Under the tiles and the set-aside cards: the last thing in the sheet.
+    expect(dialog.lastElementChild).toBe(remind.closest('p'));
+  });
+
   it('a swipe sets the card aside as the button does', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     vi.stubGlobal('matchMedia', (query: string) => ({

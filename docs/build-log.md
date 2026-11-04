@@ -1784,3 +1784,43 @@ What was seen: the dev server at 390, 820 and 1280 pixels in the app's browser p
 - The "x" against the design's "+" in the organizer line: one word in `workshop.json`.
 - The welcome, the onboarding, the code screen and the session end are on the new base but not yet in the new design: the next session.
 - Review fixes applied by the integrator before the merge: the empty world's style (`.empty`) also dressed the progress strip's untouched segments on the laptop page as dashed boxes; the class is now `world-empty`. The sheet's head takes `touch-action: none` so a touch browser does not claim the swipe down. A local name in `Stack.svelte` no longer shadows the component's `slots`. Confirmed with the reviewer: M in "NN of M" is the planned length of the session, so a deferral never shrinks it.
+
+## 2026-11-04, Wednesday. Rounds instead of sessions: no end screen, no install offer (pull request NN)
+
+### What
+
+- **Rounds** (`apps/web/src/lib/state.svelte.ts`). Where the engine says a session is over, `showCard` now calls `startRound`: a new session row numbered one higher, a fresh seed, `putSession` for the sync, the replay, and the new round's first card as the front. `enterSession` uses the same `startRound` when there is nothing to resume. No screen and no toast between rounds. A reload resumes the current round by the replay that already existed. `roundDone` keeps a round that planned no cards from starting another for ever.
+- **The session end and the install offer are gone**: `screens/SessionEnd.svelte`, the `session-end` screen, `endSession`, `install()`, `installOffered`, `installOffer`, the `beforeinstallprompt` listener in `App.svelte`, and `installDue`, `runsInstalled` and `InstallOffer` from `lib/install.ts`, which keeps `manifestHref` and `pointManifest` for `main.ts` and `pwa.ts` (so `pwa.ts` is untouched). The laptop page's left column always holds the stack; the phone's foot keeps the world pill and the about link. Three CSS rules that only the session end used went with it.
+- **"Remind me" moved**: one quiet line with the link to `/rural-manufacturing/reminder.ics` at the foot of "Your world so far" (`components/World.svelte`, so the sheet and the laptop column both have it, under the tiles and the chips), and on the about page under "what this is" (`screens/About.svelte`). One block in `copy.md`, "Remind me", with a note naming both places.
+- **Words** (`workshops/rural-manufacturing/copy.md`, `lib/copy.ts` together): the blocks "Session end: your code", "Session end: install", "Install steps" and "Session end" (waiting to sync) are gone, as are the titles "session end" and "install" and the button "install"; "Session end: come back" is now "Remind me", reworded since "the next cards wait for you another day" no longer holds. The toast "deferred" reads "Set aside for later". Three other texts that pointed at the session end now point at the page about the app: the demo card ("a session is only a few cards" became "stop whenever you like"), "Enter code" (where to find the 16 digits), and the `CLIENT_STORAGE_UNAVAILABLE` line.
+- `docs/screen-map.md`: the Card row ends in the next round; the rows "Session end", "Install offer" and "Remind me" are one row "Remind me" where it now lives; the about row and the `CLIENT_STORAGE_UNAVAILABLE` line follow. ADR 0017.
+
+### Why
+
+Marco tried the card screen on his iPhone on 4 November and decided that a participant goes on as long as they want and stops when they want, and that nobody is asked to add the app to a home screen (`docs/briefs/rethink-2026-11-04.md`, sections 1 and 3). The deck engine already plans what that needs: the next session's queue, deferred cards first, and answered cards coming round again once a set's unanswered ones are done. So the change is the client's only. ADR 0017 has the reasoning and what it costs.
+
+### How to verify
+
+1. `npm run check`: green. The tests that carry the change: in `apps/web/test/state.test.ts`, "a round's end starts the next round at once in the same open, with the deferred card first and sessionNo 2; a reload resumes it", "with every card answered, the next round brings the answered cards round again: the deck has no end" (a two-card deck, three rounds), "a workshop that plans no cards shows an empty stack and starts no round after round", and the first engine test, which now ends in round 2. In `card.test.ts`, "the left column always holds the stack". In `screens.test.ts` and `app.test.ts`, the "Remind me" line at the foot of the world, in the column and in the sheet, with its link, and on the about page in order. In `copy.test.ts`, no block is left for the session end or the install offer.
+2. By hand: `npm run dev:web`, `/rural-manufacturing/join/wave-1` at 390 pixels wide. Through the intro and the demo card. Answer three cards and set the fourth aside twice (it comes round at the end of the round): the toast says "Set aside for later", and the next card is at once "01 of 4" with that same card's question; no "Thank you", no code, no install steps. Open "Your world so far": the three tiles, then the line "Come back whenever you like..." with "Remind me" at the foot; tap it and the calendar offers the event. Reload: the same card. Close the tab and open the link again: the same card.
+3. Widen to 1280 pixels: the left column holds the stack after any number of cards; the right column ends with the "Remind me" line. "About this app": the line is under the two sentences at the top.
+
+### Decisions made on the way
+
+- **No "That is every card" screen.** The brief proposed one for when every card is answered, but the engine brings answered cards round again once a set has run out, so that moment never comes. A screen for it would need the engine's rule changed, which the brief keeps.
+- **`lib/install.ts` keeps its name** and its two manifest functions, so `pwa.ts` and `main.ts` stay as they are; its header now says the offer is gone and why the manifest stays.
+- **The guard for an empty plan** (`roundDone`): a round is done only if it planned cards. Without it a `workshop.json` with no cards per session would start sessions in a loop.
+- **The demo card, "Enter code" and the storage warning were reworded** although the brief named only the toast: each told the participant about a session or about the end of one, and those words were now untrue. The code itself stays on the about page, as the brief says.
+- **The world's chips** stay "set aside in this round": a card deferred at the end of a round is first in the next one, so it is the front card, not a chip.
+
+### Proposed for the glossary (the integrator's)
+
+- **session**: replace "one sitting with the cards" by "one round of the cards, as the deck engine plans it: W warm-ups, then C checkpoints. When one is over the next starts at once (ADR 0017), so one sitting can hold several; the participant is shown no word for it." And add **round**, the word code and docs use for a session as it follows the last one without a pause.
+- **about page**: "holding the trust page, the code, the privacy panel, delete-me and the 'Remind me' line".
+
+### Open
+
+- The label "NN of M" on the card and "n of M answered" on the laptop's strip still count within a round, so "04 of 4" is followed by "01 of 4", and the world's "n to go" counts the round's cards. Keep the rhythm, or show the card's number alone: Marco's call with the design (ADR 0017, Open).
+- Outside this builder's files, still describing the session end or the install offer: `docs/runbook.md` (`CLIENT_STORAGE_UNAVAILABLE`, "shows the code at the end"), `docs/architecture-and-risk-plan.md` (section 8.1), `docs/learn/11-the-calendar-file.md` ("Remind me" at the session end), and `docs/adr/README.md`, whose index stops at 0014.
+- The second phase, identity by the link (ADR 0018), after the newsletter tool's test send.
+- Not tried on a real phone: the rounds in the hand, and the calendar sheet from the new place of "Remind me" on an iPhone.

@@ -15,7 +15,6 @@ import { sealAnswer } from '@wb/crypto';
 import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
 import type { Copy, ListKey } from './copy.ts';
 import { dayStatus } from './days.ts';
-import { installDue, runsInstalled, type InstallOffer } from './install.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
@@ -72,7 +71,6 @@ export type Screen =
   | 'consent'
   | 'demo'
   | 'card'
-  | 'session-end'
   | 'about'
   | 'terms'
   | 'privacy'
@@ -151,6 +149,14 @@ export type Tint = (typeof TINTS)[number];
 
 export function tintOf(n: number): Tint {
   return TINTS[(((n - 1) % 4) + 4) % 4]!;
+}
+
+/**
+ * A round is done when the engine says it is over and it had cards to give (ADR 0017). One that
+ * planned none is never done, so an empty plan cannot start round after round for ever.
+ */
+function roundDone(live: LiveSession): boolean {
+  return live.queueAsPlanned.length > 0 && sessionOver(live);
 }
 
 /** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
@@ -240,10 +246,6 @@ export class AppState {
   confirmingDelete = $state(false);
   /** The sync in flight, so two never run at once (one after a save, one after a set-aside). */
   private syncing: Promise<SyncStatus> | null = null;
-  /** True while the session end shows the install offer: the first session, where it is due (lib/install.ts). */
-  installOffered = $state(false);
-  /** The browser's own install offer, kept from `beforeinstallprompt` until the prompt uses it. */
-  installOffer = $state.raw<InstallOffer | null>(null);
   /** Leaves this page for another address; a test replaces it. */
   go: (href: string) => void = (href) => location.replace(href);
 
@@ -502,8 +504,9 @@ export class AppState {
 
   /**
    * The device's store, or, when the browser refuses it (private browsing with storage blocked,
-   * a full disk), one in memory for this open: the app still runs one session, warns, and shows
-   * the code at the end (docs/screen-map.md, CLIENT_STORAGE_UNAVAILABLE).
+   * a full disk), one in memory for this open: the cards still run for as long as the tab stays
+   * open, the app warns, and the code is on the page about the app (docs/screen-map.md,
+   * CLIENT_STORAGE_UNAVAILABLE).
    */
   private async openStore(slug: string): Promise<Store> {
     try {
@@ -606,10 +609,10 @@ export class AppState {
   }
 
   /**
-   * With a code: resume the latest session when the engine says it is not over, else start a new
-   * one. Resume is replay (lib/session.ts), never a stored queue: a reload lands on the same card,
-   * and a second device with the same code continues where the first left off, since the history
-   * is the device's rows and the server's together.
+   * With a code: resume the latest session when the engine says it is not over, else start the
+   * next one. Resume is replay (lib/session.ts), never a stored queue: a reload lands on the same
+   * card, and a second device with the same code continues where the first left off, since the
+   * history is the device's rows and the server's together.
    */
   async enterSession(): Promise<void> {
     if (!this.store || !this.workshop) return;
@@ -618,17 +621,24 @@ export class AppState {
     this.history = history;
     this.copies = new Map((await this.store.answers()).map((a) => [a.key, a.text]));
     const latest = latestSession(history);
-    if (latest) {
-      const replayed = replaySession(deck, config, latest, history);
-      if (!sessionOver(replayed)) {
-        this.live = replayed;
-        await this.showCard();
-        return;
-      }
-    }
+    const replayed = latest ? replaySession(deck, config, latest, history) : null;
+    if (replayed && !roundDone(replayed)) this.live = replayed;
+    else await this.startRound(latest?.sessionNo ?? 0);
+    await this.showCard();
+  }
+
+  /**
+   * The next session, as a round (ADR 0017): a new row numbered after `previous`, with a fresh
+   * seed, stored for the sync, and replayed into the live session. The engine puts the previous
+   * round's deferred cards first on its own (lib/session.ts, planAsStarted). Nothing is shown for
+   * it: the participant sees the stack go on.
+   */
+  private async startRound(previous: number): Promise<void> {
+    if (!this.store || !this.workshop) return;
+    const { deck, config } = this.workshop;
     const session: Session = {
       id: crypto.randomUUID(),
-      sessionNo: (latest?.sessionNo ?? 0) + 1,
+      sessionNo: previous + 1,
       startedDay: localDay(),
       deckVersion: deck.version,
       seed: Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
@@ -636,23 +646,28 @@ export class AppState {
       ).join(''),
     };
     await this.store.putSession({ ...session, synced: 0 });
-    this.history = { ...history, sessions: [...history.sessions, session] };
+    this.history = { ...this.history, sessions: [...this.history.sessions, session] };
     this.live = replaySession(deck, config, session, this.history);
-    await this.showCard();
   }
 
   /**
-   * Show the card the engine says is next, recording `shown`; or the session end when it says
-   * the session is over. The first session opens with the demo card, once, and the hint for this
-   * platform on its first card (architecture plan, 8.1).
+   * Show the card the engine says is next, recording `shown`. When the engine says the round is
+   * over, the next round starts at once and its first card is the front (ADR 0017): there is no
+   * screen between rounds and no end of the deck, since an answered card comes round again once
+   * the unanswered ones of its set have run out. The first round of the first open starts with
+   * the demo card, once, and the hint for this platform on its first card (architecture plan, 8.1).
    */
   private async showCard(): Promise<void> {
     if (!this.store || !this.workshop || !this.live) return;
     this.error = '';
     this.cardState = 'fresh';
+    if (roundDone(this.live)) await this.startRound(this.live.session.sessionNo);
+    // Still over: the round planned nothing (a workshop.json asking for no cards, or a deck
+    // without them). The stack is empty, and no further round is started (`roundDone`).
     if (sessionOver(this.live)) {
       this.card = undefined;
-      await this.endSession();
+      this.cardNo = 0;
+      this.screen = 'card';
       return;
     }
     // The demo card: before anything was done in the first session, once per device. A second
@@ -672,33 +687,6 @@ export class AppState {
       this.live = withShown(this.live, this.card.id);
     }
     this.screen = 'card';
-  }
-
-  /**
-   * The session end (docs/screen-map.md, Session end; ADR 0013): one screen. On session 1 the
-   * code, so someone who installs after seeing it can type it into the installed app, then the
-   * install offer where it is due; on every session "the next cards wait for you another day"
-   * with the reminder. The offer is shown this once: nothing is stored about it.
-   */
-  private async endSession(): Promise<void> {
-    this.installOffered =
-      this.sessionNo === 1 && installDue({ platform: this.platform, installed: runsInstalled() });
-    this.screen = 'session-end';
-  }
-
-  /** "Install", where the browser made the offer: its own dialog, then the offer is gone either way. */
-  async install(): Promise<void> {
-    const offer = this.installOffer;
-    this.installOffer = null;
-    if (offer) {
-      try {
-        await offer.prompt();
-        await offer.userChoice;
-      } catch {
-        /* the browser withdrew the offer; the steps stay on the screen */
-      }
-    }
-    this.installOffered = false;
   }
 
   /** "Got it" on the demo card, or a swipe: seen once per device, then the first card. */

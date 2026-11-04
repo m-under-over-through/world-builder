@@ -7,7 +7,6 @@ import DemoCard from '../src/screens/DemoCard.svelte';
 import EnterCode from '../src/screens/EnterCode.svelte';
 import Intro from '../src/screens/Intro.svelte';
 import NotAWorkshop from '../src/screens/NotAWorkshop.svelte';
-import SessionEnd from '../src/screens/SessionEnd.svelte';
 import TextPage from '../src/screens/TextPage.svelte';
 import Welcome from '../src/screens/Welcome.svelte';
 import { fill, TRUST_BLOCKS } from '../src/lib/copy.ts';
@@ -241,89 +240,18 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.error('CLIENT_SEAL_FAILED'), { exact: false })).toBeTruthy();
   });
 
-  /** The session end of a first session, on a phone, with the install offer due. */
-  function atTheEnd(patch: Partial<AppState> = {}): AppState {
-    const app = onACard({ code: CODE, card: undefined, installOffered: true, ...patch });
-    app.platform = patch.platform === undefined ? 'iPhone and iPad' : patch.platform;
-    return app;
-  }
-
-  it('the end of the first session: one heading, the code in its sentence with Copy, the install offer, the come-back line with "Remind me"', () => {
-    render(SessionEnd, { app: atTheEnd() });
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { name: copy.item('Titles', 'session end') })).toBeTruthy();
-    const sentence = copy.text('Session end: your code').split('[code]');
-    const code = screen.getByText(SHOWN_CODE);
-    expect(code.closest('p')?.textContent?.replace(/\s+/g, ' ')).toContain(sentence[0]!.trim());
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
-    expect(screen.getByText(copy.item('Titles', 'install'))).toBeTruthy();
-    expect(
-      screen.getByText(copy.item('Install steps', 'iPhone and iPad'), { exact: false }),
-    ).toBeTruthy();
-    expect(screen.getAllByText(copy.text('Session end: come back'), { exact: false })).toHaveLength(
-      1,
-    );
+  it('"Your world so far" in the laptop column: the "Remind me" line at its foot, under the tiles and the set-aside cards, with the link to the calendar file', () => {
+    render(Card, { app: onACard({ wide: true }) });
+    const world = screen.getByRole('region', { name: copy.item('Your world', 'title') });
     const remind = screen.getByRole('link', { name: copy.item('Buttons', 'remind me') });
     expect(remind.getAttribute('href')).toBe('/rural-manufacturing/reminder.ics');
-    // The code comes before the install offer, the come-back line after both (architecture plan 8.1).
-    const text = document.body.textContent!;
-    expect(text.indexOf(SHOWN_CODE)).toBeLessThan(text.indexOf(copy.item('Titles', 'install')));
-    expect(text.indexOf(copy.item('Titles', 'install'))).toBeLessThan(
-      text.indexOf(copy.text('Session end: come back')),
-    );
-  });
-
-  it('the session end never says the same thing twice, and nothing is masked', () => {
-    render(SessionEnd, { app: atTheEnd() });
-    const text = document.body.textContent!.replace(/\s+/g, ' ');
-    const title = copy.item('Titles', 'session end');
-    expect(text.split(title)).toHaveLength(2);
-    expect(text.split(copy.text('Session end: come back'))).toHaveLength(2);
-    expect(text).not.toContain('•');
-    expect(screen.queryByText(copy.item('Session end', 'waiting to sync'))).toBeNull();
-  });
-
-  it('the install offer: on an iPhone the steps say it asks for the code once, and no "Install" button; on Android with an offer, "Install"', () => {
-    const { unmount } = render(SessionEnd, { app: atTheEnd() });
-    expect(copy.item('Install steps', 'iPhone and iPad')).toContain('code');
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'install') })).toBeNull();
-    unmount();
-    const offer = Object.assign(new Event('beforeinstallprompt'), { prompt: async () => {} });
-    render(SessionEnd, { app: atTheEnd({ platform: 'Android', installOffer: offer }) });
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'install') })).toBeTruthy();
-    expect(screen.getByText(copy.item('Install steps', 'Android'), { exact: false })).toBeTruthy();
-  });
-
-  it('the end of the first session without the offer (installed, or no steps): the code and the come-back line only', () => {
-    render(SessionEnd, { app: atTheEnd({ installOffered: false }) });
-    expect(screen.getByText(SHOWN_CODE)).toBeTruthy();
-    expect(screen.queryByText(copy.item('Titles', 'install'))).toBeNull();
-    expect(screen.getByRole('link', { name: copy.item('Buttons', 'remind me') })).toBeTruthy();
-  });
-
-  it('the session end with answers waiting: the quiet count in its wording; none when nothing waits', () => {
-    const { unmount } = render(SessionEnd, {
-      app: atTheEnd({ sync: { lastResult: 'offline', outboxSize: 3, outboxSessions: 0 } }),
-    });
-    const line = screen.getByText(fill(copy.item('Session end', 'waiting to sync'), { n: 3 }));
-    expect(line.classList.contains('muted')).toBe(true);
-    unmount();
-    render(SessionEnd, { app: atTheEnd() });
-    expect(document.body.textContent).not.toContain('waiting to sync');
-  });
-
-  it('the end of a later session: thanks, the come-back line once with "Remind me", no code, no offer', () => {
-    const app = atTheEnd();
-    app.live = { ...app.live!, session: { ...app.live!.session, sessionNo: 2 } };
-    render(SessionEnd, { app });
-    expect(screen.getByRole('heading', { name: copy.item('Titles', 'session end') })).toBeTruthy();
-    expect(screen.getAllByText(copy.text('Session end: come back'), { exact: false })).toHaveLength(
-      1,
-    );
-    expect(screen.getByRole('link', { name: copy.item('Buttons', 'remind me') })).toBeTruthy();
-    expect(screen.queryByText(SHOWN_CODE)).toBeNull();
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'copy') })).toBeNull();
-    expect(screen.queryByText(copy.item('Titles', 'install'))).toBeNull();
+    expect(world.contains(remind)).toBe(true);
+    const line = remind.closest('p')!;
+    expect(line.classList.contains('remind')).toBe(true);
+    expect(line.textContent).toContain(copy.text('Remind me'));
+    expect(world.lastElementChild).toBe(line);
+    // Said once on the page, and the stack beside it does not say it.
+    expect(screen.getAllByText(copy.text('Remind me'), { exact: false })).toHaveLength(1);
   });
 
   it('closed: the words, and nothing else on the screen itself', () => {
@@ -345,6 +273,7 @@ describe('the screens render the words of copy.md', () => {
     const text = document.body.textContent!.replace(/\s+/g, ' ');
     const order = [
       copy.text('About: what this is'),
+      copy.text('Remind me'),
       copy.item('Titles', 'trust page'),
       copy.item('Privacy panel', 'code'),
       SHOWN_CODE,
@@ -357,6 +286,9 @@ describe('the screens render the words of copy.md', () => {
     expect(document.getElementById('about-protected')).toBeTruthy();
     expect(document.getElementById('about-now')).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'back') })).toBeTruthy();
+    // "Remind me" moved here from the session end (ADR 0017), under "what this is".
+    const remind = screen.getByRole('link', { name: copy.item('Buttons', 'remind me') });
+    expect(remind.getAttribute('href')).toBe('/rural-manufacturing/reminder.ics');
   });
 
   it('the page about the app: how answers are protected, the six paragraphs in order, the fingerprint and the source filled in, the links', () => {

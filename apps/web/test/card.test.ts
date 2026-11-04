@@ -289,7 +289,7 @@ describe('the counter', () => {
 });
 
 describe('set aside', () => {
-  it('the button: the toast says "Set aside"; the second time "Set aside for another day", and the card leaves the session', async () => {
+  it('the button: the toast says "Set aside"; the second time "Set aside for later", and the card leaves the round', async () => {
     const app = await onACard();
     holdToast(app);
     const user = userEvent.setup();
@@ -302,6 +302,7 @@ describe('set aside', () => {
     while (app.card!.id !== first.id) await app.setAside();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
     await waitFor(() => expect(app.toast).toBe('deferred'));
+    expect(copy.item('Card states', 'deferred')).toBe('Set aside for later');
     expect(app.live!.deferred.has(first.id)).toBe(true);
     expect(app.live!.plan.queue).not.toContain(first.id);
   });
@@ -459,15 +460,22 @@ describe('the laptop page', () => {
     expect(document.querySelector('.app')!.classList.contains('wide')).toBe(true);
   });
 
-  it('the session end shows inline in place of the stack, with the world beside it', async () => {
-    const app = await onACard({ wide: true, screen: 'session-end', card: undefined });
+  it("the left column always holds the stack: when a round's queue is done, the next round's first card is the front", async () => {
+    const app = await onACard({ wide: true });
     renderApp(app);
+    const roundOne = app.live!.session.id;
+    for (let i = 0; i < 4; i++) {
+      app.draft = `Answer ${i}`;
+      expect(await app.save()).toBe(true);
+    }
+    expect(app.sessionNo).toBe(2);
+    expect(app.live!.session.id).not.toBe(roundOne);
+    await waitFor(() => expect(frontCard().textContent).toContain(app.card!.text));
     const page = document.querySelector('.page')!;
-    expect(page.querySelector('.col-stack h1')!.textContent).toBe(
-      copy.item('Titles', 'session end'),
-    );
-    expect(page.querySelector('.col-stack .card')).toBeNull();
-    expect(screen.getByRole('region', { name: copy.item('Your world', 'title') })).toBeTruthy();
+    expect(page.querySelector('.col-stack .card.front')).toBeTruthy();
+    expect(page.querySelector('.col-stack h1')).toBeNull();
+    const world = screen.getByRole('region', { name: copy.item('Your world', 'title') });
+    expect(world.querySelectorAll('.tile')).toHaveLength(4);
   });
 });
 
