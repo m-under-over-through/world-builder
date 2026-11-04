@@ -557,10 +557,10 @@ describe('identity by the link (ADR 0018)', () => {
     });
     store.close();
     // The server accepts the old participant's event, so the outbox empties and the switch happens.
-    const accepted = {
+    const accepted = () => ({
       status: 200,
       body: { acceptedSessionIds: [], acceptedEventIds: ['10000000-0000-4000-8000-000000000001'] },
-    };
+    });
     const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME, ME], [`/api/${SLUG}/sync`]: [accepted] });
     const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     expect(app.code).toBe(LINK_CODE);
