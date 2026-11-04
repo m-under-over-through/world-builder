@@ -1,6 +1,6 @@
 # The calendar file
 
-"Remind me" at the session end opens a small text file, and the phone's own calendar offers to add what is in it. No service of ours is involved, nothing is stored on our side, and the file is the same for everyone. This note is what the file is, how the build makes it, and how to read one.
+"Remind me", at the foot of "Your world so far" and on the about page, opens a small text file, and the phone's own calendar offers to add what is in it. No service of ours is involved, nothing is stored on our side, and the file is the same for everyone. This note is what the file is, how the build makes it, and how to read one.
 
 ## The idea
 
@@ -51,7 +51,7 @@ A file could be made on the phone, in the browser, with the right first day. It 
 2. `workshopReminders` in `apps/web/pwa.ts` writes one file per workshop into the build at `/<slug>/reminder.ics`, the way the manifests are written, and serves the same bytes on the development server so "Remind me" can be tried without a build.
 3. `apps/web/public/_headers` tells Netlify to serve `/*/reminder.ics` as `text/calendar`. That header is what makes a phone open the file with its calendar rather than show it as text.
 4. The service worker keeps the file with the client's own files, so "Remind me" works in an installed app offline, and the file's address is on the list of addresses the service worker never answers with the client's page (`REMINDER_PATH`). Without that line, a tap on the link in an installed app would open the app's page instead of the calendar.
-5. The session end links to the file with a plain anchor. No `download` attribute: on an iPhone that would save the file instead of offering to add it.
+5. The app links to the file with a plain anchor. No `download` attribute: on an iPhone that would save the file instead of offering to add it.
 
 ## Check it yourself
 

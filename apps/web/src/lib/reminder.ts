@@ -16,7 +16,7 @@
 export const REMINDER_WEEKDAYS = ['WE', 'SU'] as const;
 /** The hour of the reminder, in the phone's own time. */
 export const REMINDER_HOUR = 18;
-/** How long the event lasts, in minutes: a session is a few cards. */
+/** How long the event lasts, in minutes: a few cards' worth. */
 export const REMINDER_MINUTES = 15;
 
 export interface ReminderInput {
