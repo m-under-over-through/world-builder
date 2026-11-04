@@ -1845,7 +1845,7 @@ Marco's morning pass of 5 November (fix 19): the old rule shoved set-aside cards
 
 1. `npm test -- packages/deck`: green. Three queues a reader can follow in the test names, all with the six cards of the worked example (four warm-ups, two checkpoints), counts 3 and 1:
    - "six cards, counts 3 and 1, seed "example"; then "cool" set aside once comes back second in round 2": round 1 is `cool, on-tv, embarrassing, immigrants`; set "cool" aside and answer the rest; round 2 (seed `next`) is `tuesday-night, cool, rich-poor`.
-   - ""cool" set aside in round 1, back in round 2, set aside again: out of the deck for good": round 3 (seed `third`) is `rich-poor` alone, and the deck is then done.
+   - ""cool" set aside in round 1, back in round 2, set aside again: out of the deck for good": with `tuesday-night` answered and `rich-poor` left for later, round 3 (seed `third`) is `rich-poor` alone, and the deck is done once it is answered.
    - "with one fresh warm-up left and two coming back, they stand on either side of it": the choice made when fresh cards run short.
      The rules over many seeds: "it comes back in the next round when there is room, never first", "two cards coming back are never next to each other while there are enough fresh cards", "an answered card never comes round again, whatever the seed", "a card set aside twice never comes round again, whatever the seed", "with every card answered or out for good, the deck is done and the queue is empty", and two runs to the end of a deck with a coin per card.
 2. `npx vitest run apps/web/test/session.test.ts`: the replay across two sessions, "deckDone turns true at the end", and "the queue of a resumed session is the same as before the reload".

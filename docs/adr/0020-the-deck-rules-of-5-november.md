@@ -25,7 +25,7 @@ Two choices the rules left open:
 
 ## Consequences
 
-- The events keep their meaning: `dismissed` is the first set-aside of a card, `deferred` the second. What changes is what follows them. Histories recorded under the old rule replay without error; the client does not need to know which rule a round was played under.
+- The events keep their meaning: `dismissed` is the first set-aside of a card, `deferred` the second. What changes is what follows them, and when: a `deferred` event may now come rounds after the `dismissed` one, since the card returns in a later round, where under the old rule the two were minutes apart; analysis that reads the pair should expect the gap. Histories recorded under the old rule replay without error; the client does not need to know which rule a round was played under.
 - `SessionPlanInput` takes a new field, `dismissedIds` (the cards set aside once in earlier rounds and not answered or out since), and `deferredIds` now means the cards out for good, from every earlier round rather than the previous one. `SessionPlan` gains `setAsideBefore`, the cards of this queue that came back, so `applyDismiss(plan, cardId)` names the event from the plan and needs no third argument. `lib/session.ts` feeds both from the history (`dismissedBefore`, `deferredBefore`).
 - A card set aside leaves `plan.queue` at once. Code that read once-set-aside cards from the queue (the world's set-aside chips in `state.svelte.ts`) reads them from the `dismissed` and `deferred` sets instead.
 - The deck ends. With 30 warm-ups and 12 checkpoints, a participant who answers everything sees 10 rounds of 3 and 1, then 2 rounds of one checkpoint, then the thank-you card. Each card set aside adds a showing.
@@ -43,3 +43,6 @@ Two choices the rules left open:
 - Whether a warm-up coming back should also avoid the place (second or third) it held before, for its tint. It needs the place each card held, which the client can only get by replaying every round from the first. Marco's call.
 - The thank-you card's rendering is the screens' session's; its words are Marco's (the block is a placeholder).
 - The deck tuning in `workshop.json` (3 and 1) is Marco's; the rules hold for any counts the schema allows.
+- A set with one place in a round (one warm-up, or the one checkpoint when the warm-ups before it were not fresh) has no gap after a fresh card, so a card set aside in that set waits until the set's fresh cards have run out. True of the rule as written; whether to relax it is Marco's call.
+- A set with no places at all (a count of zero, which the schema allows) and a card set aside in it: the deck never counts as done and the client sits on an empty stack. Not a case of this workshop; a guard in `workshop.json`'s checks would close it.
+- Events that reach the device late (a sync from another phone) change a later round's plan after the fact, for set-asides as they already did for answers; a round in progress keeps its queue until the next one.
