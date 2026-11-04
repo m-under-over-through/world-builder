@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentCardId, replaySession } from '../src/lib/session.ts';
-import { AppState, TOAST_MS } from '../src/lib/state.svelte.ts';
+import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import { freshIndexedDb, JOINED, stubRoutes, SYNCED } from './helpers.ts';
@@ -30,7 +30,7 @@ async function opened(pathname: string, hash = ''): Promise<AppState> {
 const LINK_VALUE = 'test-link-value-0001';
 const LINK_CODE = '1871948336772442';
 
-/** A state on the first card of a fresh first session, the demo card seen, with a store but no code. */
+/** A state on the first card of a fresh first session, the onboarding card seen, with a store but no code. */
 async function onACard(): Promise<AppState> {
   const app = new AppState();
   app.workshop = workshop;
@@ -118,7 +118,8 @@ describe('a join refused for the minute', () => {
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(2);
     expect(app.error).toBe('');
     expect(app.code).toMatch(/^\d{16}$/);
-    expect(app.screen).toBe('demo');
+    expect(app.screen).toBe('card');
+    expect(app.demoFront).toBe(true);
   });
 
   it('never waits more than a minute, whatever the header says', async () => {
@@ -177,9 +178,11 @@ describe('a session on the deck engine', () => {
   async function joined(): Promise<AppState> {
     const app = await opened(`/${SLUG}/join/wave-1`);
     await app.join();
-    expect(app.screen).toBe('demo');
+    expect(app.screen).toBe('card');
+    expect(app.demoFront).toBe(true);
     await app.dismissDemo();
     expect(app.screen).toBe('card');
+    expect(app.demoFront).toBe(false);
     return app;
   }
 
@@ -222,6 +225,42 @@ describe('a session on the deck engine', () => {
     expect(await db(app).sessions.count()).toBe(2);
   });
 
+  it('the onboarding card is the front on the first open: the first card waits behind it unrecorded, then is shown when it goes, and it never comes back on this device', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    await app.join();
+    expect(app.screen).toBe('card');
+    expect(app.demoFront).toBe(true);
+    const first = app.card!.id;
+    expect(first).toBe(app.live!.plan.queue[0]);
+    expect(await db(app).events.count()).toBe(0);
+    // The card behind cannot be opened while the onboarding card is in front.
+    app.openCard();
+    expect(app.cardState).toBe('fresh');
+    await app.dismissDemo();
+    expect(app.demoFront).toBe(false);
+    expect(app.card!.id).toBe(first);
+    expect(await app.store!.get('demoSeen')).toBeTruthy();
+    expect((await db(app).events.toArray()).map((e) => `${e.kind}:${e.cardId}`)).toEqual([
+      `shown:${first}`,
+    ]);
+    const again = await opened(`/${SLUG}/join/wave-1`);
+    expect(again.demoFront).toBe(false);
+    expect(again.card!.id).toBe(first);
+  });
+
+  it('Set aside with the onboarding card in front sends it away, as "Got it" does, and records nothing for the card behind', async () => {
+    stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    await app.join();
+    const first = app.card!.id;
+    await app.setAside();
+    expect(app.demoFront).toBe(false);
+    expect(app.card!.id).toBe(first);
+    expect(app.live!.dismissed.has(first)).toBe(false);
+    expect((await db(app).events.toArray()).map((e) => e.kind)).toEqual(['shown']);
+  });
+
   it('a reload mid-round resumes the same card from the seed and the events, with no new session row', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await joined();
@@ -259,7 +298,8 @@ describe('a session on the deck engine', () => {
     expect(app.live!.session.id).not.toBe(roundOne);
     expect(app.card!.id).toBe(first);
     expect(app.cardNo).toBe(1);
-    // The demo card and the hint belong to the first round of the first open only.
+    // The onboarding card and the hint belong to the first round of the first open only.
+    expect(app.demoFront).toBe(false);
     expect(app.hintOpen).toBe(false);
     expect(await db(app).sessions.count()).toBe(2);
     const roundTwo = (await db(app).events.toArray()).filter(
@@ -268,7 +308,7 @@ describe('a session on the deck engine', () => {
     expect(roundTwo.map((e) => `${e.kind}:${e.seq}`)).toEqual(['shown:0']);
     // The world keeps round 1's answers; round 2 has nothing set aside yet.
     expect(app.world.tiles).toHaveLength(3);
-    expect(app.world.chips).toEqual([]);
+    expect(app.world.aside).toEqual([]);
 
     const again = await opened(`/${SLUG}/join/wave-1`);
     expect(again.screen).toBe('card');
@@ -278,7 +318,7 @@ describe('a session on the deck engine', () => {
     expect(await db(again).sessions.count()).toBe(2);
   });
 
-  /** A state with its own small deck and counts, a store with the demo seen, a code, and no screen yet. */
+  /** A state with its own small deck and counts, a store with the onboarding card seen, a code, and no screen yet. */
   async function withDeck(
     cards: typeof workshop.deck.cards,
     warmupsPerSession: number,
@@ -379,7 +419,7 @@ describe('a session on the deck engine', () => {
     });
     const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     expect(app.code).toBe(LINK_CODE);
-    // No welcome, no intro, no demo card: the session is under way, and the demo is for a first session with nothing done.
+    // No welcome and no onboarding card: the session is under way, and the onboarding card is for a first session with nothing done.
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(1);
     expect(app.live!.session.id).toBe(session.id);
@@ -462,7 +502,8 @@ describe('identity by the link (ADR 0018)', () => {
     expect(app.linkCode).toBe('');
     expect(await app.store!.get('code')).toBe(LINK_CODE);
     expect(await app.store!.get('linkCode')).toBeUndefined();
-    expect(app.screen).toBe('demo');
+    expect(app.screen).toBe('card');
+    expect(app.demoFront).toBe(true);
   });
 
   it('the value never leaves the device: no request path, body or header carries it, and the store keeps only the code', async () => {
@@ -499,14 +540,14 @@ describe('identity by the link (ADR 0018)', () => {
     expect(app.code).toBe(LINK_CODE);
     expect(await app.store!.get('code')).toBe(LINK_CODE);
     expect(app.me).not.toBeNull();
-    expect(['demo', 'card']).toContain(app.screen);
+    expect(app.screen).toBe('card');
   });
 
   it("a known participant's link opens straight to the cards: no welcome, no intro", async () => {
     const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
     const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     expect(app.code).toBe(LINK_CODE);
-    expect(['demo', 'card']).toContain(app.screen);
+    expect(app.screen).toBe('card');
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(0);
     expect(calls.find((c) => c.path.endsWith('/me'))!.headers['authorization']).toBe(
       `Code ${LINK_CODE}`,
@@ -663,7 +704,7 @@ describe('failure behaviour', () => {
     const app = await opened(`/${SLUG}/join/wave-1`);
     expect(app.code).toBe('1234567890123456');
     expect(app.codeRefused).toBe(false);
-    expect(['card', 'demo']).toContain(app.screen);
+    expect(app.screen).toBe('card');
   });
 
   it('WORKSHOP_CLOSED from a sync shows the closed screen', async () => {
@@ -703,8 +744,8 @@ describe('failure behaviour', () => {
     await app.dismissDemo();
     await app.setAside();
     await vi.waitFor(() => expect(app.sync.lastResult).toBe('ok'));
-    // The toast's hold is a wait too (TOAST_MS); the retries are the two after it.
-    expect(waits.filter((ms) => ms !== TOAST_MS)).toEqual([5000, 10000]);
+    // No toast holds a wait any more (ADR 0019): the waits are the two retries.
+    expect(waits).toEqual([5000, 10000]);
     expect(calls.filter((c) => c.path.endsWith('/sync'))).toHaveLength(3);
   });
 

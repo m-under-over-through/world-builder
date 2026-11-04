@@ -2,12 +2,10 @@
   import { onMount } from 'svelte';
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
-  import { AppState, tintOf } from './lib/state.svelte.ts';
+  import { AppState } from './lib/state.svelte.ts';
   import About from './screens/About.svelte';
   import Card from './screens/Card.svelte';
   import Closed from './screens/Closed.svelte';
-  import DemoCard from './screens/DemoCard.svelte';
-  import Intro from './screens/Intro.svelte';
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
   import TextPage from './screens/TextPage.svelte';
   import Welcome from './screens/Welcome.svelte';
@@ -19,11 +17,11 @@
    *
    * The shell is the design's (design/DESIGN.md, Layout): the top bar with the app's name and
    * the organizer, two centered lines on a phone and a block on the left on a laptop, where it
-   * also carries the progress strip while a session runs; under it the toast; the screen; and
-   * at the foot one small link, "About this app", the one place that explains the app, shows
-   * the facts, and deletes everything (ADR 0013), with, on a phone's card screen,
-   * the pill that opens "Your world so far" (ADR 0015). The page itself and the two texts have
-   * their own foot.
+   * also carries the count of cards answered so far while the cards run (no numbers of a round,
+   * no strip, no toast: ADR 0019); the screen; and at the foot one small link, "About this
+   * app", the one place that explains the app, shows the facts, and deletes everything (ADR
+   * 0013), with, on a phone's card screen, the pill that opens "Your world so far" (ADR 0015).
+   * The page itself and the two texts have their own foot.
    */
   // A test may hand in its own state (with an instant `wait`); the app makes one.
   let { app = new AppState() }: { app?: AppState } = $props();
@@ -34,6 +32,11 @@
   const loop = $derived(app.screen === 'card');
   const phoneLoop = $derived(loop && !app.wide);
   let worldPill: HTMLButtonElement | undefined = $state();
+  /** "6 answered": the figure large and the words around it small, the words from copy.md. */
+  const answeredSoFar = $derived.by(() => {
+    const [before = '', after = ''] = app.copy.item('Your world', 'answered so far').split('[n]');
+    return { before, n: app.world.tiles.length, after };
+  });
 
   onMount(() => {
     // The network is back: the outbox goes out now, not at the retry timer's next tick.
@@ -66,46 +69,27 @@
       {#if app.workshop}<span class="organizer">{app.workshop.config.organizer}</span>{/if}
     </div>
     {#if app.wide && loop && app.live}
-      <div class="progress-row">
-        <div class="progress" aria-hidden="true">
-          {#each app.progress as seg (seg.n)}
-            <span class="seg {seg.state}" style:--tint={`var(--tint-${tintOf(seg.n)})`}></span>
-          {/each}
-        </div>
-        <span class="progress-text"
-          >{fill(app.copy.item('Your world', 'progress'), {
-            n: app.answeredCount,
-            total: app.queueLength,
-          })}</span
+      <p class="answered-so-far">
+        <svg
+          aria-hidden="true"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-      </div>
+          <rect x="3" y="7" width="15" height="13" rx="2.5" />
+          <path d="M8 4h11a2 2 0 0 1 2 2v11" />
+        </svg>
+        {#if answeredSoFar.before}<span class="words">{answeredSoFar.before}</span>{/if}<span
+          class="figure">{answeredSoFar.n}</span
+        ><span class="words">{answeredSoFar.after}</span>
+      </p>
     {/if}
   </header>
-
-  {#if loop}
-    <div class="toast-slot" role="status" aria-live="polite">
-      {#if app.toast}
-        {#key app.toast}
-          <span class="toast">
-            <span class="tick">
-              <svg
-                aria-hidden="true"
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"><path d="M5 12l4 4L19 7" /></svg
-              >
-            </span>
-            {app.copy.item('Card states', app.toast)}
-          </span>
-        {/key}
-      {/if}
-    </div>
-  {/if}
 
   {#if app.storageUnavailable}
     <p class="warning" role="status">{app.copy.error('CLIENT_STORAGE_UNAVAILABLE')}</p>
@@ -124,10 +108,6 @@
         <NotAWorkshop {app} />
       {:else if app.screen === 'welcome'}
         <Welcome {app} />
-      {:else if app.screen === 'intro-1' || app.screen === 'intro-2' || app.screen === 'consent'}
-        <Intro {app} />
-      {:else if app.screen === 'demo'}
-        <DemoCard {app} />
       {:else if app.screen === 'closed'}
         <Closed {app} />
       {:else if app.screen === 'about'}

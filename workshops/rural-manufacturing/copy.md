@@ -12,27 +12,33 @@ How the app reads this file:
 - A word in square brackets inside the text, such as `[code]` or `[day]`, is filled in by the app.
 - A blank line starts a new paragraph.
 
-## Intro 1 (under 60 words)
+## Welcome: title (one line)
+
+<!-- The title of the welcome, the one page before the cards (ADR 0019). workshop.json's "name" carries the same words, for the server and the about page. -->
 
 [placeholder]
-Under Over Through and Mechanism are imagining what local manufacturing in rural America could become. Not a survey, not a forecast: a slow, personal exercise in picturing a different world, one small question at a time.
+The future of local production in America
 
-## Intro 2 (under 60 words)
+## Welcome: purpose (one line)
 
-[placeholder]
-You will see one card at a time with a simple question about that future. Answer in a sentence or a paragraph, in your own words. If a card does not speak to you, set it aside; it may come back later. There are no right answers.
-
-## Intro 3, consent (under 80 words)
-
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+<!-- The line under the title on the welcome. -->
 
 [placeholder]
-This is a research project by Under Over Through and Mechanism about the future of local manufacturing in rural America. You answer questions in your own words. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
+Imagine, piece by piece, an alternative future for local manufacturing in rural US communities.
 
-## Demo card (under 40 words)
+## Welcome (under 120 words)
+
+<!-- The one paragraph of the welcome, above its one button, "I understand" (Buttons, i understand). It replaces the three intro screens and the consent screen (ADR 0019): what this is, how it works, and the consent. For the legal reviewers: tapping "I understand" is the consent, so the consent facts of the draft of 2 November (docs/participant-texts.md) are all here, in the same words: who runs it, no name, no email, no account, the answers locked on the phone, read and delete until 6 December 2026. "We cannot find out" predates the link of one's own (ADR 0018) and is the reviewers' to reword. "Please don't name real people" is said here once, and in the terms; the open card no longer repeats it. -->
 
 [placeholder]
-Tap the card to answer. Swipe it away to set it aside. Stop whenever you like, and come back any time.
+This is a research project by Under Over Through and Mechanism about the future of local manufacturing in rural America. You see one card at a time with a question about that future: answer in your own words, or set it aside. There are no right answers. Please don't name real people. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
+
+## Demo card (under 15 words)
+
+<!-- The words on the onboarding card, the front of the stack on the first open, shown large (ADR 0019). Its small label is "demo label" in Card labels; its button is "Got it". -->
+
+[placeholder]
+Open a card to answer. Swipe it away to set it aside.
 
 ## Dictation hint (under 25 words, per platform)
 
@@ -45,13 +51,6 @@ Tap the card to answer. Swipe it away to set it aside. Stop whenever you like, a
 - Mac: Press the microphone key twice, or Edit > Start Dictation.
 - Windows: Press Windows + H.
 - ChromeOS: Press Search + D.
-
-## Card nudge (under 15 words)
-
-<!-- Under the answer field, always visible while answering. -->
-
-[placeholder]
-Please don't name real people.
 
 ## Trust page variables
 
@@ -86,16 +85,13 @@ Please don't name real people.
 [placeholder]
 
 - not a workshop: World Builder
-- intro 1: What this is
-- intro 2: How it works
-- consent: Before you start
-- demo card: Try a card
 - dictation hint: Prefer to talk?
 - closed: This workshop has closed.
 - not open yet: Not open yet.
 - about: About this app
 - trust page: How your answers are protected
 - privacy panel: Right now, from this phone
+- technical details: The technical details
 - terms: Terms
 - privacy policy: Privacy policy
 
@@ -104,13 +100,11 @@ Please don't name real people.
 [placeholder]
 
 - about: About this app
-- new here: New here
 - back: Back
-- next: Next
 - i understand: I understand
 - save: Save
 - set aside: Set aside
-- delete: Delete everything I sent
+- delete: Delete everything and start over
 - yes delete: Yes, delete everything
 - keep: Keep my answers
 - got it: Got it
@@ -130,23 +124,16 @@ Please don't name real people.
 [placeholder]
 This address is not a workshop. Use the link you were sent.
 
-## Welcome: new here (under 40 words)
-
-<!-- Shown next to the "New here" button when this device arrived through a newsletter link or an invite. -->
-
-[placeholder]
-New here? It takes a minute to read what this is, and then the first card is yours.
-
 ## Welcome: your link (under 40 words)
 
-<!-- Shown in place of "Welcome: new here", next to the "New here" button, when the link this device opened carries a value of its own for the recipient (ADR 0018). -->
+<!-- One line under the welcome's paragraph, above "I understand", when the link this device opened carries a value of its own for the recipient (ADR 0018). -->
 
 [placeholder]
 This link is yours. It opens your cards on any phone. To bring someone in, use the links at the foot of the email, not this one.
 
 ## Welcome: no link (under 40 words)
 
-<!-- Shown in place of "New here" when this device has no newsletter link or invite to join through. -->
+<!-- Shown under the welcome's paragraph in place of the "I understand" button when this device has no newsletter link or invite to join through. -->
 
 [placeholder]
 To start, open the link you were sent. This page cannot start you on its own.
@@ -160,14 +147,12 @@ The link this phone remembered is not in use any more. Open the link from your e
 
 ## Card labels
 
-<!-- The words on a card. "position" is the label at the top of the card: [n] is the card's number in this session, [total] how many cards the session has, [area] the card's area from the deck; a card without an area gets the shorter line. "tap to answer" is the affordance at the foot of the card on a phone, "click to answer" the one with a mouse. "counter" shows near the limit: [n] is how many characters were written, [max] the limit. "close without saving" is the spoken name of the × on an open card. -->
+<!-- The words on a card. The label at the top of a card is its area from the deck, and nothing for a card without one: no numbers (ADR 0019). "demo label" is the label of the onboarding card. "write an answer" is the line with the pen at the foot of the front card, on every device. "counter" shows near the limit: [n] is how many characters were written, [max] the limit. "close without saving" is the spoken name of the × on an open card. -->
 
 [placeholder]
 
-- position: [n] of [total]
-- position with area: [n] of [total] · [area]
-- tap to answer: Tap to answer
-- click to answer: Click to answer
+- demo label: Try a card
+- write an answer: Write an answer
 - placeholder: Say it the way you would say it out loud.
 - counter: [n] / [max]
 - swipe hint: or swipe the card away
@@ -176,35 +161,27 @@ The link this phone remembered is not in use any more. Open the link from your e
 
 ## Card states (under 10 words each)
 
-<!-- "saving" is the Save button's label while the answer is sealed. The others are the small pill under the top bar after Save or Set aside: "saved" at once; "synced" when the server took the answer while the pill is still up, and "offline" or "sync problem" if it could not; "dismissed" for a card set aside, "deferred" for a card set aside a second time, which comes back first once the cards in front of it are done. -->
+<!-- "saving" is the Save button's label while the answer is sealed. Nothing else is said after Save or Set aside: the card leaving and the next one coming to the front is the feedback (ADR 0019). -->
 
 [placeholder]
 
 - saving: Saving…
-- saved: Saved on this device
-- synced: Synced
-- offline: Saved on this device. Syncs when you are online.
-- sync problem: Saved on this device. Not synced yet.
-- dismissed: Set aside
-- deferred: Set aside for later
 
 ## Your world (under 40 words each)
 
-<!-- "Your world so far": the answers given on this phone, one tile per answer (ADR 0014). On a phone, the pill at the foot of the card screen opens it as a sheet; on a laptop it is the right column. "pill label" is the spoken name of the pill, [n] the number of answers. "summary" is the line under the title: [answered] answers so far, [aside] cards set aside this session, [left] cards still to come this session. "tile label" is the small line on a tile: [n] the card's number, [area] its area. "written elsewhere" stands in for the words on a tile when the answer was written on another phone, which keeps them. "progress" is the line in the top bar on a laptop. "close" is the spoken name of the × on the sheet. -->
+<!-- "Your world so far": the answers given on this phone, one tile per answer (ADR 0014), and the cards set aside, as white tiles. On a phone, the pill at the foot of the card screen opens it as a sheet; on a laptop it is the right column. "pill label" is the spoken name of the pill, [n] the number of answers. "summary" is the line under the title: [answered] answers so far, [aside] cards set aside now. "answered so far" is the count in the top bar on a laptop, [n] shown large and the words after it small. A tile's label is its card's area, with no number (ADR 0019). "written elsewhere" stands in for the words on a tile when the answer was written on another phone, which keeps them. "close" is the spoken name of the × on the sheet. -->
 
 [placeholder]
 
 - title: Your world so far
 - pill label: Your world so far, [n] answered
-- summary: [answered] answered · [aside] set aside · [left] to go
+- summary: [answered] answered · [aside] set aside
+- answered so far: [n] answered
 - answered: Answered
 - set aside: Set aside
-- tile label: [n] · [area]
-- tile label without area: [n]
 - empty: Nothing here yet. Answer a card and it lands here.
 - empty laptop: Nothing here yet. Answer a card on the left and it lands here, one tile per question. The cards you set aside gather at the bottom.
 - written elsewhere: Written on another phone. The words stayed there.
-- progress: [n] of [total] answered
 - close: Close
 
 ## Remind me (under 20 words)
@@ -226,10 +203,17 @@ This opens on [day]. Keep the link and come back then.
 
 ## About: what this is (under 50 words)
 
-<!-- The two sentences at the top of the "About this app" page, before "How your answers are protected". -->
+<!-- The two sentences at the top of the "About this app" page, with the "Remind me" line under them. -->
 
 [placeholder]
 Under Over Through and Mechanism are asking a few questions about the future of local manufacturing in rural America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
+
+## About: in short (under 60 words)
+
+<!-- A few plain sentences on the "About this app" page, under "Remind me" and above "The technical details", which fold the trust page, the facts and the diagnostics away (ADR 0019). -->
+
+[placeholder]
+Your answers are locked on this phone before they are sent, and only the research team can unlock them. We never ask for your name or your email. This phone keeps your own answers readable for you. You can delete everything you sent, below, until 6 December 2026.
 
 ## Reminder
 
@@ -250,6 +234,7 @@ Under Over Through and Mechanism are asking a few questions about the future of 
 - hosts: Hosts this app has talked to since it opened
 - permissions: Microphone, camera, location
 - permissions value: blocked by policy
+- permissions note: This page cannot use them. Dictation is your keyboard's own, handled by your phone, not by this page.
 - key: Your answers are locked to the key
 - stored: What we hold about you
 - nothing stored: nothing yet
@@ -295,7 +280,7 @@ These numbers come from the same app that makes the claims. They are honest; the
 
 ## About: delete (under 40 words)
 
-<!-- The line above the "Delete everything I sent" button, at the end of "About this app", only once the phone has started. The last sentence is there because a link makes the same participant again (ADR 0018). -->
+<!-- The line above the "Delete everything and start over" button, at the end of "About this app", only once the phone has started. The last sentence is there because a link makes the same participant again (ADR 0018). -->
 
 [placeholder]
 Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026. Opening your link again starts you over from nothing.

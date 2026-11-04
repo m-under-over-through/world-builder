@@ -10,7 +10,7 @@ import {
 } from '@wb/contracts';
 import { sealAnswer } from '@wb/crypto';
 import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
-import type { Copy, ListKey } from './copy.ts';
+import type { Copy } from './copy.ts';
 import { dayStatus } from './days.ts';
 import { codeFromValue, valueFromHash } from './identity.ts';
 import { detectPlatform, type Platform } from './platform.ts';
@@ -60,18 +60,7 @@ import { defaultCopy, findWorkshop, VERSION, type Workshop } from './workshops.t
  * (the workshop, the server's answer) are kept raw, so nothing wraps the copy or the deck.
  */
 export type Screen =
-  | 'loading'
-  | 'no-workshop'
-  | 'welcome'
-  | 'intro-1'
-  | 'intro-2'
-  | 'consent'
-  | 'demo'
-  | 'card'
-  | 'about'
-  | 'terms'
-  | 'privacy'
-  | 'closed';
+  'loading' | 'no-workshop' | 'welcome' | 'card' | 'about' | 'terms' | 'privacy' | 'closed';
 
 /** The two pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
 export type TextPage = Extract<Page, 'terms' | 'privacy'>;
@@ -91,19 +80,16 @@ export function aboutSectionFor(page: Page): AboutSection | null {
 /**
  * What the front card is doing (docs/screen-map.md, Core loop; design/DESIGN.md, States).
  * `fresh` is the stack with the question; `answering` the card opened with the field;
- * `saving` the moment the answer is sealed and written. The screen map's other rows (`saved`,
- * `synced`, `dismissed`, `deferred`) are the toast under the top bar, `toast`, while the card
- * that was answered or set aside leaves and the next one is already the front.
+ * `saving` the moment the answer is sealed and written. There is no toast after a save or a set
+ * aside (ADR 0019, Marco's morning pass): the card leaving and the next one coming to the
+ * front is the feedback, and the about page's diagnostics keep the sync's facts.
  */
 export type CardState = 'fresh' | 'answering' | 'saving';
-
-/** The words of the toast, from "Card states"; `saving` is the Save button's label, not a toast. */
-export type Toast = Exclude<ListKey<'Card states'>, 'saving'>;
 
 /** The answered card on its way out of the stack, drawn for the length of its exit (ADR 0015). */
 export interface ExitingCard {
   card: Card;
-  /** Its number in the session, for the label and the tint. */
+  /** Its number in the session, for the tint; never shown (no numbers on the screen, ADR 0019). */
   n: number;
   answer: string;
 }
@@ -113,7 +99,7 @@ export interface WorldTile {
   key: string;
   cardId: string;
   sessionNo: number;
-  /** The card's number in its session, for the label and the tint. */
+  /** The card's number in its session, for the tint; never shown (ADR 0019). */
   n: number;
   area?: string;
   question: string;
@@ -121,22 +107,16 @@ export interface WorldTile {
   answer: string | null;
 }
 
-/** One card set aside in this session: the chip. */
-export interface WorldChip {
+/**
+ * One card set aside in this round: a tile like an answered one, white with a line instead of
+ * a tint, with its area and its question and no answer (ADR 0019).
+ */
+export interface AsideTile {
   cardId: string;
-  n: number;
   area?: string;
   question: string;
 }
 
-/** A segment of the laptop's progress strip: one per card of the session as planned. */
-export interface ProgressSegment {
-  n: number;
-  state: 'answered' | 'aside' | 'empty';
-}
-
-/** How long a toast stays up. */
-export const TOAST_MS = 1600;
 /** How long the answered card takes to leave the stack. */
 export const EXIT_MS = 320;
 
@@ -227,9 +207,12 @@ export class AppState {
   /** The card's number in this session, its place in the queue as planned (lib/session.ts, cardNumber). */
   cardNo = $state(0);
   cardState = $state<CardState>('fresh');
-  /** The words of the toast under the top bar, or nothing. */
-  toast = $state<Toast | ''>('');
-  private toastToken = 0;
+  /**
+   * True while the onboarding card is the front of the stack (ADR 0019): on the first open of a
+   * first round, once per device (`demoSeen`). The first real card is already `card`, behind
+   * it, and is recorded `shown` only once the onboarding card has gone.
+   */
+  demoFront = $state(false);
   /** The answered card leaving the stack, for the length of its exit; null when none is. */
   exiting = $state.raw<ExitingCard | null>(null);
   private exitToken = 0;
@@ -322,7 +305,7 @@ export class AppState {
       await this.requestSync();
   }
 
-  /** 1 for the participant's first session: the demo card and the hint show only then. */
+  /** 1 for the participant's first session: the onboarding card and the hint show only then. */
   get sessionNo(): number {
     return this.live?.session.sessionNo ?? 0;
   }
@@ -334,16 +317,6 @@ export class AppState {
 
   get saving(): boolean {
     return this.cardState === 'saving';
-  }
-
-  /** How many cards this session has, as planned: the M of "n of M". */
-  get queueLength(): number {
-    return this.live?.queueAsPlanned.length ?? 0;
-  }
-
-  /** Cards answered in this session, for "n of M answered". */
-  get answeredCount(): number {
-    return this.live?.answered.size ?? 0;
   }
 
   /** The next two cards of the queue behind the front one, with their numbers: the backs of the stack. */
@@ -369,10 +342,11 @@ export class AppState {
   /**
    * "Your world so far" (ADR 0014, ADR 0015): one tile per answer in the history, session by
    * session and in card order within a session, with the words where this device wrote them;
-   * the cards set aside in this session as chips; and how many cards this session still has.
+   * and the cards set aside in this round, as white tiles (ADR 0019). No count of the cards
+   * still to come: rounds follow one another, so there is no end to count down to.
    */
-  get world(): { tiles: WorldTile[]; chips: WorldChip[]; left: number } {
-    if (!this.workshop) return { tiles: [], chips: [], left: 0 };
+  get world(): { tiles: WorldTile[]; aside: AsideTile[] } {
+    if (!this.workshop) return { tiles: [], aside: [] };
     const { deck, config } = this.workshop;
     const cards = new Map(deck.cards.map((c) => [c.id, c]));
     const tiles: WorldTile[] = [];
@@ -400,41 +374,24 @@ export class AppState {
         });
       }
     }
-    const chips: WorldChip[] = [];
-    let left = 0;
+    const aside: AsideTile[] = [];
     if (this.live) {
-      const { answered, dismissed, deferred, plan, queueAsPlanned } = this.live;
-      const aside = [
+      const { answered, dismissed, deferred, plan } = this.live;
+      const ids = [
         ...plan.queue.filter((id) => dismissed.has(id)),
         ...[...deferred].filter((id) => !dismissed.has(id)),
       ];
-      for (const id of aside) {
+      for (const id of ids) {
         const card = cards.get(id);
         if (!card || answered.has(id)) continue;
-        chips.push({
+        aside.push({
           cardId: id,
-          n: cardNumber(queueAsPlanned, id),
           ...(card.area === undefined ? {} : { area: card.area }),
           question: card.text,
         });
       }
-      left = plan.queue.filter((id) => !answered.has(id) && !deferred.has(id)).length;
     }
-    return { tiles, chips, left };
-  }
-
-  /** The laptop's progress strip: one segment per card of the session as planned, in that order. */
-  get progress(): ProgressSegment[] {
-    if (!this.live) return [];
-    const { answered, dismissed, deferred, queueAsPlanned } = this.live;
-    return queueAsPlanned.map((id, i) => ({
-      n: i + 1,
-      state: answered.has(id)
-        ? 'answered'
-        : dismissed.has(id) || deferred.has(id)
-          ? 'aside'
-          : 'empty',
-    }));
+    return { tiles, aside };
   }
 
   /** Today against the workshop's days, judged on the device (lib/days.ts); the server has the last word. */
@@ -722,7 +679,8 @@ export class AppState {
    * over, the next round starts at once and its first card is the front (ADR 0017): there is no
    * screen between rounds and no end of the deck, since an answered card comes round again once
    * the unanswered ones of its set have run out. The first round of the first open starts with
-   * the demo card, once, and the hint for this platform on its first card (architecture plan, 8.1).
+   * the onboarding card in front of the stack, once (ADR 0019), and the hint for this platform on
+   * its first card (architecture plan, 8.1).
    */
   private async showCard(): Promise<void> {
     if (!this.store || !this.workshop || !this.live) return;
@@ -737,33 +695,37 @@ export class AppState {
       this.screen = 'card';
       return;
     }
-    // The demo card: before anything was done in the first session, once per device. A second
-    // device continuing a first session already under way skips it.
-    if (this.sessionNo === 1 && this.live.untouched && !(await this.store.get('demoSeen'))) {
-      this.screen = 'demo';
-      return;
-    }
     const id = currentCardId(this.live);
     this.card = this.workshop.deck.cards.find((c) => c.id === id);
     this.cardNo = id === undefined ? 0 : cardNumber(this.live.queueAsPlanned, id);
     this.draft = (id === undefined ? undefined : this.drafts.get(id)) ?? '';
     this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
+    // The onboarding card: in front of the first card before anything was done in the first
+    // session, once per device (ADR 0019). A second device continuing a first session already
+    // under way skips it. The card behind it is not shown yet, so nothing is recorded.
+    this.demoFront =
+      this.sessionNo === 1 && this.live.untouched && !(await this.store.get('demoSeen'));
     // Once per card per session: a resumed session or a card coming round again is not a new showing.
-    if (this.card && !this.live.shown.has(this.card.id)) {
+    if (this.card && !this.demoFront && !this.live.shown.has(this.card.id)) {
       await this.record('shown');
       this.live = withShown(this.live, this.card.id);
     }
     this.screen = 'card';
   }
 
-  /** "Got it" on the demo card, or a swipe: seen once per device, then the first card. */
+  /**
+   * "Got it" on the onboarding card, a swipe, or Set aside: seen once per device; it leaves the
+   * stack and the first card, already behind it, comes to the front and is recorded `shown`.
+   */
   async dismissDemo(): Promise<void> {
+    if (!this.demoFront) return;
     await this.store?.set('demoSeen', localDay());
     await this.showCard();
   }
 
   /**
-   * Consent: create the participant, start the first session. The code is the link's when the
+   * "I understand" on the welcome, the consent (ADR 0019): create the participant, start the
+   * first session. The code is the link's when the
    * link carried a value (ADR 0018), else a fresh one the device makes. For the link's code a
    * taken code (JOIN_CODE_TAKEN) means "this is me": the same participant on another device, so
    * the code is kept and the device continues where that participant is. For a device-made code
@@ -846,7 +808,7 @@ export class AppState {
 
   /** Tap, click or Enter on the front card: it opens with the field (`answering`). */
   openCard(): void {
-    if (!this.card || this.cardState !== 'fresh') return;
+    if (!this.card || this.demoFront || this.cardState !== 'fresh') return;
     this.cardState = 'answering';
   }
 
@@ -854,15 +816,6 @@ export class AppState {
   closeCard(): void {
     if (this.cardState !== 'answering') return;
     this.cardState = 'fresh';
-  }
-
-  /** The toast under the top bar: these words, for TOAST_MS, unless other words replace them first. */
-  private flash(words: Toast): void {
-    const token = ++this.toastToken;
-    this.toast = words;
-    void this.wait(TOAST_MS).then(() => {
-      if (this.toastToken === token) this.toast = '';
-    });
   }
 
   /** The answered card leaves the stack: drawn on its way out for EXIT_MS, then gone. */
@@ -876,12 +829,10 @@ export class AppState {
 
   /**
    * Save: seal the draft and write the outbox (`saving`); keep the readable copy next to it,
-   * for this participant on this device (ADR 0014); say so in the toast ("Saved on this
-   * device"); let the answered card leave while the next one is already the front; and sync in
-   * the background. When the server takes the answer while the toast is still up, the toast
-   * says "Synced"; later, it says nothing (design/DESIGN.md, States). Returns whether the
-   * answer was taken; the promise settles once the sync has answered, which nothing waits for
-   * on the screen.
+   * for this participant on this device (ADR 0014); let the answered card leave while the next
+   * one is already the front, which is all the feedback there is (no toast, ADR 0019); and sync
+   * in the background. Returns whether the answer was taken; the promise settles once the sync
+   * has answered, which nothing waits for on the screen.
    */
   async save(answer = this.draft): Promise<boolean> {
     if (!this.workshop || !this.live || !this.card || !this.store || this.cardState === 'saving')
@@ -910,28 +861,21 @@ export class AppState {
     this.live = withAnswer(this.live, card.id);
     this.drafts.delete(card.id);
     this.draft = '';
-    this.flash('saved');
     this.leave({ card, n, answer: text });
     await this.showCard();
-    const status = await this.requestSync();
-    if (this.toast === 'saved')
-      this.flash(
-        status.lastResult === 'ok'
-          ? 'synced'
-          : status.lastResult === 'offline'
-            ? 'offline'
-            : 'sync problem',
-      );
+    await this.requestSync();
     return true;
   }
 
   /**
    * "Set aside", by button or swipe: the engine moves the card to the end of the queue the first
-   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded and the toast
-   * says which; the sync runs in the background; the next card comes at once. A half-written
-   * answer waits in memory for the card to come round.
+   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded; the sync
+   * runs in the background; the next card comes at once, with no toast (ADR 0019). A half-written
+   * answer waits in memory for the card to come round. With the onboarding card in front, the
+   * button and the swipe send it away instead, as "Got it" does: nothing is recorded.
    */
   async setAside(): Promise<void> {
+    if (this.demoFront) return this.dismissDemo();
     if (!this.live || !this.card || this.cardState === 'saving') return;
     const card = this.card;
     const { live, event } = withDismissal(this.live, card.id);
@@ -940,7 +884,6 @@ export class AppState {
     else this.drafts.delete(card.id);
     await this.record(event);
     this.live = live;
-    this.flash(event);
     void this.requestSync();
     await this.showCard();
   }
@@ -1028,7 +971,7 @@ export class AppState {
     else await this.land();
   }
 
-  /** "Delete everything I sent": the question first; nothing is sent until "yes". */
+  /** "Delete everything and start over": the question first; nothing is sent until "yes". */
   askDelete(): void {
     this.confirmingDelete = true;
   }
