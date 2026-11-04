@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import App from '../src/App.svelte';
 import { fill } from '../src/lib/copy.ts';
-import { AppState } from '../src/lib/state.svelte.ts';
+import { AppState, TOAST_MS } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import {
@@ -64,6 +64,15 @@ function held(): { wait: AppState['wait']; release: () => void } {
       release = resolve;
     });
   return { wait, release: () => release() };
+}
+
+/** A wait that holds only the toast's timer, so a test can read the toast; every other wait is instant. */
+function heldToast(): { wait: AppState['wait']; release: () => void } {
+  const toast = held();
+  return {
+    wait: (ms) => (ms === TOAST_MS ? toast.wait(ms) : Promise.resolve()),
+    release: toast.release,
+  };
 }
 
 // A fresh in-memory IndexedDB per test, so nothing one test stored (a code, an arrival) reaches the next.
@@ -229,7 +238,7 @@ describe('the pages a participant can open directly', () => {
     await open(`/${SLUG}/about`);
     expect(screen.getByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'about') })).toBeNull();
-    expect(document.querySelectorAll('nav button')).toHaveLength(0);
+    expect(document.querySelectorAll('header button')).toHaveLength(0);
   });
 
   it('/panel with a stored code syncs on open, before Back is tapped', async () => {
@@ -352,7 +361,7 @@ describe('the pages a participant can open directly', () => {
   it('no screen says "privacy" in a button or a heading', async () => {
     stubRoutes({});
     await open(`/${SLUG}/join/wave-1`);
-    const words = [...document.querySelectorAll('button, h1, h2, nav')].map(
+    const words = [...document.querySelectorAll('button, h1, h2, header')].map(
       (e) => e.textContent ?? '',
     );
     expect(words.some((w) => /privacy/i.test(w))).toBe(false);
@@ -378,7 +387,17 @@ describe('the first session', () => {
     return app;
   }
 
-  it('intro 1, intro 2 with Back, consent, then the demo card, then the first card with the hint', async () => {
+  /** The front card of the stack, opened: the field is in it. */
+  async function openTheCard(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(
+      await screen.findByRole('button', {
+        name: (name) => name.includes(copy.item('Card labels', 'tap to answer')),
+      }),
+    );
+    return screen.findByRole('textbox');
+  }
+
+  it('intro 1, intro 2 with Back, consent, then the demo card, then the first card, which opens with the hint', async () => {
     pretendUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0');
     const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
     const user = userEvent.setup();
@@ -386,6 +405,10 @@ describe('the first session', () => {
     expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    // The stack: no field until the card is opened, and no hint either.
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
+    await openTheCard(user);
     expect(await screen.findByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
     // The open hint says "Prefer to talk?" once, as its title; the line under it does not repeat it.
     expect(screen.getAllByText(copy.item('Titles', 'dictation hint'))).toHaveLength(1);
@@ -403,7 +426,7 @@ describe('the first session', () => {
     const user = userEvent.setup();
     await throughTheIntro(user);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
-    expect(await screen.findByRole('textbox')).toBeTruthy();
+    expect(await openTheCard(user)).toBeTruthy();
     expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
     expect(
       screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
@@ -415,7 +438,7 @@ describe('the first session', () => {
     const user = userEvent.setup();
     await throughTheIntro(user);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
-    await user.type(await screen.findByRole('textbox'), 'Half an answer');
+    await user.type(await openTheCard(user), 'Half an answer');
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
     expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
@@ -592,6 +615,12 @@ describe('the page about the app', () => {
 });
 
 describe('the core loop', () => {
+  /** The front card: one button, named by its label, the question and the affordance. */
+  const frontCard = () =>
+    screen.findByRole('button', {
+      name: (name) => name.includes(copy.item('Card labels', 'tap to answer')),
+    });
+
   async function toTheFirstCard(user: ReturnType<typeof userEvent.setup>, wait?: AppState['wait']) {
     const app = await open(`/${SLUG}/join/wave-1`, wait);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }));
@@ -599,62 +628,79 @@ describe('the core loop', () => {
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
-    await screen.findByRole('textbox');
+    await frontCard();
     return app;
   }
 
-  it('Save: "Saved on this device." and "Synced." on the card that was answered, then the next card', async () => {
+  /** Open the front card, type, Save. */
+  async function answer(user: ReturnType<typeof userEvent.setup>, text: string) {
+    await user.click(await frontCard());
+    await user.type(await screen.findByRole('textbox'), text);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
+  }
+
+  it('Save: the answered card leaves and the next is the front at once; the toast says "Synced" once the server took it, then goes', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED, SYNCED] });
     const user = userEvent.setup();
-    const { wait, release } = held();
+    const { wait, release } = heldToast();
     const app = await toTheFirstCard(user, wait);
     const first = app.card!;
-    await user.type(screen.getByRole('textbox'), 'An answer');
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
+    await answer(user, 'An answer');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
+    );
+    expect(await frontCard()).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    const status = screen.getByRole('status');
+    expect(status.getAttribute('aria-live')).toBe('polite');
     expect(await screen.findByText(copy.item('Card states', 'synced'))).toBeTruthy();
-    expect(screen.getByText(first.text)).toBeTruthy();
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(status.textContent).toContain(copy.item('Card states', 'synced'));
     release();
-    await waitFor(() => expect(screen.queryByText(first.text)).toBeNull());
-    expect(screen.queryByText(copy.item('Card states', 'synced'))).toBeNull();
-    expect(
-      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 2, total: 4 })),
-    ).toBeTruthy();
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('');
+    await waitFor(() => expect(screen.queryByText(copy.item('Card states', 'synced'))).toBeNull());
+    expect(app.live!.answered.has(first.id)).toBe(true);
+    expect(app.world.tiles.map((t) => t.answer)).toEqual(['An answer']);
   });
 
-  it('offline, Save says "Saved on this device. It will sync when you are online."', async () => {
+  it('offline, the toast says "Saved on this device. Syncs when you are online."', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [() => 'offline'] });
     const user = userEvent.setup();
-    const { wait, release } = held();
+    const { wait, release } = heldToast();
     await toTheFirstCard(user, wait);
-    await user.type(screen.getByRole('textbox'), 'An answer');
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
+    await answer(user, 'An answer');
     expect(await screen.findByText(copy.item('Card states', 'offline'))).toBeTruthy();
     release();
   });
 
-  it('Set aside by the button: the next card at once, and the card comes round again at the end', async () => {
+  it('Set aside by the button: the toast says so, the next card is the front, and the card comes round again at the end', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const user = userEvent.setup();
-    const app = await toTheFirstCard(user);
+    const { wait, release } = heldToast();
+    const app = await toTheFirstCard(user, wait);
     const first = app.card!;
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
-    await waitFor(() => expect(screen.queryByText(first.text)).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
+    );
+    expect(screen.getByRole('status').textContent).toContain(copy.item('Card states', 'dismissed'));
     expect(app.live!.plan.queue.at(-1)).toBe(first.id);
     expect(app.live!.dismissed.has(first.id)).toBe(true);
-    expect(
-      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 1, total: 4 })),
-    ).toBeTruthy();
+    const next = app.card!;
+    expect((await frontCard()).textContent).toContain(
+      fill(copy.item('Card labels', 'position with area'), { n: '02', total: 4, area: next.area! }),
+    );
+    expect(app.world.chips.map((c) => c.cardId)).toEqual([first.id]);
+    release();
   });
 
   it('a swipe sets the card aside as the button does', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
-    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('reduced-motion'),
+    }));
     const user = userEvent.setup();
     const app = await toTheFirstCard(user);
     const first = app.card!;
-    const card = screen.getByText(first.text).closest('.card')!;
+    const card = await frontCard();
     for (const [type, x] of [
       ['pointerdown', 200],
       ['pointermove', 100],
@@ -664,7 +710,9 @@ describe('the core loop', () => {
       card.dispatchEvent(
         new PointerEvent(type, { clientX: x, clientY: 100, pointerId: 1, bubbles: true }),
       );
-    await waitFor(() => expect(screen.queryByText(first.text)).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
+    );
     expect(app.live!.dismissed.has(first.id)).toBe(true);
   });
 });

@@ -48,8 +48,10 @@ Tap the card to answer. Swipe it away to set it aside. Come back any time; a ses
 
 ## Card nudge (under 15 words)
 
+<!-- Under the answer field, always visible while answering. -->
+
 [placeholder]
-Please do not name real people.
+Please don't name real people.
 
 ## Session end: your code (under 40 words)
 
@@ -202,24 +204,52 @@ That is not a 16-digit code yet.
 
 ## Card labels
 
+<!-- The words on a card. "position" is the label at the top of the card: [n] is the card's number in this session, [total] how many cards the session has, [area] the card's area from the deck; a card without an area gets the shorter line. "tap to answer" is the affordance at the foot of the card on a phone, "click to answer" the one with a mouse. "counter" shows near the limit: [n] is how many characters were written, [max] the limit. "close without saving" is the spoken name of the × on an open card. -->
+
 [placeholder]
 
-- position: Card [n] of [total]
-- placeholder: Type, or tap the mic on your keyboard to dictate.
-- counter: [n] characters left.
+- position: [n] of [total]
+- position with area: [n] of [total] · [area]
+- tap to answer: Tap to answer
+- click to answer: Click to answer
+- placeholder: Say it the way you would say it out loud.
+- counter: [n] / [max]
+- swipe hint: or swipe the card away
+- close without saving: Close without saving
 - could not save: Could not save.
 
-## Card states (under 15 words each)
+## Card states (under 10 words each)
 
-<!-- The line under the card that says where the answer is. -->
+<!-- "saving" is the Save button's label while the answer is sealed. The others are the small pill under the top bar after Save or Set aside: "saved" at once; "synced" when the server took the answer while the pill is still up, and "offline" or "sync problem" if it could not; "dismissed" for a card set aside, "deferred" for a card set aside a second time, which leaves this session. -->
 
 [placeholder]
 
 - saving: Saving…
-- saved: Saved on this device.
-- synced: Synced.
-- offline: Saved on this device. It will sync when you are online.
+- saved: Saved on this device
+- synced: Synced
+- offline: Saved on this device. Syncs when you are online.
 - sync problem: Saved on this device. Not synced yet.
+- dismissed: Set aside
+- deferred: Set aside for another day
+
+## Your world (under 40 words each)
+
+<!-- "Your world so far": the answers given on this phone, one tile per answer (ADR 0014). On a phone, the pill at the foot of the card screen opens it as a sheet; on a laptop it is the right column. "pill label" is the spoken name of the pill, [n] the number of answers. "summary" is the line under the title: [answered] answers so far, [aside] cards set aside this session, [left] cards still to come this session. "tile label" is the small line on a tile: [n] the card's number, [area] its area. "written elsewhere" stands in for the words on a tile when the answer was written on another phone, which keeps them. "progress" is the line in the top bar on a laptop. "close" is the spoken name of the × on the sheet. -->
+
+[placeholder]
+
+- title: Your world so far
+- pill label: Your world so far, [n] answered
+- summary: [answered] answered · [aside] set aside · [left] to go
+- answered: Answered
+- set aside: Set aside
+- tile label: [n] · [area]
+- tile label without area: [n]
+- empty: Nothing here yet. Answer a card and it lands here.
+- empty laptop: Nothing here yet. Answer a card on the left and it lands here, one tile per question. The cards you set aside gather at the bottom.
+- written elsewhere: Written on another phone. The words stayed there.
+- progress: [n] of [total] answered
+- close: Close
 
 ## Session end (under 30 words each)
 
@@ -289,7 +319,7 @@ Under Over Through and Mechanism are asking a few questions about the future of 
 - session row: Session [n], started [day]
 - events: Events
 - event row: [kind], card "[card]", number [seq], on [day], deck [version]
-- sealed body: sealed answer, [chars] characters, unreadable here and on the server
+- sealed body: sealed answer, [chars] characters; the server cannot read it. The phone that wrote it keeps it readable for you, until you delete it.
 - waiting: Waiting to sync
 - outbox summary: [events] events in [sessions] sessions
 - last sync: Last sync
@@ -405,7 +435,7 @@ We never collect your name, email, phone, address, location, IP address, the mak
 ## Trust page: how it is protected (under 80 words)
 
 [placeholder]
-Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
+Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable, for you alone, until you delete them. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
 
 ## Trust page: check it yourself (under 100 words)
 

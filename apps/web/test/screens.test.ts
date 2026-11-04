@@ -143,9 +143,60 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.item('App labels', 'retrying'))).toBeTruthy();
   });
 
+  it('the card, fresh: one button with the label, the question and "Tap to answer"; Set aside and the swipe hint under it; no field', () => {
+    const app = onACard();
+    render(Card, { app });
+    const front = screen.getByRole('button', { name: (n) => n.includes(app.card!.text) });
+    expect(front.classList.contains('card')).toBe(true);
+    expect(front.textContent).toContain(copy.item('Card labels', 'tap to answer'));
+    expect(front.textContent).toContain(
+      fill(copy.item('Card labels', 'position with area'), {
+        n: '01',
+        total: 4,
+        area: app.card!.area!,
+      }),
+    );
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByText(copy.text('Card nudge'))).toBeNull();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeTruthy();
+    expect(screen.getByText(copy.item('Card labels', 'swipe hint'))).toBeTruthy();
+    // The two cards behind are decoration.
+    expect(document.querySelectorAll('.card.back[aria-hidden="true"]')).toHaveLength(2);
+  });
+
+  it('the card, answering: the question as the label of the field, the nudge and the counter described, × and Save, and no Set aside', () => {
+    const app = onACard({ cardState: 'answering' });
+    render(Card, { app });
+    const field = screen.getByRole('textbox', { name: app.card!.text });
+    expect(field.getAttribute('aria-describedby')).toBe('answer-nudge answer-count');
+    expect(screen.getByText(copy.text('Card nudge'))).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: copy.item('Card labels', 'close without saving') }),
+    ).toBeTruthy();
+    const save = screen.getByRole('button', {
+      name: copy.item('Buttons', 'save'),
+    }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeNull();
+    expect(screen.queryByText(copy.item('Card labels', 'swipe hint'))).toBeNull();
+  });
+
   it('the card keeps the draft the state holds', () => {
-    render(Card, { app: onACard({ draft: 'Half an answer' }) });
+    render(Card, { app: onACard({ cardState: 'answering', draft: 'Half an answer' }) });
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Half an answer');
+    expect(
+      (screen.getByRole('button', { name: copy.item('Buttons', 'save') }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
+  it('the card, saving: Save reads "Saving…" and is off, as is the field', () => {
+    render(Card, { app: onACard({ cardState: 'saving', draft: 'An answer' }) });
+    const save = screen.getByRole('button', {
+      name: copy.item('Card states', 'saving'),
+    }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
   });
 
   it('the demo card: the explanation and "Got it"', () => {
@@ -154,8 +205,8 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
   });
 
-  it('the card with the dictation hint open: its title once, the line for this platform, and "Got it"', () => {
-    render(Card, { app: onACard({ platform: 'Windows', hintOpen: true }) });
+  it('the open card with the dictation hint open: its title once, the line for this platform, and "Got it"', () => {
+    render(Card, { app: onACard({ cardState: 'answering', platform: 'Windows', hintOpen: true }) });
     expect(
       screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
     ).toBeTruthy();
@@ -167,53 +218,26 @@ describe('the screens render the words of copy.md', () => {
     ).toBeNull();
   });
 
-  it('the card with the hint closed: "Prefer to talk?" on a platform that has dictation', () => {
-    render(Card, { app: onACard({ platform: 'Android', hintOpen: false }) });
+  it('the open card with the hint closed: "Prefer to talk?" on a platform that has dictation', () => {
+    render(Card, {
+      app: onACard({ cardState: 'answering', platform: 'Android', hintOpen: false }),
+    });
     expect(
       screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
     ).toBeTruthy();
     expect(screen.queryByText(copy.item('Dictation hint', 'Android'))).toBeNull();
   });
 
-  it('the card on a platform with no dictation: no hint and no "Prefer to talk?"', () => {
-    render(Card, { app: onACard({ platform: null, hintOpen: true }) });
+  it('the open card on a platform with no dictation: no hint and no "Prefer to talk?"', () => {
+    render(Card, { app: onACard({ cardState: 'answering', platform: null, hintOpen: true }) });
     expect(
       screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
     ).toBeNull();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'got it') })).toBeNull();
   });
 
-  it('the card, fresh: the question, the nudge, the position, Save and Set aside, and no state line', () => {
-    const app = onACard();
-    render(Card, { app });
-    expect(screen.getByText(app.card!.text)).toBeTruthy();
-    expect(screen.getByText(copy.text('Card nudge'), { exact: false })).toBeTruthy();
-    expect(
-      screen.getByText(fill(copy.item('Card labels', 'position'), { n: 1, total: 4 })),
-    ).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeTruthy();
-    for (const key of ['saving', 'saved', 'synced', 'offline', 'sync problem'] as const)
-      expect(screen.queryByText(copy.item('Card states', key))).toBeNull();
-  });
-
-  it('the card in each state after Save: its line, with the field and the buttons off', () => {
-    for (const key of ['saving', 'saved', 'synced', 'offline', 'sync problem'] as const) {
-      const { unmount } = render(Card, { app: onACard({ cardState: key, draft: '' }) });
-      expect(screen.getByText(copy.item('Card states', key))).toBeTruthy();
-      expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
-      expect(
-        (
-          screen.getByRole('button', {
-            name: copy.item('Buttons', 'set aside'),
-          }) as HTMLButtonElement
-        ).disabled,
-      ).toBe(true);
-      unmount();
-    }
-  });
-
-  it('the card with a sealing failure: the CLIENT_SEAL_FAILED wording', () => {
-    render(Card, { app: onACard({ error: 'CLIENT_SEAL_FAILED' }) });
+  it('the open card with a sealing failure: the CLIENT_SEAL_FAILED wording', () => {
+    render(Card, { app: onACard({ cardState: 'answering', error: 'CLIENT_SEAL_FAILED' }) });
     expect(screen.getByText(copy.error('CLIENT_SEAL_FAILED'), { exact: false })).toBeTruthy();
   });
 

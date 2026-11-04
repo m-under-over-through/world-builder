@@ -34,8 +34,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#f6f0e5',
-    theme_color: '#f6f0e5',
+    background_color: '#F4F3EF',
+    theme_color: '#F4F3EF',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -48,8 +48,9 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     ],
   },
   workbox: {
-    // The reminder files are kept with the rest, so "Remind me" works in an installed app offline.
-    globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,ics}'],
+    // The reminder files and the two typefaces (public/fonts, self-hosted: the client talks to one
+    // origin) are kept with the rest, so "Remind me" and the type work in an installed app offline.
+    globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest,ics}'],
     // Any address of the client is the one page; the API is not the client, and neither is a
     // calendar file: a tap on "Remind me" must reach the file, never the page.
     navigateFallback: '/index.html',

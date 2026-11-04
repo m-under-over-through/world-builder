@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentCardId, replaySession } from '../src/lib/session.ts';
-import { AppState } from '../src/lib/state.svelte.ts';
+import { AppState, TOAST_MS } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import { freshIndexedDb, JOINED, stubRoutes, SYNCED } from './helpers.ts';
@@ -74,6 +74,23 @@ describe('saving an answer', () => {
     expect(app.position).toEqual({ n: 2, total: 4 });
     const kinds = (await db(app).events.toArray()).sort((a, b) => a.seq - b.seq).map((e) => e.kind);
     expect(kinds).toEqual(['answered', 'shown']);
+  });
+
+  it('the draft stays when the open card is closed with ×, and goes with the answer once saved', async () => {
+    stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
+    const app = await onACard();
+    app.code = '1234567890123456';
+    app.openCard();
+    expect(app.cardState).toBe('answering');
+    app.draft = 'Half';
+    app.closeCard();
+    expect(app.cardState).toBe('fresh');
+    expect(app.draft).toBe('Half');
+    app.openCard();
+    app.draft = 'Whole';
+    expect(await app.save()).toBe(true);
+    expect(app.draft).toBe('');
+    expect(app.cardState).toBe('fresh');
   });
 });
 
@@ -526,7 +543,8 @@ describe('failure behaviour', () => {
     await app.dismissDemo();
     await app.setAside();
     await vi.waitFor(() => expect(app.sync.lastResult).toBe('ok'));
-    expect(waits).toEqual([5000, 10000]);
+    // The toast's hold is a wait too (TOAST_MS); the retries are the two after it.
+    expect(waits.filter((ms) => ms !== TOAST_MS)).toEqual([5000, 10000]);
     expect(calls.filter((c) => c.path.endsWith('/sync'))).toHaveLength(3);
   });
 

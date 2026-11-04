@@ -5,6 +5,7 @@ import {
   codeSchema,
   MAX_ANSWER_CHARS,
   type Card,
+  type Event,
   type EventKind,
   type JoinRequest,
   type MeResponse,
@@ -25,18 +26,21 @@ import {
   type Page,
 } from './route.ts';
 import {
+  cardNumber,
   currentCardId,
   latestSession,
   mergeHistory,
+  planAsStarted,
   position,
   replaySession,
   sessionOver,
   withAnswer,
   withDismissal,
   withShown,
+  type History,
   type LiveSession,
 } from './session.ts';
-import { localDay, MemoryStore, WorkshopStore, type Store } from './store.ts';
+import { answerKey, localDay, MemoryStore, WorkshopStore, type Store } from './store.ts';
 import {
   LAST_SYNC_DAY,
   pendingJoin,
@@ -90,13 +94,64 @@ export function aboutSectionFor(page: Page): AboutSection | null {
 }
 
 /**
- * The states of a card (docs/screen-map.md, Core loop). `fresh` is the question with the field;
- * the others are the line under the card after Save, each with its words in "Card states".
+ * What the front card is doing (docs/screen-map.md, Core loop; design/DESIGN.md, States).
+ * `fresh` is the stack with the question; `answering` the card opened with the field;
+ * `saving` the moment the answer is sealed and written. The screen map's other rows (`saved`,
+ * `synced`, `dismissed`, `deferred`) are the toast under the top bar, `toast`, while the card
+ * that was answered or set aside leaves and the next one is already the front.
  */
-export type CardState = 'fresh' | ListKey<'Card states'>;
+export type CardState = 'fresh' | 'answering' | 'saving';
 
-/** How long "Synced." (or "Saved on this device.") stays on the card before the next one comes. */
-export const SETTLE_MS = 900;
+/** The words of the toast, from "Card states"; `saving` is the Save button's label, not a toast. */
+export type Toast = Exclude<ListKey<'Card states'>, 'saving'>;
+
+/** The answered card on its way out of the stack, drawn for the length of its exit (ADR 0015). */
+export interface ExitingCard {
+  card: Card;
+  /** Its number in the session, for the label and the tint. */
+  n: number;
+  answer: string;
+}
+
+/** One answer in "Your world so far": the tile (ADR 0014, ADR 0015). */
+export interface WorldTile {
+  key: string;
+  cardId: string;
+  sessionNo: number;
+  /** The card's number in its session, for the label and the tint. */
+  n: number;
+  area?: string;
+  question: string;
+  /** The words, on the device that wrote them; null on any other device. */
+  answer: string | null;
+}
+
+/** One card set aside in this session: the chip. */
+export interface WorldChip {
+  cardId: string;
+  n: number;
+  area?: string;
+  question: string;
+}
+
+/** A segment of the laptop's progress strip: one per card of the session as planned. */
+export interface ProgressSegment {
+  n: number;
+  state: 'answered' | 'aside' | 'empty';
+}
+
+/** How long a toast stays up. */
+export const TOAST_MS = 1600;
+/** How long the answered card takes to leave the stack. */
+export const EXIT_MS = 320;
+
+/** The four tints of the design, by card number: a card keeps its tint everywhere it appears. */
+export const TINTS = ['sun', 'mint', 'sky', 'lilac'] as const;
+export type Tint = (typeof TINTS)[number];
+
+export function tintOf(n: number): Tint {
+  return TINTS[(((n - 1) % 4) + 4) % 4]!;
+}
 
 /** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
 export const LAST_WORKSHOP = 'wb:lastWorkshop';
@@ -129,9 +184,12 @@ export class AppState {
 
   /**
    * The answer being written on the current card. It lives here, not in the card component, so
-   * opening "Your privacy" and coming back finds it where it was (review of item 4).
+   * opening "About this app" and coming back finds it where it was (review of item 4). Closing
+   * the card with × keeps it too; `drafts` holds the half-written answers of cards set aside,
+   * in memory only, so a card coming round again shows what was started (design/DESIGN.md).
    */
   draft = $state('');
+  private drafts = new Map<string, string>();
   /** True while a refused join waits out the server's Retry-After before its one retry. */
   retrying = $state(false);
   /** How the join waits; a test replaces it so the wait is instant. */
@@ -151,9 +209,26 @@ export class AppState {
   live = $state.raw<LiveSession | null>(null);
   /** The card on the screen. It stays while its answer is saved and synced; then the next one comes. */
   card = $state.raw<Card | undefined>(undefined);
-  /** "Card n": the number of the card on the screen, kept while its answer is saved and synced. */
+  /** The card's number in this session, its place in the queue as planned (lib/session.ts, cardNumber). */
   cardNo = $state(0);
   cardState = $state<CardState>('fresh');
+  /** The words of the toast under the top bar, or nothing. */
+  toast = $state<Toast | ''>('');
+  private toastToken = 0;
+  /** The answered card leaving the stack, for the length of its exit; null when none is. */
+  exiting = $state.raw<ExitingCard | null>(null);
+  private exitToken = 0;
+  /**
+   * Everything this participant did, on this device and on the server, as one history
+   * (lib/session.ts): the sessions and the events. "Your world so far" is read from it.
+   */
+  history = $state.raw<History>({ sessions: [], events: [] });
+  /** The readable copies of the answers written on this device, by `answerKey` (ADR 0014). */
+  copies = $state.raw<ReadonlyMap<string, string>>(new Map());
+  /** True on a screen 600 pixels or wider: the world is a column beside the stack, not a sheet. */
+  wide = $state(false);
+  /** The sheet "Your world so far" is open (phone). */
+  worldOpen = $state(false);
   joining = $state(false);
   hintOpen = $state(false);
   sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0, outboxSessions: 0 });
@@ -248,6 +323,107 @@ export class AppState {
 
   get saving(): boolean {
     return this.cardState === 'saving';
+  }
+
+  /** How many cards this session has, as planned: the M of "n of M". */
+  get queueLength(): number {
+    return this.live?.queueAsPlanned.length ?? 0;
+  }
+
+  /** Cards answered in this session, for "n of M answered". */
+  get answeredCount(): number {
+    return this.live?.answered.size ?? 0;
+  }
+
+  /** The next two cards of the queue behind the front one, with their numbers: the backs of the stack. */
+  get backCards(): { card: Card; n: number }[] {
+    if (!this.live || !this.workshop || !this.card) return [];
+    const front = this.card.id;
+    const open = this.live.plan.queue.filter(
+      (id) => id !== front && !this.live!.answered.has(id) && !this.live!.deferred.has(id),
+    );
+    const index = this.live.plan.queue.indexOf(front);
+    // Only cards behind the front one in the queue, never one that was set aside and stands
+    // ahead of it in the file.
+    const behind = open.filter((id) => this.live!.plan.queue.indexOf(id) > index);
+    return behind
+      .slice(0, 2)
+      .map((id) => ({
+        card: this.workshop!.deck.cards.find((c) => c.id === id)!,
+        n: cardNumber(this.live!.queueAsPlanned, id),
+      }))
+      .filter((b) => b.card !== undefined);
+  }
+
+  /**
+   * "Your world so far" (ADR 0014, ADR 0015): one tile per answer in the history, session by
+   * session and in card order within a session, with the words where this device wrote them;
+   * the cards set aside in this session as chips; and how many cards this session still has.
+   */
+  get world(): { tiles: WorldTile[]; chips: WorldChip[]; left: number } {
+    if (!this.workshop) return { tiles: [], chips: [], left: 0 };
+    const { deck, config } = this.workshop;
+    const cards = new Map(deck.cards.map((c) => [c.id, c]));
+    const tiles: WorldTile[] = [];
+    const sessions = [...this.history.sessions].sort((a, b) => a.sessionNo - b.sessionNo);
+    for (const session of sessions) {
+      const queue =
+        this.live?.session.id === session.id
+          ? this.live.queueAsPlanned
+          : planAsStarted(deck, config, session, this.history).queue;
+      const answered = this.history.events
+        .filter((e) => e.kind === 'answered' && e.sessionId === session.id && cards.has(e.cardId))
+        .map((e) => ({ cardId: e.cardId, n: cardNumber(queue, e.cardId) }))
+        .sort((a, b) => a.n - b.n);
+      for (const { cardId, n } of answered) {
+        const card = cards.get(cardId)!;
+        const key = answerKey(session.id, cardId);
+        tiles.push({
+          key,
+          cardId,
+          sessionNo: session.sessionNo,
+          n,
+          ...(card.area === undefined ? {} : { area: card.area }),
+          question: card.text,
+          answer: this.copies.get(key) ?? null,
+        });
+      }
+    }
+    const chips: WorldChip[] = [];
+    let left = 0;
+    if (this.live) {
+      const { answered, dismissed, deferred, plan, queueAsPlanned } = this.live;
+      const aside = [
+        ...plan.queue.filter((id) => dismissed.has(id)),
+        ...[...deferred].filter((id) => !dismissed.has(id)),
+      ];
+      for (const id of aside) {
+        const card = cards.get(id);
+        if (!card || answered.has(id)) continue;
+        chips.push({
+          cardId: id,
+          n: cardNumber(queueAsPlanned, id),
+          ...(card.area === undefined ? {} : { area: card.area }),
+          question: card.text,
+        });
+      }
+      left = plan.queue.filter((id) => !answered.has(id) && !deferred.has(id)).length;
+    }
+    return { tiles, chips, left };
+  }
+
+  /** The laptop's progress strip: one segment per card of the session as planned, in that order. */
+  get progress(): ProgressSegment[] {
+    if (!this.live) return [];
+    const { answered, dismissed, deferred, queueAsPlanned } = this.live;
+    return queueAsPlanned.map((id, i) => ({
+      n: i + 1,
+      state: answered.has(id)
+        ? 'answered'
+        : dismissed.has(id) || deferred.has(id)
+          ? 'aside'
+          : 'empty',
+    }));
   }
 
   /** Today against the workshop's days, judged on the device (lib/days.ts); the server has the last word. */
@@ -439,6 +615,8 @@ export class AppState {
     if (!this.store || !this.workshop) return;
     const { deck, config } = this.workshop;
     const history = mergeHistory(await this.store.history(), this.me);
+    this.history = history;
+    this.copies = new Map((await this.store.answers()).map((a) => [a.key, a.text]));
     const latest = latestSession(history);
     if (latest) {
       const replayed = replaySession(deck, config, latest, history);
@@ -458,7 +636,8 @@ export class AppState {
       ).join(''),
     };
     await this.store.putSession({ ...session, synced: 0 });
-    this.live = replaySession(deck, config, session, history);
+    this.history = { ...history, sessions: [...history.sessions, session] };
+    this.live = replaySession(deck, config, session, this.history);
     await this.showCard();
   }
 
@@ -469,7 +648,6 @@ export class AppState {
    */
   private async showCard(): Promise<void> {
     if (!this.store || !this.workshop || !this.live) return;
-    this.draft = '';
     this.error = '';
     this.cardState = 'fresh';
     if (sessionOver(this.live)) {
@@ -485,7 +663,8 @@ export class AppState {
     }
     const id = currentCardId(this.live);
     this.card = this.workshop.deck.cards.find((c) => c.id === id);
-    this.cardNo = position(this.live).n;
+    this.cardNo = id === undefined ? 0 : cardNumber(this.live.queueAsPlanned, id);
+    this.draft = (id === undefined ? undefined : this.drafts.get(id)) ?? '';
     this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
     // Once per card per session: a resumed session or a card coming round again is not a new showing.
     if (this.card && !this.live.shown.has(this.card.id)) {
@@ -603,7 +782,7 @@ export class AppState {
   /** One event, as the contract spells it, with this session's next seq; the engine names the kind. */
   private async record(kind: EventKind, body?: string): Promise<void> {
     if (!this.store || !this.workshop || !this.live || !this.card) return;
-    await this.store.putEvent({
+    const event: Event = {
       id: crypto.randomUUID(),
       sessionId: this.live.session.id,
       cardId: this.card.id,
@@ -611,23 +790,59 @@ export class AppState {
       kind,
       createdDay: localDay(),
       deckVersion: this.workshop.deck.version,
-      synced: 0,
       ...(body === undefined ? {} : { body }),
+    };
+    await this.store.putEvent({ ...event, synced: 0 });
+    this.history = { ...this.history, events: [...this.history.events, event] };
+  }
+
+  /** Tap, click or Enter on the front card: it opens with the field (`answering`). */
+  openCard(): void {
+    if (!this.card || this.cardState !== 'fresh') return;
+    this.cardState = 'answering';
+  }
+
+  /** × on the open card: back to the stack. The draft stays, so opening the card again finds it. */
+  closeCard(): void {
+    if (this.cardState !== 'answering') return;
+    this.cardState = 'fresh';
+  }
+
+  /** The toast under the top bar: these words, for TOAST_MS, unless other words replace them first. */
+  private flash(words: Toast): void {
+    const token = ++this.toastToken;
+    this.toast = words;
+    void this.wait(TOAST_MS).then(() => {
+      if (this.toastToken === token) this.toast = '';
+    });
+  }
+
+  /** The answered card leaves the stack: drawn on its way out for EXIT_MS, then gone. */
+  private leave(exiting: ExitingCard): void {
+    const token = ++this.exitToken;
+    this.exiting = exiting;
+    void this.wait(EXIT_MS).then(() => {
+      if (this.exitToken === token) this.exiting = null;
     });
   }
 
   /**
-   * Save: seal the draft, write the outbox (`saving`), say so (`saved`), sync and say how that
-   * went (`synced`, or offline, or a problem), then, after a beat, the next card. The card stays
-   * on the screen through all of it, so the line always speaks of the answer it is under.
-   * Returns whether the answer was taken.
+   * Save: seal the draft and write the outbox (`saving`); keep the readable copy next to it,
+   * for this participant on this device (ADR 0014); say so in the toast ("Saved on this
+   * device"); let the answered card leave while the next one is already the front; and sync in
+   * the background. When the server takes the answer while the toast is still up, the toast
+   * says "Synced"; later, it says nothing (design/DESIGN.md, States). Returns whether the
+   * answer was taken; the promise settles once the sync has answered, which nothing waits for
+   * on the screen.
    */
   async save(answer = this.draft): Promise<boolean> {
-    if (!this.workshop || !this.live || !this.card || this.cardState !== 'fresh') return false;
+    if (!this.workshop || !this.live || !this.card || !this.store || this.cardState === 'saving')
+      return false;
     this.error = '';
+    const text = truncateCodePoints(answer, MAX_ANSWER_CHARS);
     let sealed: string;
     try {
-      sealed = sealAnswer(this.workshop.publicKey, truncateCodePoints(answer, MAX_ANSWER_CHARS));
+      sealed = sealAnswer(this.workshop.publicKey, text);
     } catch {
       // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
       // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
@@ -635,35 +850,60 @@ export class AppState {
       return false;
     }
     this.cardState = 'saving';
+    const card = this.card;
+    const session = this.live.session;
+    const n = this.cardNo;
     await this.record('answered', sealed);
-    this.live = withAnswer(this.live, this.card.id);
-    // The words stay on the card, greyed, until the next card comes; nothing readable is stored.
-    this.cardState = 'saved';
-    const status = await this.requestSync();
-    this.cardState =
-      status.lastResult === 'ok'
-        ? 'synced'
-        : status.lastResult === 'offline'
-          ? 'offline'
-          : 'sync problem';
-    await this.wait(SETTLE_MS);
+    // The readable copy goes next to the outbox, never into it: the event above carries the
+    // sealed text only, and `putAnswer` writes a table no sync ever reads (lib/store.ts).
+    const key = answerKey(session.id, card.id);
+    await this.store.putAnswer({ key, sessionId: session.id, cardId: card.id, text });
+    this.copies = new Map(this.copies).set(key, text);
+    this.live = withAnswer(this.live, card.id);
+    this.drafts.delete(card.id);
+    this.draft = '';
+    this.flash('saved');
+    this.leave({ card, n, answer: text });
     await this.showCard();
+    const status = await this.requestSync();
+    if (this.toast === 'saved')
+      this.flash(
+        status.lastResult === 'ok'
+          ? 'synced'
+          : status.lastResult === 'offline'
+            ? 'offline'
+            : 'sync problem',
+      );
     return true;
   }
 
   /**
    * "Set aside", by button or swipe: the engine moves the card to the end of the queue the first
-   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded, the sync
-   * runs in the background, and the next card comes at once.
+   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded and the toast
+   * says which; the sync runs in the background; the next card comes at once. A half-written
+   * answer waits in memory for the card to come round.
    */
   async setAside(): Promise<void> {
-    if (!this.live || !this.card || this.cardState !== 'fresh') return;
-    const { live, event } = withDismissal(this.live, this.card.id);
+    if (!this.live || !this.card || this.cardState === 'saving') return;
+    const card = this.card;
+    const { live, event } = withDismissal(this.live, card.id);
     if (!event) return;
+    if (this.draft.trim()) this.drafts.set(card.id, this.draft);
+    else this.drafts.delete(card.id);
     await this.record(event);
     this.live = live;
+    this.flash(event);
     void this.requestSync();
     await this.showCard();
+  }
+
+  /** The pill "Your world so far" on a phone: the sheet opens; × , the scrim, Esc or a swipe down closes it. */
+  openWorld(): void {
+    this.worldOpen = true;
+  }
+
+  closeWorld(): void {
+    this.worldOpen = false;
   }
 
   /**
@@ -761,6 +1001,10 @@ export class AppState {
       return;
     }
     await this.store.wipe();
+    // The readable copies went with the database (ADR 0014); nothing of them stays in memory either.
+    this.copies = new Map();
+    this.history = { sessions: [], events: [] };
+    this.live = null;
     try {
       localStorage.removeItem(LAST_WORKSHOP);
     } catch {
