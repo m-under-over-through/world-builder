@@ -1825,7 +1825,7 @@ Marco tried the card screen on his iPhone on 4 November and decided that a parti
 - The second phase, identity by the link (ADR 0018), after the newsletter tool's test send.
 - Not tried on a real phone: the rounds in the hand, and the calendar sheet from the new place of "Remind me" on an iPhone.
 
-## 2026-11-04, Wednesday. Identity by the link: no code typed or shown
+## 2026-11-04, Wednesday. Identity by the link: no code typed or shown (pull request 45)
 
 ### What
 
