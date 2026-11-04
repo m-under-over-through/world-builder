@@ -14,11 +14,11 @@ This is a research project by Under Over Through and Mechanism about the future 
 
 **What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research. There are no right answers, no score and no payment.
 
-**Who can take part.** Anyone who received the link [and is 18 or older]. One person may use more than one phone; to us, each phone that has not been linked by a code is a separate participant.
+**Who can take part.** Anyone who received the link [and is 18 or older]. One person may use more than one phone; to us, each phone that did not open the same newsletter link is a separate participant.
 
 **What you agree to.** Your answers belong to the research. Under Over Through and Mechanism own them jointly and may quote them, without any way to tell who wrote them, in reports, presentations and publications. Please do not name real people, including yourself, in an answer; if you do, we remove the name before anyone reads the answer.
 
-**What we ask of you.** Answer honestly, or set a question aside. Do not share your 16-digit code with anyone: it is the only key to what you wrote.
+**What we ask of you.** Answer honestly, or set a question aside. Do not forward your own link: it is the key to what you wrote. The spare links at the foot of the email are for forwarding.
 
 **Ending.** You can stop at any time by closing the app. You can delete everything you wrote at any time until 6 December 2026, from "About this app" in the app. After that date the answers are part of the research set and can no longer be removed one by one; everything is deleted on 5 February 2027. We may close the project earlier, in which case the app says so.
 
@@ -30,7 +30,7 @@ This is a research project by Under Over Through and Mechanism about the future 
 
 Under Over Through runs this app; Mechanism is the research partner. This policy says what the app does with information, and it is as short as the list is.
 
-**What we store.** For each participant: a random 16-digit code, kept as a scrambled version that cannot be turned back into the code; the day the participant joined; which newsletter link they came through; how many invitations they have left. For each session: its number and the day. For each card: whether it was shown, answered, set aside or put off, in what order, and the version of the question. Each answer is stored as a locked block of text that our servers cannot read.
+**What we store.** For each participant: a 16-digit code that your phone makes from your newsletter link (or at random when the link has none), kept as a scrambled version that cannot be turned back into the code; Mechanism's newsletter tool knows which link went to which address and we never see that list, so neither of us alone can connect an answer to a person; the day the participant joined; which newsletter link they came through; how many invitations they have left. For each session: its number and the day. For each card: whether it was shown, answered, set aside or put off, in what order, and the version of the question. Each answer is stored as a locked block of text that our servers cannot read.
 
 **What we never collect.** Your name, email, phone number, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, advertising or analytics identifiers, the page you came from, or audio. The app sets no cookies and contacts no other website. These are not settings we could change by mistake: the database has no column for them.
 
@@ -40,7 +40,7 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Where.** The servers and the backup copies are in the United States.
 
-**Your controls.** "About this app" in the app shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
+**Your controls.** "About this app" in the app shows everything we hold about you, as it is stored, and has a button that deletes all of it. The link in your email is the only way back to your answers, including from another phone; without it, neither you nor we can find them again. That is a limit of the design, and it is on purpose.
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 

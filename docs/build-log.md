@@ -1991,3 +1991,21 @@ The title and the consent sentences no longer matched after the morning pass; Ma
 ### How to verify
 
 `grep -rn "manufacturing in rural" workshops docs/participant-texts.md README.md` finds nothing. `npm run check`.
+
+## 2026-11-04, Wednesday afternoon. The words that went stale with the link and the morning pass
+
+### What
+
+The integrator's sweep after pull requests 45 and 46: the glossary's code entry says where the code comes from now and gains **link value**; the about page and privacy panel entries match the one fold of ADR 0019; the decision records index runs to 0020; the runbook's `AUTH_CODE_UNKNOWN` entry no longer speaks of typing a code; the participant texts (consent, privacy policy, trust page drafts for the legal review) speak of the link instead of the code and state the shared-attribution limit of ADR 0018 in one sentence.
+
+### Why
+
+The glossary is law and the participant texts go to Mechanism's legal team this week; both must describe the app as it is.
+
+### How to verify
+
+`grep -n "16-digit code\|I have a code" docs/participant-texts.md docs/runbook.md docs/glossary.md` finds nothing but history. The index in `docs/adr/README.md` ends at 0020.
+
+### Open
+
+- The welcome's title says "local production in America" while the consent sentences say "local manufacturing in rural America": Marco's call, with the legal review.
