@@ -1720,3 +1720,26 @@ The cards are Marco's and Mechanism's to write, in a sheet they can both edit; t
 - The sheet's own open questions, for Marco and Mechanism: with 12 checkpoints and 1 per session, a participant doing 4 sessions never meets a checkpoint twice, so no view moving over time is visible; the sheet suggests anchor checkpoints or 2 per session after session 2. That is Wednesday's deck tuning, in `workshop.json`, not in code.
 - A hint line per card, which the sheet recommends for a few cards, is not in the contract; the new design carries one nudge for every card ("Please don't name real people.").
 - Later imports: Marco says when; the integrator re-runs the same import and bumps the deck version.
+
+## 2026-11-04, Wednesday, small hours, later. Decision: answers stay readable on the device
+
+### What
+
+Marco reversed the storage rule of ADR 0007 after reading the new design's "Your world so far". ADR 0014 records it: the device that wrote an answer keeps a readable copy for the participant; the server still holds sealed envelopes only; revising stays off; delete-me wipes the copies. `CLAUDE.md`'s non-negotiable is reworded to the guarantee that matters: nobody, operator and partner included, can ever attribute an answer to a person. The README's walk-through and the plan's sections 6.2, 10 and 12 carry the revision next to the original decision, so the history reads in order.
+
+### Why
+
+In Marco's words: participants are not worried that someone picks up their unlocked phone. They are worried that we record that a named person answered a card with a joke on a given day and that it surfaces a year later with their name. The app's guarantee is the second thing, and it does not depend on what the participant's own phone keeps.
+
+### How to verify
+
+Read ADR 0014 against ADR 0007; `grep -n "readable" CLAUDE.md README.md docs/architecture-and-risk-plan.md` shows every statement carrying the revision. No code changed: the client change comes with the card screen of the new design, whose brief now says to keep and show the answers.
+
+### Decisions made on the way
+
+- Revising is not reopened. The design has no editing and the exercise's rule, what is written is written, was not what Marco weighed.
+- The readable copy stays on its device: a participant continuing on another phone sees the questions answered, not the words. Carrying the words over would mean sending them somewhere, which the architecture does not do.
+
+### Open
+
+- The about page's rows ("sealed body: unreadable here and on the server") and the trust text's "nothing readable stays behind" are the builder's to reword in the card-screen session, with a sentence that says what the phone keeps.

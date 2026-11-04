@@ -1,6 +1,6 @@
 # 0007. No readable answer is kept on the device after sync
 
-Date: 2026-10-23. Status: accepted.
+Date: 2026-10-23. Status: superseded by ADR 0014 on 2026-11-04 for the storage rule; the rule against revising stands.
 
 ## Context
 

@@ -14,7 +14,7 @@ Read these before touching anything, in this order:
 - **No personal data, ever.** No column, log line, header, URL or error message may carry a name, an email, an IP address, a user agent or a precise timestamp. Days only.
 - **The client talks to one origin.** No third-party scripts, fonts, images, analytics or error reporting. The Content Security Policy is `self` only and stays that way.
 - **The anonymous code never appears in a URL or a log.** It travels in the `Authorization` header and is stored as a keyed hash.
-- **Answers are sealed on the device.** The API never imports `@wb/crypto` and never sees plain text. No readable answer is kept on the device after sync.
+- **Answers are sealed before they leave the device.** The API never imports `@wb/crypto` and never sees plain text; the server holds sealed envelopes only. The device keeps the participant's own answers readable for them and for nobody else (ADR 0014). The guarantee is that nobody, operator and partner included, can ever attribute an answer to a person.
 - **Everything is scoped to a workshop.** Every table with participant data has a workshop id; every query filters on it; a test proves cross-workshop reads return nothing.
 - **Events are append-only** with client-generated ids. No updates in place, no deletes except the participant's own "delete me".
 - **Every failure path has an error code** in `packages/contracts/src/api.ts` and an entry in `docs/runbook.md`.
