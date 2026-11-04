@@ -4,7 +4,7 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 
 - **workshop**: one run of the experience for one group, with its own deck, copy, dates and key. A folder under `workshops/`. Identified by its **slug**.
 - **deck**: the cards of a workshop, in `deck.json`, with a **deck version** recorded on every event.
-- **card**: one question. Has an id, a text, and belongs to a **set**: **warm-up** or **checkpoint**.
+- **card**: one question. Has an id, a text, and belongs to a **set**: **warm-up** or **checkpoint**. May carry an **area**, the theme it probes, shown as the card's label.
 - **session**: one sitting with the cards. Numbered per participant from 1. Has a **seed** that makes its shuffle reproducible.
 - **participant**: one anonymous code. Not a person: a person with two codes is two participants.
 - **code**: the anonymous code, 16 digits. The only identifier. Sent in the `Authorization` header, stored as a **keyed hash**, never in a URL.

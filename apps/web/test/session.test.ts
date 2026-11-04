@@ -131,11 +131,14 @@ describe('a session is replayed from its seed and its events', () => {
     const s1 = session(1);
     const s2 = session(2);
     const warmups = deck.cards.filter((c) => c.set === 'warmup').map((c) => c.id);
-    const events = warmups.slice(0, 3).map((id, i) => event(s1, i, 'answered', id));
+    // All warm-ups but two answered, whatever the deck's size: the two fresh ones come first, then
+    // one answered comes round.
+    const fresh = warmups.slice(-2);
+    const answered = warmups.slice(0, -2);
+    const events = answered.map((id, i) => event(s1, i, 'answered', id));
     const second = replaySession(deck, config, s2, { sessions: [s1, s2], events });
-    // Five warm-ups, three answered: the two fresh ones come first, then one answered comes round.
-    for (const id of second.plan.queue.slice(0, 2)) expect(warmups.slice(3)).toContain(id);
-    expect(warmups.slice(0, 3)).toContain(second.plan.queue[2]);
+    for (const id of second.plan.queue.slice(0, 2)) expect(fresh).toContain(id);
+    expect(answered).toContain(second.plan.queue[2]);
   });
 });
 

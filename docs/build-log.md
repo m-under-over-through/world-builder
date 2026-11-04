@@ -1690,3 +1690,33 @@ On a phone, on the deploy preview (`deploy-preview-38--worldbuilder-uot.netlify.
 - **The reminder's phone checks** are owed, on an iPhone and on Android, as "What was seen" says.
 - `apps/api/dev.ts` loads the production opening day (16 November), so the local API refuses joins before then; the deploy contexts use `workshop.staging.json`'s day. The browser walk ran the same server from a scratch script with the staging day. One line in `dev.ts`, the API builder's file.
 - Review nits applied by the integrator before the merge: the semicolon escape in `apps/web/src/lib/reminder.ts` was a no-op and its test encoded the same mistake, both fixed; the terms and the policy opened by their address are three taps from delete-me, said in ADR 0013; the glossary gains "about page", and `DESIGN.md` and the participant texts say "About this app".
+
+## 2026-11-04, Wednesday, small hours. Deck 0.2 from the cards sheet, and the design handoff folder
+
+### What
+
+- **Deck 0.2.** The 42 cards of the "Shortlist" tab of Marco's cards sheet (a private Google Sheet, draft 1 of the deck, the source of truth for the cards from now on), replacing the 13 placeholders: 12 checkpoints and 30 warm-ups, each with its area from the sheet's taxonomy. Every id, set and text was checked against the deck contract before writing `workshops/rural-manufacturing/deck.json`; nothing had to change. The version goes from 0.1 to 0.2, so events recorded against the placeholders stay readable as such.
+- **A card may carry an area.** `cardSchema` in `packages/contracts` gains an optional `area` (1 to 40 characters), the theme the card probes, for the label on the card ("03 of 4 · Everyday life" in the new design). The glossary's card entry says so.
+- **The design handoff folder.** Marco's `design/` folder, from the design canvas: `DESIGN.md` is the spec (tokens, layout, components, states, deck logic, motion, accessibility); `artboards/*.dc.html` are prototype sources, read for exact values and copy, never copied into the app. The root `DESIGN.md` of the first visual pass is gone with it; the README row says where the design lives now.
+
+### Why
+
+The cards are Marco's and Mechanism's to write, in a sheet they can both edit; the app takes a copy when Marco says so, in the shape the deck contract asks for. The import is a script run by the integrator, not a build step: the sheet is private, and a copy in the repository is what the deck version is for.
+
+### How to verify
+
+1. `npm run check`: the contracts test "the workshop deck" parses the real deck and checks every card has an area.
+2. `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']))"` prints `0.2 42`.
+3. Open the sheet's Shortlist tab next to `deck.json`: same ids, same texts, same order.
+
+### Decisions made on the way
+
+- The Shortlist tab is the deck, not the Cards tab: the Cards tab holds every idea with its wording variants (`-v2`, `-v3`), which must not sit in the same deck as their originals.
+- Nothing from the sheet's other columns (tone, stakes, priority, risks, status) enters the app; they are working notes for the authors.
+- Cards keep the sheet's order in the file; the deck engine shuffles within a set anyway (ADR 0009's seeded shuffle).
+
+### Open
+
+- The sheet's own open questions, for Marco and Mechanism: with 12 checkpoints and 1 per session, a participant doing 4 sessions never meets a checkpoint twice, so no view moving over time is visible; the sheet suggests anchor checkpoints or 2 per session after session 2. That is Wednesday's deck tuning, in `workshop.json`, not in code.
+- A hint line per card, which the sheet recommends for a few cards, is not in the contract; the new design carries one nudge for every card ("Please don't name real people.").
+- Later imports: Marco says when; the integrator re-runs the same import and bumps the deck version.

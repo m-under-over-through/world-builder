@@ -118,3 +118,28 @@ describe('the staging file', () => {
     expect(workshopStagingSchema.safeParse({ ...keys, cap: 5 }).success).toBe(false);
   });
 });
+
+describe('the workshop deck', () => {
+  it('parses, and a card keeps its area while a card without one is still a card', () => {
+    const raw = JSON.parse(
+      readFileSync(
+        new URL('../../../workshops/rural-manufacturing/deck.json', import.meta.url),
+        'utf8',
+      ),
+    ) as { cards: { area?: string }[] };
+    const deck = deckSchema.parse(raw);
+    expect(deck.cards.length).toBeGreaterThanOrEqual(30);
+    expect(deck.cards.every((card) => typeof card.area === 'string' && card.area.length > 0)).toBe(
+      true,
+    );
+    expect(
+      deckSchema.parse({
+        version: '0.2',
+        cards: [
+          { id: 'a-b', set: 'warmup', text: 'A?' },
+          { id: 'c-d', set: 'checkpoint', text: 'C?' },
+        ],
+      }).cards[0]!.area,
+    ).toBeUndefined();
+  });
+});
