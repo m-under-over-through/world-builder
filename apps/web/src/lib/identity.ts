@@ -31,13 +31,16 @@ export function valueFromHash(hash: string): string | null {
 
 /**
  * The 16-digit code a value makes: SHA-256 of the value's UTF-8 bytes, the digest read as one big
- * decimal number, and its first sixteen digits. The same value makes the same code on every
- * device, which is what lets a second phone continue (ADR 0018). The rule is fixed: changing it
- * would make every link a new participant. A test pins it with one vector.
+ * decimal number, and its last sixteen digits (the digest modulo 10^16). The last digits, not the
+ * first: a 256-bit number is below 1.16 x 10^77, so its first digit is "1" far more often than
+ * any other, while the remainder modulo 10^16 is spread evenly over every code. The same value
+ * makes the same code on every device, which is what lets a second phone continue (ADR 0018). The
+ * rule is fixed: changing it would make every link a new participant. A test pins it with one vector.
  */
 export async function codeFromValue(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-  // A digest below 10^15 would read as fewer than sixteen digits; padding keeps the length.
-  return BigInt(`0x${hex}`).toString(10).padStart(CODE_DIGITS, '0').slice(0, CODE_DIGITS);
+  const modulus = 10n ** BigInt(CODE_DIGITS);
+  // A remainder below 10^15 would read as fewer than sixteen digits; padding keeps the length.
+  return (BigInt(`0x${hex}`) % modulus).toString(10).padStart(CODE_DIGITS, '0');
 }

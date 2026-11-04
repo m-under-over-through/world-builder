@@ -455,7 +455,8 @@ export class AppState {
    */
   async open(pathname: string, hash: string = location.hash): Promise<void> {
     const value = valueFromHash(hash);
-    if (hash) history.replaceState(null, '', location.pathname + location.search);
+    if (hash || location.href.endsWith('#'))
+      history.replaceState(null, '', location.pathname + location.search);
     const route = parseRoute(pathname);
     this.workshop = route ? findWorkshop(route.slug) : undefined;
     if (!route || !this.workshop) {
@@ -541,8 +542,13 @@ export class AppState {
     if (!this.store || !this.workshop) return;
     const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code });
     if (res.ok) {
-      await this.adopt(code, saved);
-      await this.syncOnOpen(res);
+      if (await this.adopt(code, saved)) {
+        await this.syncOnOpen(res);
+      } else {
+        // The old participant's outbox could not go out: they stay for this open (`adopt`).
+        this.code = saved!;
+        await this.syncOnOpen();
+      }
       return;
     }
     if (res.error === 'WORKSHOP_CLOSED') this.closedByServer = true;
@@ -555,13 +561,20 @@ export class AppState {
    * else's phone, or a code this device made on an earlier open without a value) loses to it: its
    * outbox goes out first with its own code, as far as the network allows, then the device's rows
    * are wiped, so one participant's readable answers never show under another's (ADR 0014) and
-   * nothing of theirs is synced under the new code. The arrival is kept.
+   * nothing of theirs is synced under the new code. The arrival is kept. Nothing is wiped while
+   * the old outbox cannot go out (offline, a refusal): the old participant stays for this open,
+   * the link's code waits in the store, and the next open tries again. Returns whether the link's
+   * code is now the device's.
    */
-  private async adopt(code: string, saved: string | undefined): Promise<void> {
-    if (!this.store || !this.workshop) return;
+  private async adopt(code: string, saved: string | undefined): Promise<boolean> {
+    if (!this.store || !this.workshop) return false;
     const slug = this.workshop.config.slug;
     if (saved && saved !== code) {
-      await syncNow(this.store, slug, saved);
+      const sent = await syncNow(this.store, slug, saved);
+      if (sent.lastResult !== 'ok' || sent.outboxSize > 0 || sent.outboxSessions > 0) {
+        await this.store.set(LINK_CODE, code);
+        return false;
+      }
       const arrival = await this.store.get('arrival');
       await this.store.wipe();
       this.store = await this.openStore(slug);
@@ -571,6 +584,7 @@ export class AppState {
     await this.store.unset(LINK_CODE);
     this.code = code;
     this.linkCode = '';
+    return true;
   }
 
   /**
@@ -788,9 +802,13 @@ export class AppState {
           : { code: fresh, wave: this.arrival.wave ?? 'wave-1' };
         const res = await api(`/${this.workshop.config.slug}/join`, { body });
         if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && fromLink) {
-          await this.adopt(fromLink, await this.store.get('code'));
-          await this.store.set('consent', localDay());
-          await this.syncOnOpen();
+          const saved = await this.store.get('code');
+          if (await this.adopt(fromLink, saved)) {
+            await this.store.set('consent', localDay());
+            await this.syncOnOpen();
+          } else {
+            this.code = saved!;
+          }
           await this.land();
           return;
         }
@@ -811,9 +829,16 @@ export class AppState {
           return;
         }
         // The code is stored before the queued join, since taking over from a different stored
-        // code wipes the device's rows (`adopt`).
-        if (fromLink) await this.adopt(fromLink, await this.store.get('code'));
-        else {
+        // code wipes the device's rows (`adopt`). When that cannot happen yet, the old participant
+        // stays for this open and no join is queued under the link's code.
+        if (fromLink) {
+          const saved = await this.store.get('code');
+          if (!(await this.adopt(fromLink, saved))) {
+            this.code = saved!;
+            await this.land();
+            return;
+          }
+        } else {
           this.code = fresh;
           await this.store.set('code', this.code);
         }

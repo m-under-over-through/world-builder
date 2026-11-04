@@ -60,7 +60,9 @@ export async function sendPendingJoin(
   const res = await api(`/${slug}/join`, { body: join });
   // JOIN_CODE_TAKEN means the server already knows the code, so the join is done: for a link's
   // code, the same participant joined from another device (ADR 0018); for a code the device
-  // made, an earlier try landed and its answer was lost.
+  // made, an earlier try landed and its answer was lost. A collision with someone else's code
+  // (one in 10^16) is accepted here on purpose: a queued join has no code to fall back to, since
+  // events may already carry this one, and a wrong participant is caught on the next open.
   if (res.ok || res.error === 'JOIN_CODE_TAKEN') {
     await store.unset(PENDING_JOIN);
     return { ok: true, data: {} };

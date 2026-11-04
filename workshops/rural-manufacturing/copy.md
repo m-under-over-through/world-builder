@@ -357,7 +357,7 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Where.** The servers and the backup copies are in the United States.
 
-**Your controls.** "About this app" shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
+**Your controls.** "About this app" shows everything we hold about you, as it is stored, and has a button that deletes all of it. The link in your email is the only way back to your answers, including from another phone; without it, neither you nor we can find them again. That is a limit of the design, and it is on purpose.
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 

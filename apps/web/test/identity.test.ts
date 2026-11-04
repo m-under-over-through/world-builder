@@ -4,14 +4,14 @@ import { codeFromValue, valueFromHash } from '../src/lib/identity.ts';
 
 /**
  * Identity by the link (ADR 0018): the value after `#p=` and the code it makes. The vector below
- * was computed once (SHA-256 of "test-link-value-0001", read as a decimal number, first sixteen
+ * was computed once (SHA-256 of "test-link-value-0001", read as a decimal number, last sixteen
  * digits) and is written here so the rule can never change without this test saying so: a change
  * would make every newsletter link a new participant.
  */
 describe('the code a link value makes', () => {
-  it('is the first sixteen digits of the SHA-256 digest read as a decimal number', async () => {
+  it('is the last sixteen digits of the SHA-256 digest read as a decimal number', async () => {
     // SHA-256("test-link-value-0001") = 2962da2473d9e045...dc6ef57
-    expect(await codeFromValue('test-link-value-0001')).toBe('1871948336772442');
+    expect(await codeFromValue('test-link-value-0001')).toBe('9173841926745943');
   });
 
   it('is the same on every device for the same value, different for another, and always a code', async () => {
