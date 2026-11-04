@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatCode, type EventKind } from '@wb/contracts';
+  import type { EventKind } from '@wb/contracts';
   import { fill, inline, TRUST_BLOCKS } from '../lib/copy.ts';
   import { reminderHref } from '../lib/reminder.ts';
   import type { AppState } from '../lib/state.svelte.ts';
@@ -9,14 +9,14 @@
    * The one page about the app (docs/screen-map.md, Always reachable; ADR 0013), reached from
    * the small "About this app" link at the foot of every screen. In this order: what this is,
    * with the "Remind me" line under it (ADR 0017); how answers are protected (the trust page's six paragraphs, the key fingerprint and the
-   * source address filled in, the links that need no trust in us); your code, with Copy; the
+   * source address filled in, the links that need no trust in us); the
    * facts read from the running app (the privacy panel's rows: cookies, hosts, the permissions
    * policy, the key, what the server holds, the diagnostics, the version); "delete everything I
    * sent" in two steps; and the terms and the privacy policy. Opened from /trust or /panel, the
-   * page scrolls to that section.
+   * page scrolls to that section. The code is not on it: a link's value is the way back on
+   * another device, and nothing needs to be typed or shown (ADR 0018).
    */
   let { app }: { app: AppState } = $props();
-  let copied = $state(false);
   const label = (key: Parameters<typeof app.copy.item<'Privacy panel'>>[1]) =>
     app.copy.item('Privacy panel', key);
   const variable = (key: Parameters<typeof app.copy.item<'Trust page variables'>>[1]) =>
@@ -28,12 +28,6 @@
     'key fingerprint': app.workshop?.keyFingerprint ?? '',
     source: variable('source'),
   });
-
-  async function copyCode() {
-    await app.copyCode();
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
-  }
 
   // The section an older address asked for, once the page is on the screen; the test DOM has
   // no scrolling, so the call is optional there.
@@ -69,21 +63,6 @@
     <li><a href={variable('webbkoll')}>{link('webbkoll')}</a></li>
     <li><a href={variable('blacklight')}>{link('blacklight')}</a></li>
   </ul>
-</section>
-
-<section id="about-code">
-  <h2>{label('code')}</h2>
-  {#if app.code}
-    <p>{label('code note')}</p>
-    <p class="code">{formatCode(app.code)}</p>
-    <div class="row">
-      <button onclick={copyCode}
-        >{copied ? app.copy.item('Buttons', 'copied') : app.copy.item('Buttons', 'copy')}</button
-      >
-    </div>
-  {:else}
-    <p>{label('no code yet')}</p>
-  {/if}
 </section>
 
 <section id="about-now">

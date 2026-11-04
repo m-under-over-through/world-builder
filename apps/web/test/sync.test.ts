@@ -77,6 +77,23 @@ describe('a join made offline is sent before the first sync', () => {
     });
   });
 
+  it('a queued join answered JOIN_CODE_TAKEN is done: the server knows the code, so the join is forgotten and the outbox goes out', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await queueJoin(store, { code: CODE, wave: 'wave-1' });
+    await store.events.put(event);
+    const calls = stubApi([
+      () => ({ status: 409, body: { error: 'JOIN_CODE_TAKEN' } }),
+      () => ({ status: 200, body: { acceptedSessionIds: [], acceptedEventIds: [event.id] } }),
+    ]);
+    const status = await syncNow(store, 'rural-manufacturing', CODE);
+    expect(calls.map((c) => c.path)).toEqual([
+      '/api/rural-manufacturing/join',
+      '/api/rural-manufacturing/sync',
+    ]);
+    expect(status).toEqual({ lastResult: 'ok', outboxSize: 0, outboxSessions: 0 });
+    expect(await pendingJoin(store)).toBeNull();
+  });
+
   it('reads a damaged queued join as none and forgets it, so it is not read again on every open', async () => {
     const store = new WorkshopStore(`t-${Math.random()}`);
     await store.set('pendingJoin', '{"code":"short"}');

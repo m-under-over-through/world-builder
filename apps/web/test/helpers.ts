@@ -11,7 +11,8 @@ export type Routes = Record<string, (() => Answer | 'offline')[]>;
 
 /** A stub that answers by path, in order of the calls to the same path; 200 and {} once the list runs out. */
 export function stubRoutes(routes: Routes) {
-  const calls: { path: string; method: string; body: unknown }[] = [];
+  const calls: { path: string; method: string; body: unknown; headers: Record<string, string> }[] =
+    [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string | URL | Request, init: RequestInit = {}) => {
@@ -20,6 +21,7 @@ export function stubRoutes(routes: Routes) {
         path,
         method: init.method ?? 'GET',
         body: init.body ? JSON.parse(String(init.body)) : undefined,
+        headers: { ...(init.headers as Record<string, string> | undefined) },
       });
       const queue = routes[path] ?? [];
       // A path the test did not list answers 200 and {}; a sync answers the contract's shape, so

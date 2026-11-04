@@ -86,7 +86,6 @@ Please don't name real people.
 [placeholder]
 
 - not a workshop: World Builder
-- enter code: Your code
 - intro 1: What this is
 - intro 2: How it works
 - consent: Before you start
@@ -106,15 +105,11 @@ Please don't name real people.
 
 - about: About this app
 - new here: New here
-- i have a code: I have a code
-- continue: Continue
 - back: Back
 - next: Next
 - i understand: I understand
 - save: Save
 - set aside: Set aside
-- copy: Copy
-- copied: Copied
 - delete: Delete everything I sent
 - yes delete: Yes, delete everything
 - keep: Keep my answers
@@ -142,12 +137,12 @@ This address is not a workshop. Use the link you were sent.
 [placeholder]
 New here? It takes a minute to read what this is, and then the first card is yours.
 
-## Welcome: I have a code (under 15 words)
+## Welcome: your link (under 40 words)
 
-<!-- The small line under "New here", always, with the "I have a code" link at its end. -->
+<!-- Shown in place of "Welcome: new here", next to the "New here" button, when the link this device opened carries a value of its own for the recipient (ADR 0018). -->
 
 [placeholder]
-Been here before on another phone?
+This link is yours. It opens your cards on any phone. To bring someone in, use the links at the foot of the email, not this one.
 
 ## Welcome: no link (under 40 words)
 
@@ -156,22 +151,12 @@ Been here before on another phone?
 [placeholder]
 To start, open the link you were sent. This page cannot start you on its own.
 
-## Welcome: code not accepted (under 40 words)
+## Welcome: link not accepted (under 40 words)
 
-<!-- One quiet line on the welcome screen after the code this phone remembered was refused by the server, for instance after "delete everything I sent" on another phone. -->
-
-[placeholder]
-The code this phone remembered is not in use any more, so it has been forgotten here. Start again from your link, or enter another code.
-
-## Enter code (under 40 words)
+<!-- One quiet line on the welcome screen after the server refused what this phone remembered from a link, for instance after "delete everything I sent" on another phone. -->
 
 [placeholder]
-The 16 digits under "Your code" on the "About this app" page of your other phone. Spaces do not matter.
-
-## Enter code: too short (under 20 words)
-
-[placeholder]
-That is not a 16-digit code yet.
+The link this phone remembered is not in use any more. Open the link from your email again.
 
 ## Card labels
 
@@ -244,7 +229,7 @@ This opens on [day]. Keep the link and come back then.
 <!-- The two sentences at the top of the "About this app" page, before "How your answers are protected". -->
 
 [placeholder]
-Under Over Through and Mechanism are asking a few questions about the future of local manufacturing in rural America, one card at a time. You answer in your own words, and nobody asks who you are.
+Under Over Through and Mechanism are asking a few questions about the future of local manufacturing in rural America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
 
 ## Reminder
 
@@ -257,13 +242,10 @@ Under Over Through and Mechanism are asking a few questions about the future of 
 
 ## Privacy panel
 
-<!-- The labels of the rows under "Right now, from this phone" on the "About this app" page, and of the "Your code" section above them. A row shows a live value read from the running app. "What we hold" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
+<!-- The labels of the rows under "Right now, from this phone" on the "About this app" page. A row shows a live value read from the running app. "What we hold" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
 
 [placeholder]
 
-- code: Your code
-- code note: This is you: random, and the only thing that identifies you to us. Keep it if you ever want to continue on another phone.
-- no code yet: You have no code yet. One is made for you when you start.
 - cookies: Cookies set by this app
 - hosts: Hosts this app has talked to since it opened
 - permissions: Microphone, camera, location
@@ -313,10 +295,10 @@ These numbers come from the same app that makes the claims. They are honest; the
 
 ## About: delete (under 40 words)
 
-<!-- The line above the "Delete everything I sent" button, at the end of "About this app", only once the phone has a code. -->
+<!-- The line above the "Delete everything I sent" button, at the end of "About this app", only once the phone has started. The last sentence is there because a link makes the same participant again (ADR 0018). -->
 
 [placeholder]
-Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026.
+Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026. Opening your link again starts you over from nothing.
 
 ## Privacy panel: delete confirm (under 40 words)
 
@@ -375,7 +357,7 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Where.** The servers and the backup copies are in the United States.
 
-**Your controls.** "About this app" shows everything we hold about you, as it is stored, and has a button that deletes all of it. Your code is the only way to act on your data, including from another phone; if you lose it, neither you nor we can find your answers again. That is a limit of the design, and it is on purpose.
+**Your controls.** "About this app" shows everything we hold about you, as it is stored, and has a button that deletes all of it. The link in your email is the only way back to your answers, including from another phone; without it, neither you nor we can find them again. That is a limit of the design, and it is on purpose.
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 
@@ -393,7 +375,7 @@ For each participant we keep a random code in scrambled form, the day they joine
 ## Trust page: what we never collect (under 60 words)
 
 [placeholder]
-We never collect your name, email, phone, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, analytics identifiers, the page you came from, or audio.
+We never collect your name, email, phone, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, analytics identifiers, the page you came from, or audio. The link in your email is yours: anyone who opens it continues your cards.
 
 ## Trust page: how it is protected (under 80 words)
 
@@ -463,12 +445,12 @@ The code we made for you was already taken. Tap again to get a new one.
 ## Error: AUTH_CODE_MISSING (one line)
 
 [placeholder]
-No code was sent. Enter your code and try again.
+Nothing told our server who you are. Open the link from your email again.
 
 ## Error: AUTH_CODE_UNKNOWN (one line)
 
 [placeholder]
-That code is not ours. Check the digits.
+The link this phone remembered is not in use any more. Open the link from your email again.
 
 ## Error: SYNC_PAYLOAD_INVALID (one line)
 
@@ -503,7 +485,7 @@ The server is not ready. Your answers stay on this device; try again later.
 ## Error: CLIENT_STORAGE_UNAVAILABLE (one line)
 
 [placeholder]
-This browser will not keep anything between visits. You can still answer while this page is open; your code is under "About this app".
+This browser will not keep anything between visits. You can still answer while this page is open; to continue later, open the link from your email again.
 
 ## Error: CLIENT_SEAL_FAILED (one line)
 

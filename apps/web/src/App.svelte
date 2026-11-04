@@ -7,7 +7,6 @@
   import Card from './screens/Card.svelte';
   import Closed from './screens/Closed.svelte';
   import DemoCard from './screens/DemoCard.svelte';
-  import EnterCode from './screens/EnterCode.svelte';
   import Intro from './screens/Intro.svelte';
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
   import TextPage from './screens/TextPage.svelte';
@@ -22,7 +21,7 @@
    * the organizer, two centered lines on a phone and a block on the left on a laptop, where it
    * also carries the progress strip while a session runs; under it the toast; the screen; and
    * at the foot one small link, "About this app", the one place that explains the app, shows
-   * the code and the facts, and deletes everything (ADR 0013), with, on a phone's card screen,
+   * the facts, and deletes everything (ADR 0013), with, on a phone's card screen,
    * the pill that opens "Your world so far" (ADR 0015). The page itself and the two texts have
    * their own foot.
    */
@@ -125,8 +124,6 @@
         <NotAWorkshop {app} />
       {:else if app.screen === 'welcome'}
         <Welcome {app} />
-      {:else if app.screen === 'enter-code'}
-        <EnterCode {app} />
       {:else if app.screen === 'intro-1' || app.screen === 'intro-2' || app.screen === 'consent'}
         <Intro {app} />
       {:else if app.screen === 'demo'}
