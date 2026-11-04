@@ -178,31 +178,32 @@ describe('a session on the deck engine', () => {
     return app;
   }
 
-  it('records shown on display, dismissed then deferred on two set-asides, and starts the next round when the engine says this one is over', async () => {
+  it('records shown on display, dismissed on a first set-aside, and deferred when the card comes back in the next round and is set aside again', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await joined();
     const first = app.card!.id;
     const roundOne = app.live!.session.id;
     await app.setAside();
-    expect(app.card!.id).not.toBe(first);
     for (let i = 0; i < 3; i++) {
       expect(app.card!.id).not.toBe(first);
       app.draft = `Answer ${i}`;
       expect(await app.save()).toBe(true);
     }
-    expect(app.screen).toBe('card');
-    expect(app.card!.id).toBe(first);
-    expect(app.position).toEqual({ n: 4, total: 4 });
-    await app.setAside();
-    // No screen between rounds (ADR 0017): the stack goes on with round 2.
+    // The card left round 1 (ADR 0020), so round 1 is over: round 2 brings it back, never first.
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(2);
-    expect(app.card).toBeDefined();
+    expect(app.card!.id).not.toBe(first);
+    expect(app.live!.plan.queue).toContain(first);
+    while (app.card!.id !== first) {
+      app.draft = 'More';
+      await app.save();
+    }
+    await app.setAside();
+    expect(app.live!.deferred.has(first)).toBe(true);
     const events = (await db(app).events.toArray())
       .filter((e) => e.sessionId === roundOne)
       .sort((a, b) => a.seq - b.seq);
-    expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
-    // The set-aside card coming round again is not shown a second time (review finding a).
+    expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
     expect(events.map((e) => `${e.kind}${e.cardId === first ? '*' : ''}`)).toEqual([
       'shown*',
       'dismissed*',
@@ -212,8 +213,11 @@ describe('a session on the deck engine', () => {
       'answered',
       'shown',
       'answered',
-      'deferred*',
     ]);
+    const roundTwo = (await db(app).events.toArray())
+      .filter((e) => e.sessionId === app.live!.session.id && e.cardId === first)
+      .sort((a, b) => a.seq - b.seq);
+    expect(roundTwo.map((e) => e.kind)).toEqual(['shown', 'deferred']);
     expect(await db(app).sessions.count()).toBe(2);
   });
 
@@ -238,7 +242,7 @@ describe('a session on the deck engine', () => {
     expect(kinds).toEqual(['shown', 'dismissed', 'shown']);
   });
 
-  it("a round's end starts the next round at once in the same open, with the deferred card first and sessionNo 2; a reload resumes it", async () => {
+  it("a round's end starts the next round at once in the same open, with the set-aside card back but not first, and sessionNo 2; a reload resumes it", async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const app = await joined();
     const first = app.card!.id;
@@ -248,11 +252,11 @@ describe('a session on the deck engine', () => {
       app.draft = `Answer ${i}`;
       await app.save();
     }
-    await app.setAside();
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(2);
     expect(app.live!.session.id).not.toBe(roundOne);
-    expect(app.card!.id).toBe(first);
+    expect(app.card!.id).not.toBe(first);
+    expect(app.live!.plan.queue).toContain(first);
     expect(app.cardNo).toBe(1);
     // The demo card and the hint belong to the first round of the first open only.
     expect(app.hintOpen).toBe(false);
@@ -269,7 +273,7 @@ describe('a session on the deck engine', () => {
     expect(again.screen).toBe('card');
     expect(again.sessionNo).toBe(2);
     expect(again.live!.session.id).toBe(app.live!.session.id);
-    expect(again.card!.id).toBe(first);
+    expect(again.card!.id).toBe(app.card!.id);
     expect(await db(again).sessions.count()).toBe(2);
   });
 
@@ -293,27 +297,25 @@ describe('a session on the deck engine', () => {
     return app;
   }
 
-  it('with every card answered, the next round brings the answered cards round again: the deck has no end', async () => {
+  it('with every card answered, the deck is done: the next round plans nothing and no other starts', async () => {
     stubRoutes({});
     const warmup = workshop.deck.cards.find((c) => c.set === 'warmup')!;
     const checkpoint = workshop.deck.cards.find((c) => c.set === 'checkpoint')!;
     const app = await withDeck([warmup, checkpoint], 1, 1);
     await app.enterSession();
-    for (const round of [1, 2, 3]) {
-      expect(app.screen).toBe('card');
-      expect(app.sessionNo).toBe(round);
-      expect(app.card!.id).toBe(warmup.id);
-      app.draft = `Warm-up, round ${round}`;
-      await app.save();
-      expect(app.card!.id).toBe(checkpoint.id);
-      app.draft = `Checkpoint, round ${round}`;
-      await app.save();
-    }
-    expect(app.sessionNo).toBe(4);
     expect(app.card!.id).toBe(warmup.id);
-    // Every answer of every round is in the world, round by round.
-    expect(app.world.tiles.map((t) => t.sessionNo)).toEqual([1, 1, 2, 2, 3, 3]);
-    expect(await db(app).sessions.count()).toBe(4);
+    app.draft = 'Warm-up';
+    await app.save();
+    expect(app.card!.id).toBe(checkpoint.id);
+    app.draft = 'Checkpoint';
+    await app.save();
+    // ADR 0020: an answered card never comes round again, so round 2 is empty and says so.
+    expect(app.screen).toBe('card');
+    expect(app.sessionNo).toBe(2);
+    expect(app.card).toBeUndefined();
+    expect(app.live!.deckDone).toBe(true);
+    expect(app.world.tiles.map((t) => t.sessionNo)).toEqual([1, 1]);
+    expect(await db(app).sessions.count()).toBe(2);
   });
 
   it('a workshop that plans no cards shows an empty stack and starts no round after round', async () => {

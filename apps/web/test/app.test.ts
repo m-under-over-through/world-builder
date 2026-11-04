@@ -671,7 +671,7 @@ describe('the core loop', () => {
     release();
   });
 
-  it('Set aside by the button: the toast says so, the next card is the front, and the card comes round again at the end', async () => {
+  it('Set aside by the button: the toast says so, the next card is the front, and the card leaves the round, listed as set aside', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const user = userEvent.setup();
     const { wait, release } = heldToast();
@@ -682,7 +682,7 @@ describe('the core loop', () => {
       expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
     );
     expect(screen.getByRole('status').textContent).toContain(copy.item('Card states', 'dismissed'));
-    expect(app.live!.plan.queue.at(-1)).toBe(first.id);
+    expect(app.live!.plan.queue).not.toContain(first.id);
     expect(app.live!.dismissed.has(first.id)).toBe(true);
     const next = app.card!;
     expect((await frontCard()).textContent).toContain(

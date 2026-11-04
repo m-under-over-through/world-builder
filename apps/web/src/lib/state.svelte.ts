@@ -395,10 +395,7 @@ export class AppState {
     let left = 0;
     if (this.live) {
       const { answered, dismissed, deferred, plan, queueAsPlanned } = this.live;
-      const aside = [
-        ...plan.queue.filter((id) => dismissed.has(id)),
-        ...[...deferred].filter((id) => !dismissed.has(id)),
-      ];
+      const aside = [...dismissed, ...deferred];
       for (const id of aside) {
         const card = cards.get(id);
         if (!card || answered.has(id)) continue;

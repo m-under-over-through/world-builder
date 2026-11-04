@@ -1835,6 +1835,7 @@ Marco tried the card screen on his iPhone on 4 November and decided that a parti
 - **The replay** (`apps/web/src/lib/session.ts`): `planAsStarted` feeds the engine from every earlier round (`eventsBefore`), with `deferredBefore` (all earlier `deferred` cards, no longer the previous round's only) and the new `dismissedBefore`. `LiveSession` gains `deckDone`, worked out in `replaySession` with this round's events included; nothing else in it changes. `withDismissal` calls the new `applyDismiss`; `position` counts the answered cards of the queue, since a set-aside card now leaves it.
 - **The thank-you card's words**: a block "Thank you card" in `workshops/rural-manufacturing/copy.md` (placeholder, two sentences) and its key in `COPY_TEXT` (`apps/web/src/lib/copy.ts`). The card itself is drawn by the screens' session.
 - **Docs**: ADR 0020; a new section of `docs/learn/09-seeded-shuffle.md`, "How a card set aside finds its place".
+- **Outside this builder's files, by the integrator's leave**: one line in `apps/web/src/lib/state.svelte.ts`, where the world's set-aside chips now come from the live session's `dismissed` and `deferred` sets, since a card set aside no longer stays in the queue; and eight client tests that stated the old rule, in `state.test.ts`, `app.test.ts` and `card.test.ts`, each changed as little as states the new one (listed in the pull request).
 
 ### Why
 
