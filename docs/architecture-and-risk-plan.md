@@ -164,6 +164,8 @@ What threatens device storage: Safari, on iPhone and Mac, may purge site storage
 
 Decided 23 October: no rereading and no revising, on any device. This is a meditative exercise; what is written is written, and a better answer can be given the next time the card comes round. So the device keeps no readable copy of answers at all, which is simpler and stronger: an answer leaves the phone encrypted and nothing readable stays behind.
 
+Revised 4 November 2026 (ADR 0014): rereading yes, revising still no. The device that wrote an answer keeps a readable copy for the participant, and "Your world so far" shows it; the server never holds anything readable. The guarantee the app gives is that nobody can attribute an answer to a person, not that a phone in someone else's hands shows nothing.
+
 A convenience worth adding: a "continue elsewhere" button that produces a link with the code in the URL fragment (the part after `#`), which browsers never send to any server. Pasting it into a messaging app still exposes the code to that app, so the button says so.
 
 ### 6.3 Newsletter link and forwarding
@@ -284,7 +286,7 @@ Its costs, stated plainly:
 
 - The private key becomes the thing you cannot lose. Lose it and every answer on the server is unreadable forever.
 - Nobody reads answers mid-project without running the export command on your machine, which takes a minute. Counts, sessions and dismissals are visible at any time without the key, which is enough to know the project is alive.
-- Nobody, the participant included, can reread an answer once it has left the phone. By the 23 October decision that is the intended experience.
+- Nobody, the participant included, can reread an answer once it has left the phone. By the 23 October decision that is the intended experience. Revised 4 November 2026 (ADR 0014): the participant can reread on the device that wrote the answer; nobody else can, anywhere.
 
 **Key custody, a launch gate.** You are the only operator, so this is a plan for one person: about thirty minutes once, then five minutes a month.
 
@@ -424,7 +426,7 @@ Taken on 23 October 2026 by Marco; the partner reviews.
 
 1. **Forward control.** Wave link plus 3 personal invites per participant. The wave is open from the send on 16 November to the close on 6 December, cap 150 as a safety valve.
 2. **Encryption.** Device-side to a research key. Marco holds the key, custody as in section 10. The partner never handles it and receives a spreadsheet.
-3. **Rereading and revising.** No, on any device. What is written is written. No readable answer stays on the device.
+3. **Rereading and revising.** Rereading yes, on the device that wrote the answer (revised 4 November 2026, ADR 0014); revising no, on any device. What is written is written.
 4. **Deck.** Start at 3 warm-ups and 1 checkpoint per session, configurable in the deck file, tuned hands-on in week two. Checkpoints rotate through unseen cards first, then repeat.
 5. **Visibility.** Personal only. Curated results reach participants later, outside the app.
 6. **Waves and funnel numbers.** Wave recorded. Funnel: sent (newsletter tool), link opened (per-wave counter), started (participants), answers (events). To confirm with the partner.

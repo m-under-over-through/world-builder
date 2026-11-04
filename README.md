@@ -35,7 +35,7 @@ Planning sprint: 23 October 2026. First workshop: the future of local manufactur
 
 ## Where an answer goes
 
-1. A participant types an answer on the card. The client seals it to the workshop's public key (`packages/crypto`) and writes an `answered` event to the outbox on the device. No readable copy stays behind.
+1. A participant types an answer on the card. The client seals it to the workshop's public key (`packages/crypto`) and writes an `answered` event to the outbox on the device. A readable copy stays on that device for the participant alone (ADR 0014); none ever reaches the server.
 2. When online, the client posts the outbox to `/api/<slug>/sync` with the anonymous code in a header. Every event has a client-generated id, so a retry can never duplicate.
 3. The API validates the batch against `packages/contracts`, checks the code's keyed hash, and stores the rows under the workshop. It cannot read the answer.
 4. Nightly, the backup job dumps the database and each workshop's rows, encrypts the dumps, and uploads them to a Backblaze bucket and keeps a copy as a GitHub artifact in the private ops repository.
