@@ -1824,3 +1824,42 @@ Marco tried the card screen on his iPhone on 4 November and decided that a parti
 - Outside this builder's files, still describing the session end or the install offer: `docs/runbook.md` (`CLIENT_STORAGE_UNAVAILABLE`, "shows the code at the end"), `docs/architecture-and-risk-plan.md` (section 8.1), `docs/learn/11-the-calendar-file.md` ("Remind me" at the session end), and `docs/adr/README.md`, whose index stops at 0014.
 - The second phase, identity by the link (ADR 0018), after the newsletter tool's test send.
 - Not tried on a real phone: the rounds in the hand, and the calendar sheet from the new place of "Remind me" on an iPhone.
+
+## 2026-11-04, Wednesday. Identity by the link: no code typed or shown
+
+### What
+
+- **The link's value** (`apps/web/src/lib/identity.ts`, new). `valueFromHash` reads `#p=<value>` from the fragment only: letters, digits, `-` and `_`, 4 to 80 of them; anything else is no value. `codeFromValue` makes the 16-digit code: SHA-256 of the value's UTF-8 bytes (`crypto.subtle.digest`), the digest read as one big decimal number, its first sixteen digits. `test/identity.test.ts` pins the rule with one vector: `test-link-value-0001` makes `1871948336772442`.
+- **Open** (`lib/state.svelte.ts`, `open`). Any fragment is taken out of the address first (`history.replaceState`), so a share or a copy of the address does not carry the value on. With a value whose code the device does not hold, the code is kept under `linkCode` in the store (never the value) and `GET /me` is asked with it. Known: the code becomes the device's, the sync on open runs with that answer, and the device lands on the cards, no intro. `AUTH_CODE_UNKNOWN`, or no answer: the welcome, with "This link is yours" in the place of "New here"'s line, and the intro.
+- **Join** (`join`). With a link's code the join carries that code. `JOIN_CODE_TAKEN` then means "this is me": the code is kept, the sync on open runs, the device lands. For a code the device makes (no value in the link), the one silent retry with a fresh code stays. A queued join answered `JOIN_CODE_TAKEN` is done too (`lib/sync.ts`, `sendPendingJoin`): the server knows the code.
+- **The link wins** over a different stored code (`adopt`): the old code's outbox goes out with the old code, as far as the network allows, then the device's rows are wiped and the new code stored; the arrival is kept.
+- **Gone**: `screens/EnterCode.svelte`, `lib/code-input.ts` and its test, `continueWithCode`, `copyCode`, `tooShort`, the `enter-code` screen, the `continue` page (an old `/continue` lands where the device lands), the "I have a code" line on the welcome, and the "Your code" section of the about page.
+- **Words** (`workshops/rural-manufacturing/copy.md` and `lib/copy.ts` together, every block `[placeholder]`): new "Welcome: your link"; "Welcome: code not accepted" is now "Welcome: link not accepted"; a sentence each in "About: what this is", "Trust page: what we never collect" and "About: delete" ("Opening your link again starts you over from nothing."). Removed: "Welcome: I have a code", "Enter code", "Enter code: too short", the title "enter code", the buttons "i have a code", "continue", "copy", "copied", and the "Privacy panel" keys "code", "code note", "no code yet". Reworded because they told the participant to type or find a code: `AUTH_CODE_UNKNOWN`, `AUTH_CODE_MISSING`, `CLIENT_STORAGE_UNAVAILABLE`.
+- `docs/screen-map.md`: the Entry table (the link with a value, the link without, `/continue` gone), the about page without "Your code", the privacy panel without a code line, the failure lines. `docs/adr/0018-identity-by-the-link.md`, proposed, verbatim from the integrator's draft.
+
+### Why
+
+On 4 November, typing the code on an iPhone offered Marco's credit card number as autofill, and the code was the one thing participants had to understand and keep. He decided that the newsletter's link itself carries who you are, after the `#`, which no server sees (`docs/briefs/rethink-2026-11-04.md`, section "2 and 4"; ADR 0018). The server sees what it saw before: a keyed hash of a code, a wave, days. No contract or API change.
+
+### How to verify
+
+1. `npm run check`: green. The tests that carry the change: `apps/web/test/identity.test.ts` (the vector, the fragment parsing); in `state.test.ts`, "identity by the link (ADR 0018)": the fragment leaves the address and the join carries the derived code; no request path, body or header carries the value and the store keeps only the code; a second open with the same value on a fresh device continues through `JOIN_CODE_TAKEN`; a known participant's link opens straight to the cards; the link wins over a different stored code; a deleted participant's link starts over; a link without a value makes a device code; a malformed value is ignored. In `sync.test.ts`, the queued join answered `JOIN_CODE_TAKEN`. In `screens.test.ts` and `app.test.ts`, the welcome without "I have a code", the about page without a code, `/continue` landing home.
+2. By hand on a phone, against a preview or staging (the value is made up; any 4 to 80 letters, digits, `-` or `_`): open `/rural-manufacturing/join/wave-1#p=marco-test-0001`. The address bar shows `/rural-manufacturing/join/wave-1`, without the `#` part. The welcome says "This link is yours...". Go through the intro, answer one card.
+3. Open the same address, with the `#p=` part, on a second device or in a private window: it lands on the cards, no welcome, no intro, and "Your world so far" shows the answer as written elsewhere.
+4. Open `/rural-manufacturing/join/wave-1` without the `#` part in a fresh private window: the welcome says "New here..." with no "This link is yours", and the intro leads to a new participant, as before.
+5. "About this app": no code anywhere, no "Copy". Delete everything, then open the `#p=` link again: the welcome and the intro, a new participant.
+6. In the browser's network tab during steps 2 to 5: no request path or body contains `marco-test-0001`; the `Authorization` header carries a 16-digit code.
+
+### Decisions made on the way
+
+- **The code waits under `linkCode` until the server knows it**, not under `code`: a reload during the intro has lost the value from the address, and a stored `code` the server does not know would be read as a deleted participant and forgotten.
+- **Without an answer from `GET /me`** (offline, a server error), a link's code is treated as new: welcome and intro, and the join, queued if need be, settles it. A queued join answered `JOIN_CODE_TAKEN` is therefore taken as done, for any code.
+- **The link wins with a wipe.** When a different code is stored, its outbox is sent first, then the device's rows go, so one person's readable answers (ADR 0014) never show under another's link and nothing of theirs is synced under the new code. What the old code could not send (offline at that moment) is lost from this device.
+- **A deleted participant's link** makes the same code, which the server no longer knows: the welcome shows "This link is yours", not the "link not accepted" line.
+- **Any fragment is removed** from the address on open, not only a valid `p=`: the app uses none, and a malformed value is as personal as a good one.
+
+### Open
+
+- The partner's test send: whether the newsletter tool can put a value per recipient and spares in a link, and whether its click tracking keeps the part after `#`. ADR 0018 stays proposed until then.
+- The wording: every new or changed block is a placeholder for Marco tomorrow; the terms, the privacy policy and the consent still speak of the 16-digit code and go through `docs/participant-texts.md` and the legal review.
+- Outside this builder's files: `docs/glossary.md` ("code", "about page" and "privacy panel" still mention the code shown), `docs/adr/README.md` (index), `docs/runbook.md` (`AUTH_CODE_UNKNOWN`'s participant-facing advice).

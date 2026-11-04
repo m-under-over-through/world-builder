@@ -4,7 +4,6 @@ import About from '../src/screens/About.svelte';
 import Card from '../src/screens/Card.svelte';
 import Closed from '../src/screens/Closed.svelte';
 import DemoCard from '../src/screens/DemoCard.svelte';
-import EnterCode from '../src/screens/EnterCode.svelte';
 import Intro from '../src/screens/Intro.svelte';
 import NotAWorkshop from '../src/screens/NotAWorkshop.svelte';
 import TextPage from '../src/screens/TextPage.svelte';
@@ -14,7 +13,7 @@ import { currentCardId, replaySession, type LiveSession } from '../src/lib/sessi
 import { AppState } from '../src/lib/state.svelte.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 
-/** A code as the screens show it: four groups of four. */
+/** A code, held by the state; no screen shows it (ADR 0018). */
 const CODE = '1234567890123456';
 const SHOWN_CODE = '1234 5678 9012 3456';
 
@@ -58,21 +57,24 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.text('Not a workshop'))).toBeTruthy();
   });
 
-  it('welcome, arrived through a link: the "New here" button, and under it one quiet line with the "I have a code" link', () => {
+  it('welcome, arrived through a link without a value: the "New here" button and its line, and no way to type a code', () => {
     render(Welcome, { app: state({ arrival: { wave: 'wave-1' } }) });
     const newHere = screen.getByRole('button', { name: copy.item('Buttons', 'new here') });
     expect(newHere.classList.contains('primary')).toBe(true);
     expect(screen.getByText(copy.text('Welcome: new here'))).toBeTruthy();
-    const haveACode = screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') });
-    // A text link, not a second button, in the line that introduces it.
-    expect(haveACode.classList.contains('link')).toBe(true);
-    expect(haveACode.closest('p')?.textContent).toContain(copy.text('Welcome: I have a code'));
-    expect(
-      newHere.compareDocumentPosition(haveACode) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.queryByText(copy.text('Welcome: your link'))).toBeNull();
     expect(screen.queryByText(copy.text('Welcome: no link'))).toBeNull();
-    // The screen has one button in the accent.
-    expect(document.querySelectorAll('button.primary')).toHaveLength(1);
+    expect(screen.queryByRole('textbox')).toBeNull();
+    // The screen has one button: "New here", in the accent.
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('welcome, arrived through a link with a value: "This link is yours" in the place of "New here"\'s line, and the "New here" button', () => {
+    render(Welcome, { app: state({ linkCode: CODE }) });
+    expect(screen.getByText(copy.text('Welcome: your link'))).toBeTruthy();
+    expect(screen.queryByText(copy.text('Welcome: new here'))).toBeNull();
+    expect(screen.getByRole('button', { name: copy.item('Buttons', 'new here') })).toBeTruthy();
+    expect(document.body.textContent).not.toContain(CODE);
   });
 
   it('welcome, arrived through an invite: "New here" as well', () => {
@@ -80,23 +82,11 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'new here') })).toBeTruthy();
   });
 
-  it('welcome, no link: "open the link you were sent" instead of "New here", and still "I have a code"', () => {
+  it('welcome, no link: "open the link you were sent" instead of "New here", and no button at all', () => {
     render(Welcome, { app: state() });
     expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(screen.queryByText(copy.text('Welcome: new here'))).toBeNull();
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'new here') })).toBeNull();
-    expect(
-      screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
-    ).toBeTruthy();
-    expect(screen.getByText(copy.text('Welcome: I have a code'), { exact: false })).toBeTruthy();
-  });
-
-  it('enter code, with the too-short line and an error line in their wording', () => {
-    render(EnterCode, { app: state({ tooShort: true, error: 'AUTH_CODE_UNKNOWN' }) });
-    expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
-    expect(screen.getByText(copy.text('Enter code: too short'))).toBeTruthy();
-    expect(screen.getByText(copy.error('AUTH_CODE_UNKNOWN'))).toBeTruthy();
-    expect(screen.getByRole('textbox')).toBeTruthy();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
   it('intro 1 and intro 2: the copy, Next and Back', () => {
@@ -128,13 +118,13 @@ describe('the screens render the words of copy.md', () => {
 
   it('welcome after the stored code was refused: one quiet line, not a box, and only then', () => {
     const { unmount } = render(Welcome, { app: state({ codeRefused: true }) });
-    const line = screen.getByText(copy.text('Welcome: code not accepted'));
+    const line = screen.getByText(copy.text('Welcome: link not accepted'));
     expect(line.getAttribute('role')).toBe('status');
     expect(line.classList.contains('warning')).toBe(false);
     expect(document.querySelector('.warning')).toBeNull();
     unmount();
     render(Welcome, { app: state() });
-    expect(screen.queryByText(copy.text('Welcome: code not accepted'))).toBeNull();
+    expect(screen.queryByText(copy.text('Welcome: link not accepted'))).toBeNull();
   });
 
   it('intro 3 while a refused join waits for its retry: the "trying again" line', () => {
@@ -267,7 +257,6 @@ describe('the screens render the words of copy.md', () => {
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     expect(headings).toEqual([
       copy.item('Titles', 'trust page'),
-      copy.item('Privacy panel', 'code'),
       copy.item('Titles', 'privacy panel'),
     ]);
     const text = document.body.textContent!.replace(/\s+/g, ' ');
@@ -275,8 +264,6 @@ describe('the screens render the words of copy.md', () => {
       copy.text('About: what this is'),
       copy.text('Remind me'),
       copy.item('Titles', 'trust page'),
-      copy.item('Privacy panel', 'code'),
-      SHOWN_CODE,
       copy.item('Titles', 'privacy panel'),
       copy.text('About: delete'),
       copy.item('Trust page links', 'terms'),
@@ -348,10 +335,9 @@ describe('the screens render the words of copy.md', () => {
     }
   });
 
-  it('the page about the app without a code: every fact, no code yet, nothing stored, no delete', () => {
+  it('the page about the app without a code: every fact, nothing stored, no delete', () => {
     render(About, { app: state() });
     for (const key of [
-      'code',
       'cookies',
       'hosts',
       'permissions',
@@ -361,14 +347,12 @@ describe('the screens render the words of copy.md', () => {
       'version',
     ] as const)
       expect(screen.getByText(copy.item('Privacy panel', key))).toBeTruthy();
-    expect(screen.getByText(copy.item('Privacy panel', 'no code yet'))).toBeTruthy();
     expect(screen.getByText(copy.item('Privacy panel', 'nothing stored'))).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'delete') })).toBeNull();
     expect(screen.queryByText(copy.text('About: delete'))).toBeNull();
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'copy') })).toBeNull();
   });
 
-  it('the page about the app with a code: the code shown plainly with Copy and no reveal, the delete line and button, the last error', () => {
+  it('the page about the app with a code: the code nowhere on it (ADR 0018), the delete line and button, the last error', () => {
     render(About, {
       app: state({
         code: CODE,
@@ -381,10 +365,9 @@ describe('the screens render the words of copy.md', () => {
         },
       }),
     });
-    expect(screen.getByText(SHOWN_CODE)).toBeTruthy();
-    expect(document.body.textContent).not.toContain('•');
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'copy') })).toBeTruthy();
-    expect(screen.getByText(copy.item('Privacy panel', 'code note'))).toBeTruthy();
+    expect(document.body.textContent).not.toContain(CODE);
+    expect(document.body.textContent).not.toContain(SHOWN_CODE);
+    expect(document.getElementById('about-code')).toBeNull();
     expect(screen.getByText(copy.text('About: delete'))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'delete') })).toBeTruthy();
     expect(screen.getByText('CLIENT_SYNC_FAILED')).toBeTruthy();
@@ -473,10 +456,8 @@ describe('the screens render the words of copy.md', () => {
     expect(text).toContain(`${panel['invites left']} 3`);
     expect(text).toContain(fill(panel['last sync day']!, { day: '2026-11-17' }));
     expect(screen.getByText(copy.text('Privacy panel: caveat'))).toBeTruthy();
-    // No way in for another code on this page, and no second copy of the plan: said once above.
-    expect(
-      screen.queryByRole('button', { name: copy.item('Buttons', 'i have a code') }),
-    ).toBeNull();
+    // No field for a code on this page, and no second copy of the plan: said once above.
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('the page about the app links to the source at the running version, twice: with the checks and with the version', () => {

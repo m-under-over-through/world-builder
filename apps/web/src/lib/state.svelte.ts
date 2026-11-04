@@ -1,8 +1,5 @@
 import {
-  formatCode,
   generateCode,
-  normalizeCode,
-  codeSchema,
   MAX_ANSWER_CHARS,
   type Card,
   type Event,
@@ -15,6 +12,7 @@ import { sealAnswer } from '@wb/crypto';
 import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
 import type { Copy, ListKey } from './copy.ts';
 import { dayStatus } from './days.ts';
+import { codeFromValue, valueFromHash } from './identity.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
@@ -65,7 +63,6 @@ export type Screen =
   | 'loading'
   | 'no-workshop'
   | 'welcome'
-  | 'enter-code'
   | 'intro-1'
   | 'intro-2'
   | 'consent'
@@ -83,7 +80,7 @@ export type TextPage = Extract<Page, 'terms' | 'privacy'>;
  * The sections of the one page about the app (ADR 0013), in order, each with the id of its
  * heading on the page: /trust opens the page at "protected", /panel at "now".
  */
-export const ABOUT_SECTIONS = ['protected', 'code', 'now', 'delete'] as const;
+export const ABOUT_SECTIONS = ['protected', 'now', 'delete'] as const;
 export type AboutSection = (typeof ABOUT_SECTIONS)[number];
 
 /** Which section of the page an older address opens; the page's own address opens the top. */
@@ -162,6 +159,13 @@ function roundDone(live: LiveSession): boolean {
 /** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
 export const LAST_WORKSHOP = 'wb:lastWorkshop';
 
+/**
+ * The store's key for a code made from a link's value that is not yet this device's participant
+ * (ADR 0018): kept so a reload in the middle of the intro, once the value has left the address,
+ * still joins with it. The value itself is never stored, only the code it makes.
+ */
+export const LINK_CODE = 'linkCode';
+
 /** The sync is retried while the outbox is not empty: first after this long, then doubling, up to the cap. */
 export const RETRY_FIRST_MS = 5_000;
 export const RETRY_MAX_MS = 5 * 60_000;
@@ -171,10 +175,17 @@ export class AppState {
   workshop = $state.raw<Workshop | undefined>(undefined);
   copy = $state.raw<Copy>(defaultCopy());
   store: Store | undefined;
-  /** True when the browser refused storage: this open runs in memory and the code must be written down. */
+  /** True when the browser refused storage: this open runs in memory and nothing is kept after it. */
   storageUnavailable = $state(false);
   /** True when the stored code was refused on open (AUTH_CODE_UNKNOWN) and forgotten: the welcome says so. */
   codeRefused = $state(false);
+  /**
+   * The code a link's value made, when the server has not met it yet (ADR 0018): a new
+   * participant, so the welcome ("This link is yours"), the intro, and a join with this code
+   * rather than a fresh one. Empty when the link carried no value, or once the code is the
+   * device's participant (`code`).
+   */
+  linkCode = $state('');
   /** True while the retry loop runs, so only one does. */
   private retryLoop = false;
   /** The server said WORKSHOP_CLOSED: the closed screen, and no session is started. */
@@ -183,8 +194,6 @@ export class AppState {
   arrival = $state<Arrival>({});
   /** The error code of the last failure on this screen, shown through its copy.md wording. */
   error = $state('');
-  /** Not an error code: the one local refusal, a code that is not 16 digits yet. */
-  tooShort = $state(false);
   /** The platform whose dictation hint applies, or null when there is none (Linux, unknown). */
   platform = $state<Platform | null>(null);
 
@@ -439,8 +448,14 @@ export class AppState {
     return this.workshop !== undefined && this.today() === 'before';
   }
 
-  /** The screen for an address: the entry rows of the screen map. */
-  async open(pathname: string): Promise<void> {
+  /**
+   * The screen for an address: the entry rows of the screen map. `hash` is the part after `#`,
+   * which never reaches a server: a link's value is read from it (ADR 0018), and the fragment is
+   * taken out of the address at once, so a share or a copy of the address does not carry it on.
+   */
+  async open(pathname: string, hash: string = location.hash): Promise<void> {
+    const value = valueFromHash(hash);
+    if (hash) history.replaceState(null, '', location.pathname + location.search);
     const route = parseRoute(pathname);
     this.workshop = route ? findWorkshop(route.slug) : undefined;
     if (!route || !this.workshop) {
@@ -480,15 +495,27 @@ export class AppState {
     } else {
       this.arrival = stored;
     }
-    if (saved) {
+    // A link's value makes the code (lib/identity.ts). Kept until the server has met it, so a
+    // reload during the intro, with the value gone from the address, still has it.
+    const fromValue = value ? await codeFromValue(value) : null;
+    if (fromValue && fromValue !== saved) await this.store.set(LINK_CODE, fromValue);
+    else if (fromValue) await this.store.unset(LINK_CODE);
+    const fromLink = fromValue ?? (await this.store.get(LINK_CODE));
+    if (fromLink && fromLink !== saved) {
+      // The link wins over a different stored code: someone else's phone opening their own link.
+      await this.openWithLink(fromLink, saved);
+    } else if (saved) {
       // With a stored code the device syncs on every open, before any screen: opened at /panel
-      // or /continue as much as at the home, so nothing waits for Back.
+      // as much as at the home, so nothing waits for Back.
       this.code = saved;
       await this.syncOnOpen();
-    }
-    if (route.page === 'continue') {
-      this.screen = 'enter-code';
-      return;
+      // The link's own code was refused (its participant was deleted): the link makes the same
+      // code again, so this is a new participant, with the welcome and the intro (ADR 0018).
+      if (!this.code && fromLink) {
+        this.codeRefused = false;
+        this.linkCode = fromLink;
+        await this.store.set(LINK_CODE, fromLink);
+      }
     }
     if (route.page === 'terms' || route.page === 'privacy') {
       this.openPage(route.page);
@@ -503,10 +530,53 @@ export class AppState {
   }
 
   /**
+   * A code from a link's value that this device does not hold yet (ADR 0018). GET /me with it
+   * says who this is. Known: the link was opened before, on this device or another, and the
+   * consent was given then; the code becomes this device's participant and the device lands on
+   * the cards, no intro. Not known (AUTH_CODE_UNKNOWN), or no answer: a new participant as far as
+   * this device can tell, so the welcome and the intro, and the join goes out with this code
+   * (`join`); a join that finds the code taken continues as the same participant.
+   */
+  private async openWithLink(code: string, saved: string | undefined): Promise<void> {
+    if (!this.store || !this.workshop) return;
+    const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code });
+    if (res.ok) {
+      await this.adopt(code, saved);
+      await this.syncOnOpen(res);
+      return;
+    }
+    if (res.error === 'WORKSHOP_CLOSED') this.closedByServer = true;
+    if (res.error !== 'AUTH_CODE_UNKNOWN') this.lastError = res.error;
+    this.linkCode = code;
+  }
+
+  /**
+   * The link's code becomes this device's participant. A different code stored before (someone
+   * else's phone, or a code this device made on an earlier open without a value) loses to it: its
+   * outbox goes out first with its own code, as far as the network allows, then the device's rows
+   * are wiped, so one participant's readable answers never show under another's (ADR 0014) and
+   * nothing of theirs is synced under the new code. The arrival is kept.
+   */
+  private async adopt(code: string, saved: string | undefined): Promise<void> {
+    if (!this.store || !this.workshop) return;
+    const slug = this.workshop.config.slug;
+    if (saved && saved !== code) {
+      await syncNow(this.store, slug, saved);
+      const arrival = await this.store.get('arrival');
+      await this.store.wipe();
+      this.store = await this.openStore(slug);
+      if (arrival) await this.store.set('arrival', arrival);
+    }
+    await this.store.set('code', code);
+    await this.store.unset(LINK_CODE);
+    this.code = code;
+    this.linkCode = '';
+  }
+
+  /**
    * The device's store, or, when the browser refuses it (private browsing with storage blocked,
    * a full disk), one in memory for this open: the cards still run for as long as the tab stays
-   * open, the app warns, and the code is on the page about the app (docs/screen-map.md,
-   * CLIENT_STORAGE_UNAVAILABLE).
+   * open, and the app warns (docs/screen-map.md, CLIENT_STORAGE_UNAVAILABLE).
    */
   private async openStore(slug: string): Promise<Store> {
     try {
@@ -538,18 +608,15 @@ export class AppState {
 
   /**
    * Move to a page a participant can open directly, and put its address in the address bar
-   * (docs/screen-map.md, Entry): "I have a code" is /<slug>/continue; Back from it, or no page,
-   * is the address the device arrived at and where the device lands. The address is replaced,
-   * not pushed, so the browser's back goes to wherever the person came from, never to a stale
-   * screen.
+   * (docs/screen-map.md, Entry); no page is the address the device arrived at and where the
+   * device lands. The address is replaced, not pushed, so the browser's back goes to wherever
+   * the person came from, never to a stale screen.
    */
   async navigate(page?: Page): Promise<void> {
     if (!this.workshop) return;
     history.replaceState(null, '', page ? pageHref(this.workshop.config.slug, page) : this.home);
     this.error = '';
-    this.tooShort = false;
-    if (page === 'continue') this.screen = 'enter-code';
-    else if (page === 'terms' || page === 'privacy') this.openPage(page);
+    if (page === 'terms' || page === 'privacy') this.openPage(page);
     else if (page) await this.openAbout(aboutSectionFor(page));
     else await this.land();
   }
@@ -583,8 +650,8 @@ export class AppState {
 
   /**
    * The sync on open (lib/sync.ts, syncOnOpen): the queued join, then GET /me, then the outbox.
-   * Also what a code typed on "I have a code" goes through before its first card, with the
-   * answer that checked the code handed in so the server is not asked twice.
+   * Also what a link's code goes through once the server has said it knows it, with that answer
+   * handed in so the server is not asked twice.
    */
   private async syncOnOpen(answer?: ApiResult<unknown>): Promise<void> {
     if (!this.store || !this.workshop) return;
@@ -696,9 +763,11 @@ export class AppState {
   }
 
   /**
-   * Consent: generate the code, create the participant, start the first session.
-   * A taken code (JOIN_CODE_TAKEN, astronomically unlikely) is retried once, silently, with a
-   * fresh code. A join refused for the minute's budget (RATE_LIMITED, a newsletter landing all at
+   * Consent: create the participant, start the first session. The code is the link's when the
+   * link carried a value (ADR 0018), else a fresh one the device makes. For the link's code a
+   * taken code (JOIN_CODE_TAKEN) means "this is me": the same participant on another device, so
+   * the code is kept and the device continues where that participant is. For a device-made code
+   * it is astronomically unlikely, and retried once, silently, with a fresh code. A join refused for the minute's budget (RATE_LIMITED, a newsletter landing all at
    * once) waits as long as the server's Retry-After says and is retried once; a second refusal
    * is shown. Offline, the join is queued on the device and the session starts anyway; the join
    * goes out before the first sync (lib/sync.ts). The server's other refusals are shown.
@@ -708,14 +777,22 @@ export class AppState {
     this.joining = true;
     this.error = '';
     try {
+      const fromLink = this.linkCode;
       let retriedTaken = false;
       let waited = false;
       for (;;) {
-        const fresh = generateCode();
+        const fresh = fromLink || generateCode();
         const body: JoinRequest = this.arrival.invite
           ? { code: fresh, invite: this.arrival.invite }
           : { code: fresh, wave: this.arrival.wave ?? 'wave-1' };
         const res = await api(`/${this.workshop.config.slug}/join`, { body });
+        if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && fromLink) {
+          await this.adopt(fromLink, await this.store.get('code'));
+          await this.store.set('consent', localDay());
+          await this.syncOnOpen();
+          await this.land();
+          return;
+        }
         if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && !retriedTaken) {
           retriedTaken = true;
           continue;
@@ -732,9 +809,14 @@ export class AppState {
           else this.fail(res.error);
           return;
         }
+        // The code is stored before the queued join, since taking over from a different stored
+        // code wipes the device's rows (`adopt`).
+        if (fromLink) await this.adopt(fromLink, await this.store.get('code'));
+        else {
+          this.code = fresh;
+          await this.store.set('code', this.code);
+        }
         if (!res.ok) await queueJoin(this.store, body);
-        this.code = fresh;
-        await this.store.set('code', this.code);
         await this.store.set('consent', localDay());
         await this.enterSession();
         return;
@@ -743,28 +825,6 @@ export class AppState {
       this.joining = false;
       this.retrying = false;
     }
-  }
-
-  /** Enter code: the typed digits, checked here, then asked of the server. */
-  async continueWithCode(input: string): Promise<void> {
-    if (!this.store || !this.workshop) return;
-    this.error = '';
-    this.tooShort = false;
-    const typed = normalizeCode(input);
-    if (!codeSchema.safeParse(typed).success) {
-      this.tooShort = true;
-      return;
-    }
-    const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code: typed });
-    if (!res.ok) {
-      if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
-      else this.fail(res.error);
-      return;
-    }
-    this.code = typed;
-    await this.store.set('code', this.code);
-    await this.syncOnOpen(res);
-    await this.land();
   }
 
   /** One event, as the contract spells it, with this session's next seq; the engine names the kind. */
@@ -963,7 +1023,7 @@ export class AppState {
       this.screen = 'about';
       return;
     }
-    history.replaceState(null, '', to === 'enter-code' ? pageHref(slug, 'continue') : this.home);
+    history.replaceState(null, '', this.home);
     if (to) this.screen = to;
     else await this.land();
   }
@@ -1005,9 +1065,5 @@ export class AppState {
   get sourceHref(): string {
     const source = this.copy.item('Trust page variables', 'source');
     return VERSION === 'local' ? source : `${source}/tree/${VERSION}`;
-  }
-
-  async copyCode(): Promise<void> {
-    await navigator.clipboard.writeText(formatCode(this.code));
   }
 }

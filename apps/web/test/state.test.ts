@@ -17,13 +17,18 @@ const db = (app: AppState) => app.store as WorkshopStore;
 beforeEach(freshIndexedDb);
 afterEach(() => vi.unstubAllGlobals());
 
-async function opened(pathname: string): Promise<AppState> {
-  history.replaceState(null, '', pathname);
+/** Open the app at an address; `hash` is the part after `#`, which the app reads from the address bar. */
+async function opened(pathname: string, hash = ''): Promise<AppState> {
+  history.replaceState(null, '', pathname + hash);
   const app = new AppState();
   app.wait = async () => {};
   await app.open(pathname);
   return app;
 }
+
+/** A link's value, and the code it makes (test/identity.test.ts pins the rule). */
+const LINK_VALUE = 'test-link-value-0001';
+const LINK_CODE = '1871948336772442';
 
 /** A state on the first card of a fresh first session, the demo card seen, with a store but no code. */
 async function onACard(): Promise<AppState> {
@@ -327,7 +332,7 @@ describe('a session on the deck engine', () => {
     expect(await db(app).sessions.count()).toBe(1);
   });
 
-  it("a second device with the same code continues the session from the server's rows", async () => {
+  it("a second device opening the same link continues the session from the server's rows, with no intro", async () => {
     const session = {
       id: '00000000-0000-4000-8000-000000000009',
       sessionNo: 1,
@@ -372,9 +377,9 @@ describe('a session on the deck engine', () => {
         }),
       ],
     });
-    const app = await opened(`/${SLUG}/continue`);
-    await app.continueWithCode('1234 5678 9012 3456');
-    // No demo card: the session is under way, and the demo is for a first session with nothing done.
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(app.code).toBe(LINK_CODE);
+    // No welcome, no intro, no demo card: the session is under way, and the demo is for a first session with nothing done.
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(1);
     expect(app.live!.session.id).toBe(session.id);
@@ -410,17 +415,166 @@ describe('the address bar', () => {
     stubRoutes({});
     const app = await opened(`/${SLUG}/join/wave-1`);
     expect(app.screen).toBe('welcome');
-    await app.navigate('continue');
-    expect(location.pathname).toBe(`/${SLUG}/continue`);
     await app.openAbout();
     expect(app.screen).toBe('about');
     expect(location.pathname).toBe(`/${SLUG}/about`);
     await app.back();
-    expect(app.screen).toBe('enter-code');
-    expect(location.pathname).toBe(`/${SLUG}/continue`);
+    expect(app.screen).toBe('welcome');
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+    await app.navigate('terms');
+    expect(location.pathname).toBe(`/${SLUG}/terms`);
     await app.navigate();
     expect(app.screen).toBe('welcome');
     expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+  });
+});
+
+describe('identity by the link (ADR 0018)', () => {
+  const UNKNOWN = () => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } });
+  const TAKEN = () => ({ status: 409, body: { error: 'JOIN_CODE_TAKEN' } });
+  const ME = () => ({
+    status: 200,
+    body: {
+      workshop: { slug: SLUG, name: 'x', closesDay: '2026-12-06', deleteDay: '2027-02-05' },
+      participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 0 },
+      sessions: [],
+      events: [],
+    },
+  });
+
+  it('a link with a value: the fragment leaves the address, the welcome says the link is theirs, and the join carries the code the value makes', async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [UNKNOWN], [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(location.hash).toBe('');
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+    expect(app.screen).toBe('welcome');
+    expect(app.linkCode).toBe(LINK_CODE);
+    expect(app.code).toBe('');
+    // A new participant is not a failure: no line about a refused link, nothing in the diagnostics.
+    expect(app.codeRefused).toBe(false);
+    expect(app.lastError).toBe('');
+    // A reload during the intro, with the value gone from the address, still has the code.
+    expect(await app.store!.get('linkCode')).toBe(LINK_CODE);
+    await app.join();
+    const joins = calls.filter((c) => c.path.endsWith('/join'));
+    expect(joins.map((c) => c.body)).toEqual([{ code: LINK_CODE, wave: 'wave-1' }]);
+    expect(app.code).toBe(LINK_CODE);
+    expect(app.linkCode).toBe('');
+    expect(await app.store!.get('code')).toBe(LINK_CODE);
+    expect(await app.store!.get('linkCode')).toBeUndefined();
+    expect(app.screen).toBe('demo');
+  });
+
+  it('the value never leaves the device: no request path, body or header carries it, and the store keeps only the code', async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [UNKNOWN], [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    await app.join();
+    await app.dismissDemo();
+    app.draft = 'An answer';
+    expect(await app.save()).toBe(true);
+    await app.openAbout();
+    expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true);
+    for (const call of calls) {
+      expect(call.path).not.toContain(LINK_VALUE);
+      expect(JSON.stringify(call.body ?? null)).not.toContain(LINK_VALUE);
+      expect(JSON.stringify(call.headers)).not.toContain(LINK_VALUE);
+      if (call.headers['authorization'])
+        expect(call.headers['authorization']).toBe(`Code ${LINK_CODE}`);
+    }
+    expect(JSON.stringify(await db(app).settings.toArray())).not.toContain(LINK_VALUE);
+    expect(location.href).not.toContain(LINK_VALUE);
+  });
+
+  it('a second open with the same value on a fresh device is the same participant: JOIN_CODE_TAKEN continues with that code, once', async () => {
+    // GET /me did not answer on open, so the device could not tell; the join says it.
+    const calls = stubRoutes({
+      [`/api/${SLUG}/me`]: [() => 'offline', ME],
+      [`/api/${SLUG}/join`]: [TAKEN],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(app.screen).toBe('welcome');
+    await app.join();
+    expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
+    expect(app.error).toBe('');
+    expect(app.code).toBe(LINK_CODE);
+    expect(await app.store!.get('code')).toBe(LINK_CODE);
+    expect(app.me).not.toBeNull();
+    expect(['demo', 'card']).toContain(app.screen);
+  });
+
+  it("a known participant's link opens straight to the cards: no welcome, no intro", async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(app.code).toBe(LINK_CODE);
+    expect(['demo', 'card']).toContain(app.screen);
+    expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(0);
+    expect(calls.find((c) => c.path.endsWith('/me'))!.headers['authorization']).toBe(
+      `Code ${LINK_CODE}`,
+    );
+  });
+
+  it("the link wins over a different stored code: the old outbox goes out with the old code, then the device's rows go", async () => {
+    const OLD = '1234567890123456';
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', OLD);
+    await store.events.put({
+      id: '10000000-0000-4000-8000-000000000001',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      cardId: 'cool',
+      seq: 0,
+      kind: 'dismissed',
+      createdDay: '2026-11-16',
+      deckVersion: '0.1',
+      synced: 0,
+    });
+    store.close();
+    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(app.code).toBe(LINK_CODE);
+    expect(await app.store!.get('code')).toBe(LINK_CODE);
+    const syncs = calls.filter((c) => c.path.endsWith('/sync'));
+    expect(syncs[0]!.headers['authorization']).toBe(`Code ${OLD}`);
+    expect((syncs[0]!.body as { events: { id: string }[] }).events.map((e) => e.id)).toEqual([
+      '10000000-0000-4000-8000-000000000001',
+    ]);
+    // Nothing of the old participant's is left on the device, or sent under the new code.
+    expect(
+      (await db(app).events.toArray()).some((e) => e.id === '10000000-0000-4000-8000-000000000001'),
+    ).toBe(false);
+    for (const sync of syncs.slice(1))
+      expect(JSON.stringify(sync.body)).not.toContain('10000000-0000-4000-8000-000000000001');
+  });
+
+  it('a link whose participant was deleted makes the same code again: a new participant, with the welcome', async () => {
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', LINK_CODE);
+    store.close();
+    stubRoutes({ [`/api/${SLUG}/me`]: [UNKNOWN] });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(app.screen).toBe('welcome');
+    expect(app.code).toBe('');
+    expect(app.linkCode).toBe(LINK_CODE);
+    expect(app.codeRefused).toBe(false);
+  });
+
+  it('a link without a value makes a device code as before, and asks nothing before the join', async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    expect(app.linkCode).toBe('');
+    expect(calls.filter((c) => c.path.endsWith('/me'))).toHaveLength(0);
+    await app.join();
+    const code = (calls.find((c) => c.path.endsWith('/join'))!.body as { code: string }).code;
+    expect(code).toMatch(/^\d{16}$/);
+    expect(code).not.toBe(LINK_CODE);
+    expect(app.code).toBe(code);
+  });
+
+  it('a value that is not one (too short, or in the wrong shape) is ignored, and still leaves the address', async () => {
+    stubRoutes({});
+    const app = await opened(`/${SLUG}/join/wave-1`, '#p=ab');
+    expect(location.hash).toBe('');
+    expect(app.linkCode).toBe('');
+    expect(app.screen).toBe('welcome');
   });
 });
 

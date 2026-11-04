@@ -85,14 +85,12 @@ afterEach(() => {
 });
 
 describe('a device with no link and no code', () => {
-  it('sees the welcome with "open the link you were sent" and the way in for a code', async () => {
+  it('sees the welcome with "open the link you were sent", and no way to type a code', async () => {
     const calls = stubApi(() => ({ status: 404, body: { error: 'WORKSHOP_UNKNOWN' } }));
     await open(`/${SLUG}/`);
     expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }),
-    ).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy.item('Buttons', 'new here') })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
     expect(calls).toEqual([]);
   });
 });
@@ -114,78 +112,6 @@ describe('an address that is not a workshop', () => {
     stubApi(() => ({ status: 404, body: {} }));
     await open('/nowhere/');
     expect(screen.getByText(copy.text('Not a workshop'))).toBeTruthy();
-  });
-});
-
-describe('entering a code', () => {
-  it('"I have a code" is the address /continue, and Back is the workshop home again', async () => {
-    stubApi(() => ({ status: 200, body: {} }));
-    const user = userEvent.setup();
-    await open(`/${SLUG}/`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
-    expect(location.pathname).toBe(`/${SLUG}/continue`);
-    expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
-    expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
-    expect(location.pathname).toBe(`/${SLUG}/`);
-  });
-
-  it('from a wave landing, "I have a code" then Back puts the wave link back in the address bar', async () => {
-    stubRoutes({});
-    const user = userEvent.setup();
-    await open(`/${SLUG}/join/wave-1`);
-    await user.click(
-      await screen.findByRole('button', { name: copy.item('Buttons', 'i have a code') }),
-    );
-    expect(location.pathname).toBe(`/${SLUG}/continue`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
-    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
-    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
-  });
-
-  it('groups the digits by four as they are typed and takes no more than sixteen', async () => {
-    stubApi(() => ({ status: 200, body: {} }));
-    const user = userEvent.setup();
-    await open(`/${SLUG}/continue`);
-    const field = screen.getByRole('textbox') as HTMLInputElement;
-    await user.type(field, '12345');
-    expect(field.value).toBe('1234 5');
-    await user.type(field, '678901234567');
-    expect(field.value).toBe('1234 5678 9012 3456');
-  });
-
-  it('refuses fewer than 16 digits before asking the server', async () => {
-    const calls = stubApi(() => ({ status: 200, body: {} }));
-    const user = userEvent.setup();
-    await open(`/${SLUG}/`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
-    expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
-    await user.type(screen.getByRole('textbox'), '1234 5678 9012 345');
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'continue') }));
-    expect(screen.getByText(copy.text('Enter code: too short'))).toBeTruthy();
-    expect(calls).toEqual([]);
-  });
-
-  it('shows the AUTH_CODE_UNKNOWN wording when the server does not know the code', async () => {
-    const calls = stubApi(() => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } }));
-    const user = userEvent.setup();
-    await open(`/${SLUG}/`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
-    await user.type(screen.getByRole('textbox'), '1234 5678 9012 3456');
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'continue') }));
-    expect(await screen.findByText(copy.error('AUTH_CODE_UNKNOWN'))).toBeTruthy();
-    expect(screen.queryByText('AUTH_CODE_UNKNOWN')).toBeNull();
-    expect(calls).toEqual([{ path: `/api/${SLUG}/me`, method: 'GET' }]);
-  });
-
-  it('shows the RATE_LIMITED wording when the server asks to wait', async () => {
-    stubApi(() => ({ status: 429, body: { error: 'RATE_LIMITED' } }));
-    const user = userEvent.setup();
-    await open(`/${SLUG}/`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i have a code') }));
-    await user.type(screen.getByRole('textbox'), '1234567890123456');
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'continue') }));
-    expect(await screen.findByText(copy.error('RATE_LIMITED'))).toBeTruthy();
   });
 });
 
@@ -214,18 +140,19 @@ describe('outside the workshop days', () => {
 });
 
 describe('the pages a participant can open directly', () => {
-  it('/continue lands on enter code', async () => {
+  it('an old /continue address lands home: the enter-code page is gone (ADR 0018)', async () => {
     stubApi(() => ({ status: 200, body: {} }));
     await open(`/${SLUG}/continue`);
-    expect(screen.getByText(copy.text('Enter code'))).toBeTruthy();
+    expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
-  it('/panel lands on the page about the app, with no code yet, and Back goes where the device lands', async () => {
+  it('/panel lands on the page about the app, with nothing stored, and Back goes where the device lands', async () => {
     const calls = stubApi(() => ({ status: 200, body: {} }));
     const user = userEvent.setup();
     await open(`/${SLUG}/panel`);
     expect(screen.getByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
-    expect(screen.getByText(copy.item('Privacy panel', 'no code yet'))).toBeTruthy();
+    expect(screen.getByText(copy.item('Privacy panel', 'nothing stored'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/about`);
     expect(calls).toEqual([]);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
@@ -600,17 +527,13 @@ describe('the page about the app', () => {
     expect(screen.getByText(copy.item('Privacy panel', 'not reachable'))).toBeTruthy();
   });
 
-  it('the copy button puts the code on the clipboard in groups of four', async () => {
+  it('the page about the app shows no code, with a code stored', async () => {
     await withACode();
     stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
-    // userEvent.setup() lends the test DOM a clipboard; what the button wrote is read back from it.
-    const user = userEvent.setup();
     await open(`/${SLUG}/panel`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'copy') }));
-    expect(
-      await screen.findByRole('button', { name: copy.item('Buttons', 'copied') }),
-    ).toBeTruthy();
-    expect(await navigator.clipboard.readText()).toBe('1234 5678 9012 3456');
+    expect(document.body.textContent).not.toContain('1234567890123456');
+    expect(document.body.textContent).not.toContain('1234 5678 9012 3456');
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 });
 
