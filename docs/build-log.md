@@ -1826,7 +1826,7 @@ Marco tried the card screen on his iPhone on 4 November and decided that a parti
 - Not tried on a real phone: the rounds in the hand, and the calendar sheet from the new place of "Remind me" on an iPhone.
 - Taken by the integrator before the merge: the glossary's session sentence and the word round, the "Remind me" line in the about page entry, the decision records index up to 0017 (0016 not used), the runbook's `CLIENT_STORAGE_UNAVAILABLE` entry, the plan's section 8.1 and the calendar note, which all pointed at the session end; a stale comment in `reminder.ts`; the bound on rounds per open said in `showCard`'s comment. The reviewer's test gap (a round of warm-ups only) is left open: the deck contract requires a card of each set, so the case cannot arise from a valid deck.
 
-## 2026-11-04, Wednesday. The deck rules of 5 November (pull request NN)
+## 2026-11-04, Wednesday. The deck rules of 5 November (pull request 47)
 
 ### What
 
