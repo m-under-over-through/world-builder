@@ -6,7 +6,11 @@ import { EVENT_RETENTION_DAYS, type Event, type Session } from '@wb/contracts';
  * - settings: the code, the wave or invite the person arrived with, consent.
  * - sessions and events: what has been done. `synced` is 0 until the server accepted the row.
  *   Accepted rows are kept for EVENT_RETENTION_DAYS and re-sent if the server lacks them
- *   (ADR 0011). Answer bodies are sealed before they get here; nothing readable is stored.
+ *   (ADR 0011). Answer bodies are sealed before they get here: an event never carries plain text.
+ * - answers: the readable copy of each answer written on this device, for the participant alone
+ *   (ADR 0014), keyed by session and card. "Your world so far" reads it. It is never part of
+ *   `history()` or `pending()`, so it cannot enter a sync request; "delete me" wipes it with
+ *   the rest.
  *
  * `Store` is what the rest of the client uses; `WorkshopStore` keeps it in IndexedDB, and
  * `MemoryStore` keeps it for one open when the browser refuses storage
@@ -15,6 +19,18 @@ import { EVENT_RETENTION_DAYS, type Event, type Session } from '@wb/contracts';
  */
 export type StoredSession = Session & { synced: 0 | 1 };
 export type StoredEvent = Event & { synced: 0 | 1; syncedDay?: string };
+/** The readable copy of one answer, on the device that wrote it (ADR 0014). */
+export interface ReadableAnswer {
+  /** `${sessionId}:${cardId}` (answerKey), so a card answered in two sessions keeps both. */
+  key: string;
+  sessionId: string;
+  cardId: string;
+  text: string;
+}
+
+export function answerKey(sessionId: string, cardId: string): string {
+  return `${sessionId}:${cardId}`;
+}
 
 export interface Store {
   get(key: string): Promise<string | undefined>;
@@ -33,6 +49,10 @@ export interface Store {
   markUnsynced(sessionIds: string[], eventIds: string[]): Promise<void>;
   /** Accepted events older than the retention window are no longer needed on the device. */
   prune(today: string): Promise<number>;
+  /** Keep the readable copy of an answer this device wrote (ADR 0014). */
+  putAnswer(answer: ReadableAnswer): Promise<void>;
+  /** Every readable copy on this device. */
+  answers(): Promise<ReadableAnswer[]>;
   wipe(): Promise<void>;
 }
 
@@ -40,6 +60,8 @@ export class WorkshopStore extends Dexie implements Store {
   settings!: Table<{ key: string; value: string }, string>;
   sessions!: Table<StoredSession, string>;
   events!: Table<StoredEvent, string>;
+  /** The readable copies, in a table of their own (the method `answers` reads it). */
+  copies!: Table<ReadableAnswer, string>;
 
   constructor(slug: string) {
     super(`world-builder:${slug}`);
@@ -47,6 +69,14 @@ export class WorkshopStore extends Dexie implements Store {
       settings: 'key',
       sessions: 'id, sessionNo, synced',
       events: 'id, sessionId, synced, syncedDay',
+    });
+    // Version 2 adds the readable copies (ADR 0014). A database from version 1 gains the table
+    // on open; nothing else changes.
+    this.version(2).stores({
+      settings: 'key',
+      sessions: 'id, sessionNo, synced',
+      events: 'id, sessionId, synced, syncedDay',
+      copies: 'key, sessionId',
     });
   }
 
@@ -114,6 +144,14 @@ export class WorkshopStore extends Dexie implements Store {
     return old.length;
   }
 
+  async putAnswer(answer: ReadableAnswer): Promise<void> {
+    await this.copies.put(answer);
+  }
+  async answers(): Promise<ReadableAnswer[]> {
+    return this.copies.toArray();
+  }
+
+  /** The whole database, the readable copies included, is deleted. */
   async wipe(): Promise<void> {
     await this.delete();
   }
@@ -124,6 +162,7 @@ export class MemoryStore implements Store {
   private settings = new Map<string, string>();
   private sessions = new Map<string, StoredSession>();
   private events = new Map<string, StoredEvent>();
+  private copies = new Map<string, ReadableAnswer>();
 
   async get(key: string): Promise<string | undefined> {
     return this.settings.get(key);
@@ -189,10 +228,17 @@ export class MemoryStore implements Store {
     }
     return n;
   }
+  async putAnswer(answer: ReadableAnswer): Promise<void> {
+    this.copies.set(answer.key, answer);
+  }
+  async answers(): Promise<ReadableAnswer[]> {
+    return [...this.copies.values()];
+  }
   async wipe(): Promise<void> {
     this.settings.clear();
     this.sessions.clear();
     this.events.clear();
+    this.copies.clear();
   }
 }
 

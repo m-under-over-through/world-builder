@@ -16,6 +16,12 @@ export interface History {
 export interface LiveSession {
   session: Session;
   plan: SessionPlan;
+  /**
+   * The queue as the engine planned it when the session started, before any dismissal moved a
+   * card. A card's number in this session ("03 of 4") is its place here, so the number and the
+   * tint that follows it stay with the card when it comes round again (design/DESIGN.md).
+   */
+  queueAsPlanned: readonly string[];
   /** Card ids shown in this session, so a card is recorded as shown once however often it is displayed. */
   shown: ReadonlySet<string>;
   /** Card ids answered in this session. Answers do not change the queue; they mark cards done. */
@@ -65,10 +71,39 @@ export function deferredBefore(history: History, session: Session): string[] {
 }
 
 /**
- * Rebuild a session from its seed and its events (the deck engine's resume recipe). The plan is
- * made with the history as it stood when the session started: every answer from other sessions,
- * never this session's own, or the plan would change under the participant; and the previous
- * session's deferrals. Then this session's `dismissed` and `deferred` events go through
+ * The plan as it stood when the session started: made from every answer of the sessions before
+ * this one, never this session's own or a later session's, or the plan would change under the
+ * participant; and the previous session's deferrals. The same for the session being played and
+ * for a past session whose cards "Your world so far" numbers.
+ */
+export function planAsStarted(
+  deck: Deck,
+  config: WorkshopConfig,
+  session: Session,
+  history: History,
+): SessionPlan {
+  const numberOf = new Map(history.sessions.map((s) => [s.id, s.sessionNo]));
+  const answeredBefore = history.events
+    .filter((e) => {
+      if (e.kind !== 'answered' || e.sessionId === session.id) return false;
+      const no = numberOf.get(e.sessionId);
+      // A session the history has no row for is counted, as every other session was before.
+      return no === undefined || no < session.sessionNo;
+    })
+    .map((e) => e.cardId);
+  return planSession({
+    deck,
+    warmupsPerSession: config.warmupsPerSession,
+    checkpointsPerSession: config.checkpointsPerSession,
+    seed: session.seed,
+    answeredIds: answeredBefore,
+    deferredIds: deferredBefore(history, session),
+  });
+}
+
+/**
+ * Rebuild a session from its seed and its events (the deck engine's resume recipe): the plan as
+ * it started (`planAsStarted`), then this session's `dismissed` and `deferred` events through
  * `applyDismiss` in seq order, each `dismissed` card joining the set after its own call.
  */
 export function replaySession(
@@ -78,17 +113,8 @@ export function replaySession(
   history: History,
 ): LiveSession {
   const own = history.events.filter((e) => e.sessionId === session.id).sort(bySeq);
-  const answeredBefore = history.events
-    .filter((e) => e.kind === 'answered' && e.sessionId !== session.id)
-    .map((e) => e.cardId);
-  let plan = planSession({
-    deck,
-    warmupsPerSession: config.warmupsPerSession,
-    checkpointsPerSession: config.checkpointsPerSession,
-    seed: session.seed,
-    answeredIds: answeredBefore,
-    deferredIds: deferredBefore(history, session),
-  });
+  let plan = planAsStarted(deck, config, session, history);
+  const queueAsPlanned = plan.queue;
   const shown = new Set<string>();
   const answered = new Set<string>();
   const dismissed = new Set<string>();
@@ -107,6 +133,7 @@ export function replaySession(
   return {
     session,
     plan,
+    queueAsPlanned,
     shown,
     answered,
     dismissed,
@@ -129,6 +156,14 @@ export function sessionOver(live: LiveSession): boolean {
 /** "Card n of total": how many are done plus one, out of the queue as it stands. */
 export function position(live: LiveSession): { n: number; total: number } {
   return { n: live.answered.size + live.deferred.size + 1, total: live.plan.queue.length };
+}
+
+/**
+ * A card's number in a session: its place in the queue as planned, from 1; 0 for a card the
+ * session never planned. The label on the card ("03 of 4") and the tint follow it.
+ */
+export function cardNumber(queueAsPlanned: readonly string[], cardId: string): number {
+  return queueAsPlanned.indexOf(cardId) + 1;
 }
 
 /** The session after an answer: the card is done; the queue is untouched. */

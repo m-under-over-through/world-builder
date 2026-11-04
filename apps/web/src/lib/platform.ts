@@ -19,3 +19,12 @@ export function detectPlatform(userAgent: string, maxTouchPoints = 0): Platform 
   if (/Macintosh|Mac OS X/.test(userAgent)) return maxTouchPoints > 1 ? 'iPhone and iPad' : 'Mac';
   return null;
 }
+
+/**
+ * A mouse or a trackpad is on this device: the front card says "Click to answer" rather than
+ * "Tap to answer" (design/DESIGN.md, Components). A phone answers false; a test DOM has no
+ * matchMedia and answers false too.
+ */
+export function finePointer(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
+}

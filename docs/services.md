@@ -55,6 +55,7 @@ Running cost: zero a month beyond the vault's ten dollars a year. New accounts t
 ## 6. Packages named here rather than in a decision record
 
 - **workbox-build** and **workbox-window** (Apache-2.0, by Google): the two parts of `vite-plugin-pwa` (ADR 0012) that write the service worker at build time and register it in the page. They are listed as direct dependencies of `apps/web` because the plugin asks for them; nothing else uses them, and nothing of theirs runs at the API.
+- **Bricolage Grotesque** (by Mathieu Triay, Atelier Triay) and **DM Sans** (by Colophon Foundry and Google Fonts), both under the SIL Open Font License 1.1: the two typefaces of the design (`design/DESIGN.md`). Self-hosted as variable woff2 files in `apps/web/public/fonts/`, the Latin and Latin Extended subsets as Google Fonts serves them, with the license text beside each; the client never asks Google Fonts, since it talks to one origin. Added 4 November 2026 with the card screen of the new design. Cost 0.
 
 ## Tooling for the agents, not for the app
 

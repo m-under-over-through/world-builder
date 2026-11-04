@@ -91,3 +91,25 @@ describe('the device store', () => {
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
   });
 });
+
+describe('the readable copies (ADR 0014)', () => {
+  it('are kept apart from the rows the sync reads, and go with everything else on wipe', async () => {
+    const name = `t-${Math.random()}`;
+    const store = new WorkshopStore(name);
+    await store.events.put(event(1, 0));
+    await store.putAnswer({
+      key: '00000000-0000-4000-8000-000000000001:cool',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      cardId: 'cool',
+      text: 'The words, readable',
+    });
+    expect((await store.answers()).map((a) => a.text)).toEqual(['The words, readable']);
+    expect(JSON.stringify(await store.history())).not.toContain('readable');
+    expect(JSON.stringify(await store.pending())).not.toContain('readable');
+    await store.wipe();
+    // The wiped database is closed; the next open (a reload after "delete me") finds it empty.
+    const reopened = new WorkshopStore(name);
+    expect(await reopened.answers()).toEqual([]);
+    expect((await reopened.history()).events).toEqual([]);
+  });
+});
