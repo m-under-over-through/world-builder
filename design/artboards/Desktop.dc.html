@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Laptop, stack and your world</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=DM+Sans:opsz,wght@9..40,400..700&display=swap">
+<style>
+body{margin:0}
+a{color:#17171A}a:hover{color:#5F5F67}
+button{font:inherit;cursor:pointer}
+textarea{font:inherit}
+:focus-visible{outline:2px solid #17171A;outline-offset:3px}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; position: relative; display: flex; flex-direction: column; background-color: #F4F3EF; background-image: radial-gradient(#DBD8CF 1px, transparent 1.3px); background-size: 22px 22px; color: #17171A; font-family: 'DM Sans', system-ui, sans-serif">
+  <header style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 22px 36px 8px">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 16px; font-weight: 700; letter-spacing: -0.01em">World Builder</span>
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.02em; color: #5F5F67">Under Over Through + Mechanism</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div aria-hidden="true" style="display: flex; gap: 4px; width: 180px">
+        <sc-for list="{{segs}}" as="seg" hint-placeholder-count="12">
+          <span style="flex: 1 1 0; height: 6px; border-radius: 3px; background: {{seg.color}}"></span>
+        </sc-for>
+      </div>
+      <span style="font-size: 13px; color: #5F5F67">{{nAnswered}} of 12 answered</span>
+    </div>
+  </header>
+
+  <div style="height: 0; position: relative; z-index: 2">
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 0; right: 0; top: 4px; display: flex; justify-content: center">
+        <span style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 8px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 2px 10px rgba(23, 23, 26, 0.12); font-size: 13px; font-weight: 600">
+          <span style="display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; background: #17171A; color: #FFFFFF"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 7"></path></svg></span>
+          {{toast}}
+        </span>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 32px 48px; padding: 8px 36px 24px; align-items: stretch">
+    <section aria-label="Current card" style="flex: 0 1 420px; min-width: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 24px 0">
+      <sc-if value="{{hasFront}}" hint-placeholder-val="{{ true }}">
+        <div style="position: relative; width: 100%; max-width: 400px; height: 520px">
+          <sc-if value="{{hasBack2}}" hint-placeholder-val="{{ true }}">
+            <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 100%; height: 520px; border-radius: 26px; transform: translateY(-56px) scale(0.88) rotate(3deg); box-shadow: 0 10px 28px rgba(23, 23, 26, 0.10); background: {{back2Tint}}"></div>
+          </sc-if>
+          <sc-if value="{{hasBack1}}" hint-placeholder-val="{{ true }}">
+            <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 100%; height: 520px; border-radius: 26px; transform: translateY(-28px) scale(0.94) rotate(-2deg); box-shadow: 0 10px 28px rgba(23, 23, 26, 0.12); background: {{back1Tint}}"></div>
+          </sc-if>
+
+          <sc-if value="{{closed}}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{openCard}}" style="position: absolute; left: 0; top: 0; width: 100%; height: 520px; box-sizing: border-box; border: 0; border-radius: 26px; color: #17171A; padding: 30px 30px 28px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; text-align: left; box-shadow: 0 1px 2px rgba(23, 23, 26, 0.08), 0 20px 44px rgba(23, 23, 26, 0.16); background: {{front.tint}}">
+              <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #3D3D45">{{front.pos}}</span>
+              <span style="font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-size: 42px; line-height: 1.04; font-weight: 700; letter-spacing: -0.02em">{{front.q}}</span>
+              <span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #3D3D45">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"></circle><path d="M4.5 12a7.5 7.5 0 0 1 2.2-5.3M19.5 12a7.5 7.5 0 0 1-2.2 5.3"></path></svg>
+                Click to answer
+              </span>
+            </button>
+          </sc-if>
+
+          <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 0; top: 0; width: 100%; height: 520px; box-sizing: border-box; border-radius: 26px; padding: 24px 26px 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 2px rgba(23, 23, 26, 0.08), 0 20px 44px rgba(23, 23, 26, 0.16); background: {{front.tint}}">
+              <div style="display: flex; align-items: center; justify-content: space-between">
+                <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #3D3D45">{{front.pos}}</span>
+                <button type="button" aria-label="Close without saving" onClick="{{closeCard}}" style="width: 32px; height: 32px; border-radius: 999px; border: 0; background: rgba(23, 23, 26, 0.08); color: #17171A; display: flex; align-items: center; justify-content: center">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                </button>
+              </div>
+              <label for="answer" style="font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-size: 28px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em">{{front.q}}</label>
+              <div style="height: 1px; background: rgba(23, 23, 26, 0.18)"></div>
+              <textarea id="answer" value="{{draft}}" onChange="{{typing}}" placeholder="Say it the way you would say it out loud." style="flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; border: 0; background: transparent; resize: none; padding: 0; font-size: 17px; line-height: 1.5; color: #17171A"></textarea>
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #3D3D45">
+                <span>Please don't name real people.</span>
+                <span style="font-variant-numeric: tabular-nums">{{count}} / 4,000</span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+                <a href="#talk" style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #17171A; text-decoration: none; border-bottom: 1.5px solid currentColor; padding-bottom: 1px">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+                  Prefer to talk?
+                </a>
+                <button type="button" onClick="{{save}}" disabled="{{cantSave}}" style="height: 44px; padding: 0 24px; border-radius: 999px; border: 0; background: #17171A; color: #FFFFFF; font-size: 15px; font-weight: 600; opacity: {{saveOpacity}}">Save</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{closed}}" hint-placeholder-val="{{ true }}">
+          <button type="button" onClick="{{setAside}}" style="height: 44px; padding: 0 16px 0 20px; border-radius: 999px; border: 1.5px solid #17171A; background: transparent; color: #17171A; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600">
+            Set aside
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+          </button>
+        </sc-if>
+        <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+          <div style="height: 44px"></div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{noFront}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 400px">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: -0.02em">Thank you</h2>
+          <p style="margin: 0; font-size: 17px; line-height: 1.45">If you ever want to continue on another device, this is you:</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-radius: 20px; background: #FFFFFF; box-shadow: 0 2px 10px rgba(23, 23, 26, 0.08)">
+            <span style="font-size: 19px; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums">4921 0387 1164 2208</span>
+            <button type="button" style="height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid #17171A; background: transparent; color: #17171A; font-size: 13px; font-weight: 600">Copy</button>
+          </div>
+          <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3D3D45">The next cards wait for you another day. <a href="#remind" style="color: #17171A; font-weight: 600">Remind me</a></p>
+          <button type="button" onClick="{{restart}}" style="align-self: flex-start; height: 36px; padding: 0 14px; border-radius: 999px; border: 0; background: rgba(23, 23, 26, 0.08); color: #3D3D45; font-size: 13px; font-weight: 600; margin-top: 8px">Start over (prototype only)</button>
+        </div>
+      </sc-if>
+    </section>
+
+    <section aria-label="Your world so far" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px; padding: 24px 0 0">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-size: 28px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em">Your world so far</h2>
+        <span style="font-size: 13px; color: #5F5F67">{{summary}}</span>
+      </div>
+
+      <sc-if value="{{noTiles}}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius: 20px; padding: 28px; border: 1.5px dashed #D2CFC6; max-width: 420px; font-size: 15px; line-height: 1.5; color: #5F5F67">Nothing here yet. Answer a card on the left and it lands here, one tile per question. Set-aside cards gather at the bottom until you bring them back.</div>
+      </sc-if>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; align-items: start">
+        <sc-for list="{{tiles}}" as="tile" hint-placeholder-count="6">
+          <div style="border-radius: 20px; padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 8px; background: {{tile.tint}}">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #3D3D45">{{tile.label}}</span>
+            <span style="font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-size: 17px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em">{{tile.q}}</span>
+            <span style="font-size: 14px; line-height: 1.45">{{tile.a}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{hasAside}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5F5F67">Set aside</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <sc-for list="{{aside}}" as="item" hint-placeholder-count="2">
+              <span style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 4px 0 14px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid #E3E1DA; background: #FFFFFF; font-size: 13px; font-weight: 600; white-space: nowrap">
+                {{item.q}}
+                <button type="button" onClick="{{item.back}}" style="height: 30px; padding: 0 12px 0 8px; border-radius: 999px; border: 0; background: #17171A; color: #FFFFFF; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-2"></path></svg>
+                  Bring back
+                </button>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+  </div>
+
+  <footer style="display: flex; justify-content: center; padding: 8px 36px 20px">
+    <a href="#about" style="font-size: 12px; color: #5F5F67">About this app</a>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"seed":{"editor":"boolean","default":true,"section":"Prototype"},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.cards = [
+      { id: 1, q: 'What is the typical Tuesday night?', t: 'Everyday life' },
+      { id: 2, q: 'What is embarrassing?', t: 'Everyday life' },
+      { id: 3, q: 'What is cool?', t: 'Everyday life' },
+      { id: 4, q: 'What are the most important classes at school?', t: 'Institutions' },
+      { id: 5, q: 'Are there immigrants? What do they do?', t: 'People' },
+      { id: 6, q: 'Who gets richer, or poorer? How?', t: 'Economy' },
+      { id: 7, q: 'What is considered inhumane?', t: 'Values' },
+      { id: 8, q: 'What happens when something breaks?', t: 'Systems' },
+      { id: 9, q: 'What is abundant? What is scarce?', t: 'Economy' },
+      { id: 10, q: 'What is the most important institution?', t: 'Institutions' },
+      { id: 11, q: 'What is a crime?', t: 'Values' },
+      { id: 12, q: 'What are the bots doing?', t: 'Machines' }
+    ];
+    this.tints = ['#FFD86E', '#A7E1BD', '#A6CBF5', '#CBBCF2'];
+    this.seed = {
+      1: 'Quiet. The grid dims at nine, so people sit on the stoops with the radio on. Tuesday is also when the water truck comes, and nobody goes to bed before it does.',
+      2: 'Being caught running a cooler with the window open. Someone will film it and your aunt will see it.',
+      3: 'Owning something from before that still works. A 2030s bicycle, a paper map, a phone with buttons.',
+      4: 'Water, every year, in every grade. Then negotiation, which the kids call Listening.',
+      5: 'Yes, from the inland farms that dried out. They run the night markets and most of the repair shops.',
+      6: 'Whoever holds a desalination quota gets richer. Anyone who built on the lower terraces got poorer in a single season.'
+    };
+    this.state = this.initial();
+    this.timer = null;
+  }
+  seedOn() {
+    return (this.props.seed === undefined || this.props.seed === null) ? true : !!this.props.seed;
+  }
+  initial() {
+    var base = { open: false, draft: '', toast: '' };
+    if (this.seedOn()) {
+      base.deck = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 7];
+      base.answers = Object.assign({}, this.seed);
+      base.dismissed = { 7: 1 };
+    } else {
+      base.deck = this.cards.map(function (c) { return c.id; });
+      base.answers = {};
+      base.dismissed = {};
+    }
+    return base;
+  }
+  componentDidUpdate(prev) {
+    var was = (prev.seed === undefined || prev.seed === null) ? true : !!prev.seed;
+    if (was !== this.seedOn()) this.setState(this.initial());
+  }
+  queue() {
+    var st = this.state;
+    return st.deck.filter(function (id) { return !st.answers[id] && (st.dismissed[id] || 0) < 2; });
+  }
+  card(id) { return this.cards.filter(function (c) { return c.id === id; })[0]; }
+  tint(id) { return this.tints[(id - 1) % 4]; }
+  info(id) {
+    var c = this.card(id);
+    var n = (id < 10 ? '0' : '') + id;
+    return { id: id, q: c.q, t: c.t, tint: this.tint(id), n: n, label: n + ' · ' + c.t, pos: n + ' of 12 · ' + c.t };
+  }
+  flash(msg) {
+    var self = this;
+    clearTimeout(this.timer);
+    this.setState({ toast: msg });
+    this.timer = setTimeout(function () { self.setState({ toast: '' }); }, 1600);
+  }
+  save() {
+    var q = this.queue(); if (!q.length) return;
+    var text = this.state.draft.trim(); if (!text) return;
+    var answers = Object.assign({}, this.state.answers); answers[q[0]] = text;
+    this.setState({ answers: answers, draft: '', open: false });
+    this.flash('Saved on this device');
+  }
+  setAside() {
+    var q = this.queue(); if (!q.length) return;
+    var id = q[0];
+    var dismissed = Object.assign({}, this.state.dismissed); dismissed[id] = (dismissed[id] || 0) + 1;
+    var deck = this.state.deck.filter(function (x) { return x !== id; }); deck.push(id);
+    this.setState({ deck: deck, dismissed: dismissed, open: false, draft: '' });
+    this.flash(dismissed[id] >= 2 ? 'Set aside for another day' : 'Set aside');
+  }
+  bringBack(id) {
+    var dismissed = Object.assign({}, this.state.dismissed); delete dismissed[id];
+    var deck = this.state.deck.filter(function (x) { return x !== id; }); deck.unshift(id);
+    this.setState({ deck: deck, dismissed: dismissed, open: false, draft: '' });
+  }
+  renderVals() {
+    var self = this, st = this.state, q = this.queue();
+    var front = q.length ? this.info(q[0]) : { q: '', t: '', tint: '#FFFFFF', n: '', label: '', pos: '' };
+    var tiles = this.cards.filter(function (c) { return st.answers[c.id]; }).map(function (c) { var i = self.info(c.id); i.a = st.answers[c.id]; return i; });
+    var aside = st.deck.filter(function (id) { return !st.answers[id] && (st.dismissed[id] || 0) > 0; }).map(function (id) { var i = self.info(id); i.back = function () { self.bringBack(id); }; return i; });
+    var segs = this.cards.map(function (c) { return { color: st.answers[c.id] ? self.tint(c.id) : ((st.dismissed[c.id] || 0) > 0 ? '#CFCCC3' : '#E4E2DB') }; });
+    var count = Array.from(st.draft).length;
+    var canSave = st.draft.trim().length > 0;
+    return {
+      hasFront: q.length > 0, noFront: q.length === 0,
+      front: front,
+      hasBack1: q.length > 1, back1Tint: q.length > 1 ? this.tint(q[1]) : '#FFFFFF',
+      hasBack2: q.length > 2, back2Tint: q.length > 2 ? this.tint(q[2]) : '#FFFFFF',
+      closed: !st.open, open: st.open,
+      draft: st.draft, count: count.toLocaleString('en-US'),
+      cantSave: !canSave, saveOpacity: canSave ? '1' : '0.45',
+      tiles: tiles, noTiles: tiles.length === 0,
+      aside: aside, hasAside: aside.length > 0,
+      segs: segs, nAnswered: tiles.length,
+      summary: tiles.length + ' answered · ' + aside.length + ' set aside · ' + q.length + ' to go',
+      toast: st.toast, hasToast: !!st.toast,
+      openCard: function () { self.setState({ open: true }); },
+      closeCard: function () { self.setState({ open: false, draft: '' }); },
+      typing: function (e) { self.setState({ draft: e.target.value }); },
+      save: function () { self.save(); },
+      setAside: function () { self.setAside(); },
+      restart: function () { self.setState(self.initial()); }
+    };
+  }
+}
+</script>
+</body>
+</html>

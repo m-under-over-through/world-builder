@@ -1,0 +1,37 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-04T01:00:00Z" },
+  "title": "World Builder — card stack screens",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "Card · fresh", "radius": 44 },
+    "Card-Answering.dc.html": { "x": 470, "y": 0, "w": 390, "h": 844, "title": "Card · answering", "radius": 44 },
+    "Card-Saved.dc.html": { "x": 940, "y": 0, "w": 390, "h": 844, "title": "Card · saved, next up", "radius": 44 },
+    "World-Sheet.dc.html": { "x": 1410, "y": 0, "w": 390, "h": 844, "title": "Your world · sheet", "radius": 44 },
+    "Phone-Prototype.dc.html": { "x": 1880, "y": 0, "w": 390, "h": 844, "title": "Phone · playable prototype", "radius": 44, "is_interactive": true },
+    "Desktop.dc.html": { "x": 0, "y": 1300, "w": 1280, "h": 820, "title": "Laptop · stack + your world (playable)", "expand": "fill", "is_interactive": true },
+    "Welcome.dc.html": { "x": 0, "y": 2560, "w": 390, "h": 844, "title": "Welcome", "radius": 44 },
+    "Onboarding.dc.html": { "x": 470, "y": 2560, "w": 390, "h": 844, "title": "Onboarding cards (playable)", "radius": 44, "is_interactive": true },
+    "Enter-Code.dc.html": { "x": 940, "y": 2560, "w": 390, "h": 844, "title": "Enter code", "radius": 44 },
+    "Session-End.dc.html": { "x": 1410, "y": 2560, "w": 390, "h": 844, "title": "Session end", "radius": 44 }
+  },
+  "order": [
+    "Main.dc.html",
+    "Card-Answering.dc.html",
+    "Card-Saved.dc.html",
+    "World-Sheet.dc.html",
+    "Phone-Prototype.dc.html",
+    "Desktop.dc.html",
+    "Welcome.dc.html",
+    "Onboarding.dc.html",
+    "Enter-Code.dc.html",
+    "Session-End.dc.html"
+  ],
+  "notes": {
+    "row-phone": { "x": 0, "y": -300, "text": "Phone — the core loop: tap to answer, swipe to set aside", "kind": "title1", "maxW": 2270 },
+    "row-desktop": { "x": 0, "y": 1000, "text": "Laptop & tablet — the stack on one side, your world on the other", "kind": "title1", "maxW": 1280 },
+    "row-support": { "x": 0, "y": 2260, "text": "Welcome, onboarding cards, code, session end", "kind": "title1", "maxW": 1800 }
+  },
+  "designSystems": []
+}
