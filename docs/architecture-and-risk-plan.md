@@ -220,7 +220,7 @@ Session mechanics, all computed on the device:
 - Each session gets a random seed stored with the session, so resuming mid-session is deterministic.
 - The queue is W warm-ups then C checkpoints, both chosen by seeded shuffle, preferring cards this participant has not yet answered and cycling back to answered ones once a set is exhausted. W and C live in the deck file, not in code, so they can be tuned by hand on staging. Starting values, from gut feel: W = 3, C = 1. A session is then four cards and a few minutes, which suits coming back three or four times.
 - Dismiss moves the card to the end of this session's queue. A second dismiss defers it to a future session. A "Later" pile is reachable at any time for revisiting.
-- A session ends after the checkpoints, with a "come back another day" screen. No timers, no streaks, no pressure.
+- A session ends after the checkpoints, with a "come back another day" screen. No timers, no streaks, no pressure. Revised 4 November 2026 (ADR 0017): no screen between sessions; the next round starts at once, and stopping is closing the tab.
 - Dismissals are recorded as events. Which questions people avoid is research data in its own right. The trust page says so.
 
 Decided 23 October: no revising earlier answers. Checkpoints rotate through the unseen ones first and then repeat, which is how a view moving over time becomes visible. The exact W and C are tuned hands-on in week two.
@@ -232,7 +232,7 @@ The first open has to do four jobs in under a minute, and the order matters beca
 1. **What this is.** Three screens at most: who is running this and why, what you will be asked, that answers are anonymous and used for research. The third screen is the consent step. Plain words, no scrolling walls.
 2. **How it works.** One screen with a live demo card: tap to answer, swipe to put it aside, the "Later" pile, no right answers, come back any time.
 3. **The first card, with the dictation hint.** The hint is platform-specific. The app detects iPhone and iPad, Android, Mac, Windows and ChromeOS and shows the matching illustration of where the microphone key or shortcut is. It is dismissible and stays reachable from the "Prefer to talk?" control on every card. On Linux and unknown platforms it simply does not appear.
-4. **End of the first session, in this order.** First the code: "this is you, save it to continue on another device", with copy and a masked reveal. Then the install prompt: "add to your home screen for next time", with per-platform steps. The order matters: someone who installs after seeing their code can type it into the installed app and carry on; someone who installs before seeing it would start over.
+4. **End of the first session, in this order.** First the code: "this is you, save it to continue on another device", with copy and a masked reveal. Then the install prompt: "add to your home screen for next time", with per-platform steps. The order matters: someone who installs after seeing their code can type it into the installed app and carry on; someone who installs before seeing it would start over. Revised 4 November 2026 (ADR 0017): neither happens any more. There is no end of session and no install prompt; the code lives on the about page until the identity by the newsletter link (ADR 0018) replaces it.
 
 Returning opens skip all of this and land on the next card. The privacy panel, the trust page and the hints remain one tap away.
 

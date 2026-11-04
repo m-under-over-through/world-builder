@@ -1,6 +1,6 @@
 # 0018. Identity by the link: no code typed or shown
 
-Date: 2026-11-04. Status: proposed, Marco's decision of 4 November; the partner's test send and the wording of the promise are owed before it is accepted. Supersedes the code's role in ADR 0005 and ADR 0013's "I have a code" and code display; the keyed hash and the sealing stay.
+Date: 2026-11-04. Status: accepted, Marco's decision of 4 November; two items stay open, the partner's test send and the wording of the promise, and either may send this record back. Supersedes the code's role in ADR 0005 and ADR 0013's "I have a code" and code display; the keyed hash and the sealing stay.
 
 ## Context
 
@@ -8,12 +8,12 @@ Marco tested the card screen on his iPhone on 4 November. Typing the 16-digit co
 
 ## Decision
 
-- **The newsletter link carries a value of its own per recipient, after the `#`**: `/<slug>/join/<wave>#p=<value>`. What follows `#` stays in the browser: it is not sent to Netlify, not to the API, not written in a log, not passed on as a referrer. The client turns the value into the 16-digit code with a one-way hash (SHA-256 of the value, the first sixteen digits of its decimal reading; the rule lives in `apps/web/src/lib/identity.ts` with a test) and joins as today, through `POST /join` with the code and the wave. The server sees exactly what it sees now: a keyed hash of a code, a wave, days. No contract or API change.
+- **The newsletter link carries a value of its own per recipient, after the `#`**: `/<slug>/join/<wave>#p=<value>`. What follows `#` stays in the browser: it is not sent to Netlify, not to the API, not written in a log, not passed on as a referrer. The client turns the value into the 16-digit code with a one-way hash (SHA-256 of the value, the last sixteen digits of its decimal reading; the rule lives in `apps/web/src/lib/identity.ts` with a test) and joins as today, through `POST /join` with the code and the wave. The server sees exactly what it sees now: a keyed hash of a code, a wave, days. No contract or API change.
 - **A second device with the same link is the same participant.** The join answers `JOIN_CODE_TAKEN`; for a code made from a link value the client reads that as "this is me", keeps the code and continues with `GET /me`, the intro and the consent already given once. For a code the device made itself (no value in the link) the retry with a fresh code stays as it is.
 - **Spare links for forwards.** The newsletter puts a few more links at its foot, each with a value of its own, for the recipient to forward. A forwarded spare starts its own participant; nothing joins two participants on our side. The newsletter tool may derive a spare's value from the recipient's; the client never looks at the shape of a value. The in-app invites stay idle; the screen map no longer offers them.
 - **Nothing to type or to show.** The "I have a code" link, the enter-code screen, the code section of the about page and the code sentence at the session end go. The code exists in the device's store and in the server's hash and nowhere a participant sees it.
 - **The fallback.** A link without a value makes the device its own code, as before, silently. Such a participant continues in the same browser only.
-- **Storage.** The device keeps the code as today. The link makes it recoverable; the device does not have to be durable for the participant to continue, only for the readable copies (ADR 0014), which stay where they were written.
+- **Storage.** The device keeps the code as today, and a link's code it has not yet taken over under the setting `linkCode` until the server has met it or the old outbox has gone out. The link makes it recoverable; the device does not have to be durable for the participant to continue, only for the readable copies (ADR 0014), which stay where they were written.
 
 ## Consequences
 

@@ -28,7 +28,7 @@ async function opened(pathname: string, hash = ''): Promise<AppState> {
 
 /** A link's value, and the code it makes (test/identity.test.ts pins the rule). */
 const LINK_VALUE = 'test-link-value-0001';
-const LINK_CODE = '1871948336772442';
+const LINK_CODE = '9173841926745943';
 
 /** A state on the first card of a fresh first session, the onboarding card seen, with a store but no code. */
 async function onACard(): Promise<AppState> {
@@ -554,6 +554,34 @@ describe('identity by the link (ADR 0018)', () => {
     );
   });
 
+  it('the link does not win while the old outbox cannot go out: nothing is wiped, the old code stays, the link waits', async () => {
+    const OLD = '1234567890123456';
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', OLD);
+    await store.events.put({
+      id: '10000000-0000-4000-8000-000000000002',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      cardId: 'cool',
+      seq: 0,
+      kind: 'dismissed',
+      createdDay: '2026-11-16',
+      deckVersion: '0.1',
+      synced: 0,
+    });
+    store.close();
+    stubRoutes({
+      [`/api/${SLUG}/me`]: [ME, ME],
+      [`/api/${SLUG}/sync`]: [() => 'offline', () => 'offline'],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
+    expect(app.code).toBe(OLD);
+    expect(await app.store!.get('code')).toBe(OLD);
+    expect(await app.store!.get('linkCode')).toBe(LINK_CODE);
+    expect(
+      (await db(app).events.toArray()).some((e) => e.id === '10000000-0000-4000-8000-000000000002'),
+    ).toBe(true);
+  });
+
   it("the link wins over a different stored code: the old outbox goes out with the old code, then the device's rows go", async () => {
     const OLD = '1234567890123456';
     const store = new WorkshopStore(SLUG);
@@ -569,7 +597,12 @@ describe('identity by the link (ADR 0018)', () => {
       synced: 0,
     });
     store.close();
-    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
+    // The server accepts the old participant's event, so the outbox empties and the switch happens.
+    const accepted = () => ({
+      status: 200,
+      body: { acceptedSessionIds: [], acceptedEventIds: ['10000000-0000-4000-8000-000000000001'] },
+    });
+    const calls = stubRoutes({ [`/api/${SLUG}/me`]: [ME, ME], [`/api/${SLUG}/sync`]: [accepted] });
     const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     expect(app.code).toBe(LINK_CODE);
     expect(await app.store!.get('code')).toBe(LINK_CODE);
