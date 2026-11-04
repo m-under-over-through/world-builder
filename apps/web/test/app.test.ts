@@ -641,6 +641,7 @@ describe('the core loop', () => {
       expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
     );
     expect(document.querySelector('[role="status"]')).toBeNull();
+    expect(app.live!.plan.queue).not.toContain(first.id);
     expect(app.live!.dismissed.has(first.id)).toBe(true);
     const next = app.card!;
     expect((await frontCard()).querySelector('.label')!.textContent).toBe(next.area);
