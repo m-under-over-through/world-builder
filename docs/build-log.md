@@ -1784,3 +1784,38 @@ What was seen: the dev server at 390, 820 and 1280 pixels in the app's browser p
 - The "x" against the design's "+" in the organizer line: one word in `workshop.json`.
 - The welcome, the onboarding, the code screen and the session end are on the new base but not yet in the new design: the next session.
 - Review fixes applied by the integrator before the merge: the empty world's style (`.empty`) also dressed the progress strip's untouched segments on the laptop page as dashed boxes; the class is now `world-empty`. The sheet's head takes `touch-action: none` so a touch browser does not claim the swipe down. A local name in `Stack.svelte` no longer shadows the component's `slots`. Confirmed with the reviewer: M in "NN of M" is the planned length of the session, so a deferral never shrinks it.
+
+## 2026-11-04, Wednesday, early. The installed app on an iPhone starts in its workshop: a page per workshop, the service worker by hand (pull request 42)
+
+### What
+
+Marco added the app to his iPhone's home screen from the new build and opened it: "This address is not a workshop", the same screen as on 3 November. The fix of that day repointed the page's manifest link from a script; Chrome reads the link when the participant installs, an iPhone when the page loads, so every iPhone install took the root manifest and started at `/`, where a home-screen app, with storage of its own, remembers no workshop. ADR 0016:
+
+- **A copy of the page per workshop**, written at build by `workshopPages` in `apps/web/pwa.ts` at `/<slug>/index.html`: the root page with its manifest link pointed at that workshop's manifest and nothing else changed (`workshopPage` in `apps/web/src/lib/pages.ts`, which refuses a page without the root link). Netlify serves it under `/<slug>/*` by one line per workshop folder in `public/_redirects`, before the catch-all.
+- **The service worker written by hand** (`apps/web/src/sw.ts`), since once installed it answers every navigation from its cache: it keeps the same files as before, answers a navigation under `/<slug>/` with that workshop's page and any other with the root page (`pageFor`, the slugs read off the kept files), never answers `/api/*` or a calendar file with a page, and caches nothing at runtime. vite-plugin-pwa builds it and injects the file list (`injectManifest`). `workbox-core`, `workbox-precaching` and `workbox-routing` are named in `docs/services.md`.
+- **A safety net at `/`**: with nothing remembered and exactly one workshop in the build, `/` goes to that workshop (`onlyWorkshop` in `lib/workshops.ts`), so an app installed before this change lands in it too.
+- The learn note on the installed app says what each phone reads and when.
+
+### Why
+
+An installed app must open where it was installed from, on both phones. Whatever must be right at install time has to be in the page as served, not left there by a script; and the worker that serves the page afterwards has to know the same rule. The rule is one pure function used in both places and tested once.
+
+### How to verify
+
+1. `npm run check`: green. `apps/web/test/install.test.ts` has the page copy, the plugin, the page rule, the worker's options and source, and the redirect lines; `state.test.ts` has the root address with one workshop.
+2. `npm run build:web`; then `grep -c 'rural-manufacturing/manifest.webmanifest' apps/web/dist/rural-manufacturing/index.html` is 1, the copy differs from `dist/index.html` in that link only, and `grep -c 'rural-manufacturing/index.html' apps/web/dist/sw.js` is 1.
+3. On the deploy preview, `curl -s .../rural-manufacturing/join/wave-1 | grep manifest` shows the workshop's link.
+4. On an iPhone: the preview's wave link in Safari, Share, Add to Home Screen, open the icon: the workshop's welcome, asking for the code once. Airplane Mode on, open it again: it opens.
+
+What was seen: the build's files and the worker on this laptop; the tests. Not tried: the iPhone itself, which is Marco's next step on the preview, and Android, where the earlier fix already worked.
+
+### Decisions made on the way
+
+- The redirect lines are written by hand, one per folder, with a test that every folder has its line: generating `_redirects` at build would collide with Vite's copy of `public/`.
+- `main.ts` still repoints the link: it costs nothing and keeps the root page right in Chrome.
+- The root manifest keeps `/` as its start address; the safety net at `/` handles the single-workshop build.
+
+### Open
+
+- Whether iPhone also caches a manifest it has fetched once (not relevant now that the link is right at load).
+- The safety net at `/` stops applying when the class workshop joins as a second folder; apps installed after this change are unaffected.
