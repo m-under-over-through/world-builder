@@ -21,3 +21,6 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0015   | The card screen in the new design: the stack, the world, the laptop page, the fonts              |
 | 0016   | Not used                                                                                         |
 | 0017   | Rounds instead of sessions: no end screen, no install offer                                      |
+| 0018   | Identity by the link: the newsletter link's value makes the code; no code typed or shown         |
+| 0019   | One page before the cards: the welcome is the intro and the consent; no numbers, no toasts       |
+| 0020   | The deck rules of 5 November: set-aside cards return later, never first; the deck ends           |

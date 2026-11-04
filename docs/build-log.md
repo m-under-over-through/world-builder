@@ -1926,3 +1926,21 @@ Marco went through every screen of the preview on his phone and on a laptop and 
 - Taken by the integrator before the merge: the glossary's session sentence and the word round, the "Remind me" line in the about page entry, the decision records index up to 0017 (0016 not used), the runbook's `CLIENT_STORAGE_UNAVAILABLE` entry, the plan's section 8.1 and the calendar note, which all pointed at the session end; a stale comment in `reminder.ts`; the bound on rounds per open said in `showCard`'s comment. The reviewer's test gap (a round of warm-ups only) is left open: the deck contract requires a card of each set, so the case cannot arise from a valid deck.
 - Review fixes applied by the integrator before the merge: the link's code is derived from the last sixteen digits of the digest, not the first (a 256-bit number's first digit is "1" far more often than any other); `adopt` no longer wipes the device while the old participant's outbox cannot go out, and returns whether the switch happened, so the old participant stays for that open and the link's code waits under `linkCode` (a test covers the offline case); a bare `#` is removed from the address too; the queued join's acceptance of `JOIN_CODE_TAKEN` for a device-made code is said to be on purpose; the trust text's "Your controls" speaks of the link, not the code; ADR 0018 is accepted with its two open items and names the `linkCode` setting.
 - Review fixes applied by the integrator before the merge: with every toast gone nothing told a screen reader that a card was saved or set aside; a line drawn nowhere (`aria-live`) now says it from the "Announcements" block, with a test. The screen map's "Remind me" row no longer speaks of chips, the dead `--shadow-toast` token is gone, and the set-aside list's comment says its order. Left to Marco: the welcome's title says "local production in America" while the consent sentences, under legal review, say "local manufacturing in rural America".
+
+## 2026-11-04, Wednesday afternoon. The words that went stale with the link and the morning pass
+
+### What
+
+The integrator's sweep after pull requests 45 and 46: the glossary's code entry says where the code comes from now and gains **link value**; the about page and privacy panel entries match the one fold of ADR 0019; the decision records index runs to 0020; the runbook's `AUTH_CODE_UNKNOWN` entry no longer speaks of typing a code; the participant texts (consent, privacy policy, trust page drafts for the legal review) speak of the link instead of the code and state the shared-attribution limit of ADR 0018 in one sentence.
+
+### Why
+
+The glossary is law and the participant texts go to Mechanism's legal team this week; both must describe the app as it is.
+
+### How to verify
+
+`grep -n "16-digit code\|I have a code" docs/participant-texts.md docs/runbook.md docs/glossary.md` finds nothing but history. The index in `docs/adr/README.md` ends at 0020.
+
+### Open
+
+- The welcome's title says "local production in America" while the consent sentences say "local manufacturing in rural America": Marco's call, with the legal review.
