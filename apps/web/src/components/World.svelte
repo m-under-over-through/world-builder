@@ -40,7 +40,7 @@
       <h3 class="section-label">{app.copy.item('Your world', 'answered')}</h3>
     {/if}
     {#if world.tiles.length === 0}
-      <p class="empty">{app.copy.item('Your world', sheet ? 'empty' : 'empty laptop')}</p>
+      <p class="world-empty">{app.copy.item('Your world', sheet ? 'empty' : 'empty laptop')}</p>
     {:else}
       <ul class="tiles">
         {#each world.tiles as tile (tile.key)}

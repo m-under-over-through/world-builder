@@ -40,10 +40,10 @@
 
   /** "03 of 4 · Everyday life", or "03 of 4" for a card without an area. */
   function label(n: number, area?: string): string {
-    const slots = { n: String(n).padStart(2, '0'), total: app.queueLength };
+    const parts = { n: String(n).padStart(2, '0'), total: app.queueLength };
     return area
-      ? fill(app.copy.item('Card labels', 'position with area'), { ...slots, area })
-      : fill(app.copy.item('Card labels', 'position'), slots);
+      ? fill(app.copy.item('Card labels', 'position with area'), { ...parts, area })
+      : fill(app.copy.item('Card labels', 'position'), parts);
   }
 
   /** The question's size by its length: larger when it fits in two lines, smaller when long (DESIGN.md, Content). */

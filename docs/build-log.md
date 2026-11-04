@@ -1783,3 +1783,4 @@ What was seen: the dev server at 390, 820 and 1280 pixels in the app's browser p
 - The phone checks listed above, on an iPhone and on Android.
 - The "x" against the design's "+" in the organizer line: one word in `workshop.json`.
 - The welcome, the onboarding, the code screen and the session end are on the new base but not yet in the new design: the next session.
+- Review fixes applied by the integrator before the merge: the empty world's style (`.empty`) also dressed the progress strip's untouched segments on the laptop page as dashed boxes; the class is now `world-empty`. The sheet's head takes `touch-action: none` so a touch browser does not claim the swipe down. A local name in `Stack.svelte` no longer shadows the component's `slots`. Confirmed with the reviewer: M in "NN of M" is the planned length of the session, so a deferral never shrinks it.

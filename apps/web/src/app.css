@@ -944,7 +944,7 @@ textarea::placeholder {
   font-weight: 600;
   white-space: nowrap;
 }
-.empty {
+.world-empty {
   border-radius: var(--radius-tile);
   padding: 20px;
   border: 1.5px dashed var(--color-line-dashed);
@@ -996,6 +996,7 @@ textarea::placeholder {
   flex: none;
 }
 .sheet-head {
+  touch-action: none;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1223,7 +1224,7 @@ textarea::placeholder {
   margin-top: 8px;
   gap: 10px;
 }
-.app.wide .empty {
+.app.wide .world-empty {
   border-radius: 20px;
   padding: 28px;
   max-width: 420px;
