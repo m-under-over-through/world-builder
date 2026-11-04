@@ -127,16 +127,14 @@ describe('the label and the tint', () => {
     }
   });
 
-  it('a card set aside keeps its number and its tint when it comes round', async () => {
+  it('a card set aside leaves the round; the cards after it keep their numbers and tints', async () => {
     const app = await onACard();
     const first = app.card!;
     await app.setAside();
     expect(app.cardNo).toBe(2);
     for (let i = 0; i < 2; i++) await app.setAside();
     expect(app.cardNo).toBe(4);
-    await app.setAside();
-    expect(app.card!.id).toBe(first.id);
-    expect(app.cardNo).toBe(1);
+    expect(app.live!.plan.queue).not.toContain(first.id);
     expect(app.live!.queueAsPlanned).toHaveLength(4);
   });
 });

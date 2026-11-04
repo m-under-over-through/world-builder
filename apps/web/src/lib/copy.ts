@@ -132,6 +132,7 @@ export const COPY_TEXT = [
   'Welcome: no link',
   'Welcome: link not accepted',
   'Closed',
+  'Thank you card',
   'Not open yet',
   'About: what this is',
   'About: in short',

@@ -201,6 +201,13 @@ The link this phone remembered is not in use any more. Open the link from your e
 [placeholder]
 Come back whenever you like. Your calendar can nudge you twice a week.
 
+## Thank you card (under 30 words)
+
+<!-- Shown as the last card in the stack, not a screen, once every card of the deck is answered or set aside twice (ADR 0020). Nothing comes after it. -->
+
+[placeholder]
+Thank you for your answers. That was every card; there are none left to come.
+
 ## Closed (under 40 words)
 
 [placeholder]

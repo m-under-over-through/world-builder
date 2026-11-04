@@ -1,12 +1,12 @@
 import type { Deck, Event, Session, WorkshopConfig } from '@wb/contracts';
-import { applyDismiss, isSessionOver, planSession, type SessionPlan } from '@wb/deck';
+import { applyDismiss, isDeckDone, isSessionOver, planSession, type SessionPlan } from '@wb/deck';
 
 /**
  * A session on the device, rebuilt from what is stored: the session row (its seed) and its events.
  * The queue itself is never stored (architecture plan, section 8; the deck brief): it is replayed
  * from the seed and the events, so a reload, a second device with the same code and a restored
- * server all arrive at the same card. The rules of the queue are the deck engine's; this file only
- * feeds it the history and replays this session's dismissals through it.
+ * server all arrive at the same card. The rules of the queue are the deck engine's (ADR 0020); this
+ * file only feeds it the history and replays this session's set-asides through it.
  */
 export interface History {
   sessions: Session[];
@@ -17,23 +17,30 @@ export interface LiveSession {
   session: Session;
   plan: SessionPlan;
   /**
-   * The queue as the engine planned it when the session started, before any dismissal moved a
-   * card. A card's number in this session ("03 of 4") is its place here, so the number and the
-   * tint that follows it stay with the card when it comes round again (design/DESIGN.md).
+   * The queue as the engine planned it when the session started, before any set-aside took a
+   * card out. A card's number in this session ("03 of 4") is its place here, so the number and
+   * the tint that follows it stay with the card (design/DESIGN.md).
    */
   queueAsPlanned: readonly string[];
   /** Card ids shown in this session, so a card is recorded as shown once however often it is displayed. */
   shown: ReadonlySet<string>;
   /** Card ids answered in this session. Answers do not change the queue; they mark cards done. */
   answered: ReadonlySet<string>;
-  /** Card ids set aside once in this session: still in the queue, at the end, owed a second showing. */
+  /** Card ids set aside for the first time in this round (`dismissed`): out of its queue, back in a later round. */
   dismissed: ReadonlySet<string>;
-  /** Card ids set aside twice in this session: out of the queue, first in line next session. */
+  /** Card ids set aside again in this round after coming back (`deferred`): out of the deck for good. */
   deferred: ReadonlySet<string>;
   /** The seq of the next event this session records. */
   nextSeq: number;
   /** True while nothing but `shown` has happened: the demo card and the hint are still due. */
   untouched: boolean;
+  /**
+   * True when every card of the deck is answered or out for good, this round's events included
+   * (`isDeckDone`, ADR 0020): the thank-you card's cue. Worked out when the round is replayed;
+   * `withAnswer` and `withDismissal` carry it over unchanged, and the client replays a round as it
+   * starts, so the round after the last card is planned empty with this set.
+   */
+  deckDone: boolean;
 }
 
 /** The device's rows and the server's, as one history; a row the two share counts once. */
@@ -56,25 +63,46 @@ export function latestSession(history: History): Session | undefined {
 const bySeq = (a: Event, b: Event) => a.seq - b.seq;
 
 /**
- * The card ids deferred in the previous session, in the order they were deferred: the deck
- * engine shows them first. The previous session is the one numbered just below this one, on
- * whichever device it ran. The first session has none.
+ * The events of the sessions before this one: every session numbered below it, on whichever
+ * device it ran, and any session the history has no row for, as answers were always counted.
+ * Never this session's own events or a later session's, or the plan would change under the
+ * participant.
+ */
+function eventsBefore(history: History, session: Session): Event[] {
+  const numberOf = new Map(history.sessions.map((s) => [s.id, s.sessionNo]));
+  return history.events.filter((e) => {
+    if (e.sessionId === session.id) return false;
+    const no = numberOf.get(e.sessionId);
+    return no === undefined || no < session.sessionNo;
+  });
+}
+
+const cardsOf = (events: Event[], kind: Event['kind']) =>
+  events.filter((e) => e.kind === kind).map((e) => e.cardId);
+
+/**
+ * The cards out for good before this session: set aside a second time (`deferred`) in any
+ * earlier round. The deck engine never brings them round again. The first session has none.
  */
 export function deferredBefore(history: History, session: Session): string[] {
-  const previous = new Set(
-    history.sessions.filter((s) => s.sessionNo === session.sessionNo - 1).map((s) => s.id),
-  );
-  return history.events
-    .filter((e) => e.kind === 'deferred' && previous.has(e.sessionId))
-    .sort(bySeq)
-    .map((e) => e.cardId);
+  return cardsOf(eventsBefore(history, session), 'deferred');
 }
 
 /**
- * The plan as it stood when the session started: made from every answer of the sessions before
- * this one, never this session's own or a later session's, or the plan would change under the
- * participant; and the previous session's deferrals. The same for the session being played and
- * for a past session whose cards "Your world so far" numbers.
+ * The cards set aside once (`dismissed`) in an earlier round and neither answered nor set aside
+ * again since: the deck engine brings them back, never first and never side by side (ADR 0020).
+ */
+export function dismissedBefore(history: History, session: Session): string[] {
+  const before = eventsBefore(history, session);
+  const settled = new Set([...cardsOf(before, 'answered'), ...cardsOf(before, 'deferred')]);
+  return [...new Set(cardsOf(before, 'dismissed'))].filter((id) => !settled.has(id));
+}
+
+/**
+ * The plan as it stood when the session started: made from the sessions before this one only
+ * (`eventsBefore`): their answers and their deferred cards, which never come round again, and
+ * the cards they set aside once, which come back. The same for the session being played and for
+ * a past session whose cards "Your world so far" numbers.
  */
 export function planAsStarted(
   deck: Deck,
@@ -82,29 +110,22 @@ export function planAsStarted(
   session: Session,
   history: History,
 ): SessionPlan {
-  const numberOf = new Map(history.sessions.map((s) => [s.id, s.sessionNo]));
-  const answeredBefore = history.events
-    .filter((e) => {
-      if (e.kind !== 'answered' || e.sessionId === session.id) return false;
-      const no = numberOf.get(e.sessionId);
-      // A session the history has no row for is counted, as every other session was before.
-      return no === undefined || no < session.sessionNo;
-    })
-    .map((e) => e.cardId);
   return planSession({
     deck,
     warmupsPerSession: config.warmupsPerSession,
     checkpointsPerSession: config.checkpointsPerSession,
     seed: session.seed,
-    answeredIds: answeredBefore,
+    answeredIds: cardsOf(eventsBefore(history, session), 'answered'),
     deferredIds: deferredBefore(history, session),
+    dismissedIds: dismissedBefore(history, session),
   });
 }
 
 /**
  * Rebuild a session from its seed and its events (the deck engine's resume recipe): the plan as
  * it started (`planAsStarted`), then this session's `dismissed` and `deferred` events through
- * `applyDismiss` in seq order, each `dismissed` card joining the set after its own call.
+ * `applyDismiss` in seq order, each taking its card out of the queue. The engine names the event
+ * again from the plan, so the sets below follow the engine, as they did live.
  */
 export function replaySession(
   deck: Deck,
@@ -123,13 +144,19 @@ export function replaySession(
     if (event.kind === 'shown') shown.add(event.cardId);
     if (event.kind === 'answered') answered.add(event.cardId);
     if (event.kind === 'dismissed' || event.kind === 'deferred') {
-      const result = applyDismiss(plan, event.cardId, dismissed);
+      const result = applyDismiss(plan, event.cardId);
       plan = result.plan;
       if (result.event === 'dismissed') dismissed.add(event.cardId);
       if (result.event === 'deferred') deferred.add(event.cardId);
     }
   }
   const last = own.at(-1);
+  const before = eventsBefore(history, session);
+  const deckDone = isDeckDone(
+    deck,
+    [...cardsOf(before, 'answered'), ...answered],
+    [...cardsOf(before, 'deferred'), ...deferred],
+  );
   return {
     session,
     plan,
@@ -140,6 +167,7 @@ export function replaySession(
     deferred,
     nextSeq: last ? last.seq + 1 : 0,
     untouched: own.every((e) => e.kind === 'shown'),
+    deckDone,
   };
 }
 
@@ -148,14 +176,15 @@ export function currentCardId(live: LiveSession): string | undefined {
   return live.plan.queue.find((id) => !live.answered.has(id) && !live.deferred.has(id));
 }
 
-/** Over when the engine says so: every card in the queue answered or deferred. */
+/** Over when the engine says so: every card still in the queue answered (a card set aside has left it). */
 export function sessionOver(live: LiveSession): boolean {
   return isSessionOver(live.plan, [...live.answered, ...live.deferred]);
 }
 
-/** "Card n of total": how many are done plus one, out of the queue as it stands. */
+/** "Card n of total": how many cards of the queue are answered, plus one, out of the queue as it stands. */
 export function position(live: LiveSession): { n: number; total: number } {
-  return { n: live.answered.size + live.deferred.size + 1, total: live.plan.queue.length };
+  const done = live.plan.queue.filter((id) => live.answered.has(id)).length;
+  return { n: done + 1, total: live.plan.queue.length };
 }
 
 /**
@@ -177,15 +206,15 @@ export function withAnswer(live: LiveSession, cardId: string): LiveSession {
 }
 
 /**
- * The session after "Set aside": the engine moves the card to the end or, the second time, out
- * of the queue, and names the event to record. The set it is given is the one before this call;
- * the card joins it only after, and only on a first dismissal (the deck engine's sharp edge).
+ * The session after "Set aside": the engine takes the card out of this round's queue and names
+ * the event to record: `dismissed` the first time, so it comes back in a later round; `deferred`
+ * when it had come back, so it leaves the deck for good (ADR 0020).
  */
 export function withDismissal(
   live: LiveSession,
   cardId: string,
 ): { live: LiveSession; event: 'dismissed' | 'deferred' | null } {
-  const { plan, event } = applyDismiss(live.plan, cardId, live.dismissed);
+  const { plan, event } = applyDismiss(live.plan, cardId);
   if (!event) return { live, event };
   return {
     event,
