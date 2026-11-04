@@ -1924,6 +1924,57 @@ Marco went through every screen of the preview on his phone and on a laptop and 
 - Outside this builder's files: `design/DESIGN.md` still describes the toasts, the progress strip, "NN of 12" labels and the chips; `docs/adr/README.md`'s index.
 - Not tried on a real phone.
 - Taken by the integrator before the merge: the glossary's session sentence and the word round, the "Remind me" line in the about page entry, the decision records index up to 0017 (0016 not used), the runbook's `CLIENT_STORAGE_UNAVAILABLE` entry, the plan's section 8.1 and the calendar note, which all pointed at the session end; a stale comment in `reminder.ts`; the bound on rounds per open said in `showCard`'s comment. The reviewer's test gap (a round of warm-ups only) is left open: the deck contract requires a card of each set, so the case cannot arise from a valid deck.
+
+## 2026-11-04, Wednesday. The deck rules of 5 November (pull request 47)
+
+### What
+
+- **The deck engine** (`packages/deck/src/index.ts`) follows Marco's five rules (ADR 0020). A round is still W warm-ups then C checkpoints from the seed, with no "deferred first". A card set aside once leaves the round at once (`dismissed`) and comes back in a later round, right after a fresh card and never after the same fresh card as another card coming back: never first, never next to another set-aside card. A card set aside a second time leaves the deck for good (`deferred`). An answered card never comes round again: the fallback that brought answered cards back is gone. When every card is answered or out for good, the new `isDeckDone(deck, answeredIds, deferredIds)` is true and `planSession` plans an empty queue.
+- **The engine's shapes.** `SessionPlanInput` has a new field `dismissedIds` (set aside once in an earlier round, not answered or out since); `deferredIds` now means the cards out for good. `SessionPlan` gains `setAsideBefore`, the cards of the queue that came back, and `applyDismiss(plan, cardId)` reads the event from it, so it lost its third argument. `isSessionOver` is unchanged.
+- **The replay** (`apps/web/src/lib/session.ts`): `planAsStarted` feeds the engine from every earlier round (`eventsBefore`), with `deferredBefore` (all earlier `deferred` cards, no longer the previous round's only) and the new `dismissedBefore`. `LiveSession` gains `deckDone`, worked out in `replaySession` with this round's events included; nothing else in it changes. `withDismissal` calls the new `applyDismiss`; `position` counts the answered cards of the queue, since a set-aside card now leaves it.
+- **The thank-you card's words**: a block "Thank you card" in `workshops/rural-manufacturing/copy.md` (placeholder, two sentences) and its key in `COPY_TEXT` (`apps/web/src/lib/copy.ts`). The card itself is drawn by the screens' session.
+- **Docs**: ADR 0020; a new section of `docs/learn/09-seeded-shuffle.md`, "How a card set aside finds its place".
+- **Outside this builder's files, by the integrator's leave**: one line in `apps/web/src/lib/state.svelte.ts`, where the world's set-aside chips now come from the live session's `dismissed` and `deferred` sets, since a card set aside no longer stays in the queue; and eight client tests that stated the old rule, in `state.test.ts`, `app.test.ts` and `card.test.ts`, each changed as little as states the new one (listed in the pull request).
+
+### Why
+
+Marco's morning pass of 5 November (fix 19): the old rule shoved set-aside cards back in the same order, at the end of the round and then first in the next, which read as passive-aggressive; answered cards came round again, so the deck never ended. ADR 0020 has the rules, the reasoning and the alternatives.
+
+### How to verify
+
+1. `npm test -- packages/deck`: green. Three queues a reader can follow in the test names, all with the six cards of the worked example (four warm-ups, two checkpoints), counts 3 and 1:
+   - "six cards, counts 3 and 1, seed "example"; then "cool" set aside once comes back second in round 2": round 1 is `cool, on-tv, embarrassing, immigrants`; set "cool" aside and answer the rest; round 2 (seed `next`) is `tuesday-night, cool, rich-poor`.
+   - ""cool" set aside in round 1, back in round 2, set aside again: out of the deck for good": with `tuesday-night` answered and `rich-poor` left for later, round 3 (seed `third`) is `rich-poor` alone, and the deck is done once it is answered.
+   - "with one fresh warm-up left and two coming back, they stand on either side of it": the choice made when fresh cards run short.
+     The rules over many seeds: "it comes back in the next round when there is room, never first", "two cards coming back are never next to each other while there are enough fresh cards", "an answered card never comes round again, whatever the seed", "a card set aside twice never comes round again, whatever the seed", "with every card answered or out for good, the deck is done and the queue is empty", and two runs to the end of a deck with a coin per card.
+2. `npx vitest run apps/web/test/session.test.ts`: the replay across two sessions, "deckDone turns true at the end", and "the queue of a resumed session is the same as before the reload".
+3. By hand, from the repository root, round 2 of the worked example:
+
+   ```
+   node -e "import('./packages/deck/src/index.ts').then(m => console.log(m.planSession({deck:{version:'0.1',cards:[['tuesday-night','warmup'],['on-tv','warmup'],['embarrassing','warmup'],['cool','warmup'],['immigrants','checkpoint'],['rich-poor','checkpoint']].map(([id,set])=>({id,set,text:'?'}))},warmupsPerSession:3,checkpointsPerSession:1,seed:'next',answeredIds:['on-tv','embarrassing','immigrants'],deferredIds:[],dismissedIds:['cool']})))"
+   ```
+
+   It prints `queue: [ 'tuesday-night', 'cool', 'rich-poor' ]` and `setAsideBefore: [ 'cool' ]`.
+
+4. In the app, `npm run dev:web`, `/rural-manufacturing/join/wave-1`: set the first card aside. It does not come back in this round; it comes back in the next, as the second or third card, and the toast for setting it aside again says "Set aside for later".
+
+### Decisions made on the way
+
+- **Apart wins over "never first" when fresh cards run short.** With one fresh warm-up and two coming back, the warm-ups read set-aside, fresh, set-aside. The other way would put two set-aside cards side by side. With no fresh card left in a set they stand side by side; nothing can go between them.
+- **As many come back as a round has room for.** With 3 and 1 that is one warm-up (second or third) and one checkpoint (last). When a checkpoint is waiting, the warm-up takes the second place, so both fit; the seed picks which of several waiting cards come first.
+- **"Never in the same order as before"** is met by the order of return coming from the seed, and by a returning card never standing beside the cards it stood beside before. Its place within the round (second or third) is not compared with its old one: no event records it, and a checkpoint has one place only. Left to Marco (ADR 0020, Open).
+- **The plan carries `setAsideBefore`** so the client needs no new field in `LiveSession` to name the second set-aside; `applyDismiss` drops its third argument.
+- **`deckDone` comes from the replay.** The client replays each round as it starts, so after the last card it starts one more round, which plans nothing and carries `deckDone`. That round is a session row with no events.
+
+### Proposed for the glossary (the integrator's)
+
+- **queue**: "the ordered card ids of one session, as the deck engine plans them: warm-ups then checkpoints, drawn from the seed, with the cards set aside once in an earlier round placed among fresh ones (ADR 0020). A card set aside leaves it."
+
+### Open
+
+- The thank-you card's rendering, and whether the client starts the empty last round or reads `isDeckDone` before it, are the screens' session's.
+- The deck tuning in `workshop.json` (3 and 1) is Marco's. Whether a warm-up coming back should also avoid its old place in the round is his call (ADR 0020, Open).
+- The architecture plan's section 8 still describes the old rule; the decision records index in `docs/adr/README.md` needs 0020. Both the integrator's.
 - Review fixes applied by the integrator before the merge: the link's code is derived from the last sixteen digits of the digest, not the first (a 256-bit number's first digit is "1" far more often than any other); `adopt` no longer wipes the device while the old participant's outbox cannot go out, and returns whether the switch happened, so the old participant stays for that open and the link's code waits under `linkCode` (a test covers the offline case); a bare `#` is removed from the address too; the queued join's acceptance of `JOIN_CODE_TAKEN` for a device-made code is said to be on purpose; the trust text's "Your controls" speaks of the link, not the code; ADR 0018 is accepted with its two open items and names the `linkCode` setting.
 - Review fixes applied by the integrator before the merge: with every toast gone nothing told a screen reader that a card was saved or set aside; a line drawn nowhere (`aria-live`) now says it from the "Announcements" block, with a test. The screen map's "Remind me" row no longer speaks of chips, the dead `--shadow-toast` token is gone, and the set-aside list's comment says its order. Left to Marco: the welcome's title says "local production in America" while the consent sentences, under legal review, say "local manufacturing in rural America".
 

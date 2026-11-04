@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { deckSchema, EVENT_KINDS, type Card, type Deck } from '@wb/contracts';
 import { applyDismiss, isSessionOver, planSession, type SessionPlan } from '../src/index.ts';
 
-const queueOf = (...ids: string[]): SessionPlan => ({ queue: ids });
+const queueOf = (ids: string[], setAsideBefore: string[] = []): SessionPlan => ({
+  queue: ids,
+  setAsideBefore,
+});
 
 /** The worked example's deck: four warm-ups and two checkpoints. */
 function exampleDeck(): Deck {
@@ -18,115 +21,64 @@ function exampleDeck(): Deck {
 }
 
 describe('applyDismiss: what "Set aside" does', () => {
-  it('the first dismissal of a card moves it to the end of the queue and records dismissed', () => {
-    const { plan, event } = applyDismiss(queueOf('a', 'b', 'c', 'd'), 'a', []);
-    expect(plan.queue).toEqual(['b', 'c', 'd', 'a']);
+  it('a card set aside for the first time leaves the round and is recorded as dismissed', () => {
+    const { plan, event } = applyDismiss(queueOf(['a', 'b', 'c', 'd']), 'a');
+    expect(plan.queue).toEqual(['b', 'c', 'd']);
     expect(event).toBe('dismissed');
   });
 
-  it('the second dismissal of the same card in the same session removes it and records deferred', () => {
-    const { plan, event } = applyDismiss(queueOf('b', 'c', 'd', 'a'), 'a', ['a']);
-    expect(plan.queue).toEqual(['b', 'c', 'd']);
+  it('a card that came back after being set aside once leaves the deck when set aside again: deferred', () => {
+    const { plan, event } = applyDismiss(queueOf(['a', 'b', 'c', 'd'], ['b']), 'b');
+    expect(plan.queue).toEqual(['a', 'c', 'd']);
     expect(event).toBe('deferred');
   });
 
-  it('a dismissal of a card that is not in the queue is a no-op with no event', () => {
-    const before = queueOf('a', 'b', 'c');
-    const { plan, event } = applyDismiss(before, 'zzz', []);
+  it('the cards left keep their order: nothing is moved to the end', () => {
+    expect(applyDismiss(queueOf(['a', 'b', 'c', 'd']), 'b').plan.queue).toEqual(['a', 'c', 'd']);
+  });
+
+  it('a second tap on a card already set aside in this round does nothing and calls for no event', () => {
+    const once = applyDismiss(queueOf(['a', 'b', 'c']), 'a');
+    const twice = applyDismiss(once.plan, 'a');
+    expect(twice.plan).toBe(once.plan);
+    expect(twice.event).toBeNull();
+  });
+
+  it('a set-aside of a card that is not in the queue is a no-op with no event', () => {
+    const before = queueOf(['a', 'b', 'c'], ['zzz']);
+    const { plan, event } = applyDismiss(before, 'zzz');
     expect(plan).toBe(before);
-    expect(plan.queue).toEqual(['a', 'b', 'c']);
     expect(event).toBeNull();
-  });
-
-  it('a card that was already deferred and left the queue cannot be dismissed again', () => {
-    const { plan, event } = applyDismiss(queueOf('b', 'c'), 'a', ['a']);
-    expect(plan.queue).toEqual(['b', 'c']);
-    expect(event).toBeNull();
-  });
-
-  it('a card dismissed in the middle of the queue goes to the end, the others keep their order', () => {
-    const { plan } = applyDismiss(queueOf('a', 'b', 'c', 'd'), 'b', []);
-    expect(plan.queue).toEqual(['a', 'c', 'd', 'b']);
-  });
-
-  it('a first dismissal of the last card keeps it last and still records dismissed', () => {
-    const { plan, event } = applyDismiss(queueOf('a', 'b', 'c'), 'c', []);
-    expect(plan.queue).toEqual(['a', 'b', 'c']);
-    expect(event).toBe('dismissed');
   });
 
   it('the input plan is not changed', () => {
-    const before = queueOf('a', 'b', 'c');
-    applyDismiss(before, 'a', []);
-    applyDismiss(before, 'a', ['a']);
-    expect(before.queue).toEqual(['a', 'b', 'c']);
-  });
-
-  it('only dismissals of this session count: a card deferred last session starts fresh', () => {
-    // Deferred last session, so first in this one; its first dismissal here moves it to the end.
-    const plan = planSession({
-      deck: exampleDeck(),
-      warmupsPerSession: 3,
-      checkpointsPerSession: 1,
-      seed: 'example',
-      answeredIds: [],
-      deferredIds: ['tuesday-night'],
-    });
-    expect(plan.queue[0]).toBe('tuesday-night');
-    const after = applyDismiss(plan, 'tuesday-night', []);
-    expect(after.event).toBe('dismissed');
-    expect(after.plan.queue.at(-1)).toBe('tuesday-night');
-  });
-
-  it('dismissedThisSession means "before this call": adding the id first turns a first dismissal into deferred', () => {
-    const plan = queueOf('a', 'b', 'c');
-    // Right: the set as it stood before this dismissal. The card goes to the end.
-    expect(applyDismiss(plan, 'a', []).event).toBe('dismissed');
-    // Wrong: the id added before the call. The engine reads a second dismissal and defers at once.
-    expect(applyDismiss(plan, 'a', ['a']).event).toBe('deferred');
-  });
-
-  it('dismissedThisSession accepts a set or an array', () => {
-    expect(applyDismiss(queueOf('a', 'b'), 'a', new Set(['a'])).event).toBe('deferred');
-    expect(applyDismiss(queueOf('a', 'b'), 'a', ['a']).event).toBe('deferred');
-    expect(applyDismiss(queueOf('a', 'b'), 'a', new Set()).event).toBe('dismissed');
+    const before = queueOf(['a', 'b', 'c'], ['b']);
+    applyDismiss(before, 'a');
+    applyDismiss(before, 'b');
+    expect(before).toEqual({ queue: ['a', 'b', 'c'], setAsideBefore: ['b'] });
   });
 
   it('the events it names are kinds the event contract knows', () => {
-    expect(EVENT_KINDS).toContain(applyDismiss(queueOf('a', 'b'), 'a', []).event);
-    expect(EVENT_KINDS).toContain(applyDismiss(queueOf('a', 'b'), 'a', ['a']).event);
+    expect(EVENT_KINDS).toContain(applyDismiss(queueOf(['a', 'b']), 'a').event);
+    expect(EVENT_KINDS).toContain(applyDismiss(queueOf(['a', 'b'], ['a']), 'a').event);
   });
 });
 
-describe('isSessionOver: when the queue is exhausted', () => {
-  const plan = queueOf('warmup-1', 'warmup-2', 'warmup-3', 'checkpoint-1');
+describe('isSessionOver: when the round is exhausted', () => {
+  const plan = queueOf(['warmup-1', 'warmup-2', 'warmup-3', 'checkpoint-1']);
 
-  it('a session with nothing answered is not over', () => {
+  it('a round with nothing answered is not over', () => {
     expect(isSessionOver(plan, [])).toBe(false);
   });
 
-  it('a session is not over before the last checkpoint is answered', () => {
+  it('a round is not over before the last checkpoint is answered, and is after', () => {
     expect(isSessionOver(plan, ['warmup-1', 'warmup-2', 'warmup-3'])).toBe(false);
-  });
-
-  it('a session is over after the last checkpoint is answered', () => {
     expect(isSessionOver(plan, ['warmup-1', 'warmup-2', 'warmup-3', 'checkpoint-1'])).toBe(true);
   });
 
-  it('a session is over when the last card is deferred instead of answered', () => {
-    expect(isSessionOver(plan, ['warmup-1', 'warmup-2', 'warmup-3'])).toBe(false);
-    const { plan: after, event } = applyDismiss(plan, 'checkpoint-1', ['checkpoint-1']);
-    expect(event).toBe('deferred');
-    // Either way of looking at it says over: the card left the queue, or it is in the done set.
+  it('a card set aside leaves the queue, so it does not keep the round open', () => {
+    const { plan: after } = applyDismiss(plan, 'checkpoint-1');
     expect(isSessionOver(after, ['warmup-1', 'warmup-2', 'warmup-3'])).toBe(true);
-    expect(isSessionOver(plan, ['warmup-1', 'warmup-2', 'warmup-3', 'checkpoint-1'])).toBe(true);
-  });
-
-  it('a card dismissed once keeps the session open until it is answered or deferred', () => {
-    const { plan: after } = applyDismiss(plan, 'warmup-1', []);
-    expect(after.queue).toEqual(['warmup-2', 'warmup-3', 'checkpoint-1', 'warmup-1']);
-    expect(isSessionOver(after, ['warmup-2', 'warmup-3', 'checkpoint-1'])).toBe(false);
-    expect(isSessionOver(after, ['warmup-2', 'warmup-3', 'checkpoint-1', 'warmup-1'])).toBe(true);
   });
 
   it('the order of answering does not matter, only that every card is done', () => {
@@ -138,96 +90,73 @@ describe('isSessionOver: when the queue is exhausted', () => {
   });
 
   it('an empty queue is over at once', () => {
-    expect(isSessionOver(queueOf(), [])).toBe(true);
+    expect(isSessionOver(queueOf([]), [])).toBe(true);
   });
 });
 
-describe('resuming a session', () => {
-  const start = {
-    deck: exampleDeck(),
-    warmupsPerSession: 3,
-    checkpointsPerSession: 1,
-    seed: 'example',
-    answeredIds: ['tuesday-night'],
-    deferredIds: [] as string[],
-  };
-
-  it("a resumed session rebuilds its queue by replaying this session's dismissals in order", () => {
-    // The client stores the seed and the events, never the queue. Live: plan, then answer "cool",
-    // dismiss "on-tv", answer "embarrassing" and "immigrants", and dismiss "on-tv" again.
+describe('resuming a round', () => {
+  it("a resumed round rebuilds its queue from the same inputs and this round's set-asides in order", () => {
+    // The client stores the seed and the events, never the queue. Round 2 of the worked example:
+    // "cool" came back; live, the participant sets aside "tuesday-night" and then "cool".
+    const start = {
+      deck: exampleDeck(),
+      warmupsPerSession: 3,
+      checkpointsPerSession: 1,
+      seed: 'next',
+      answeredIds: ['on-tv', 'embarrassing', 'immigrants'],
+      deferredIds: [],
+      dismissedIds: ['cool'],
+    };
     let live = planSession(start);
-    expect(live.queue).toEqual(['cool', 'on-tv', 'embarrassing', 'immigrants']);
-    const events: { kind: 'answered' | 'dismissed' | 'deferred'; cardId: string }[] = [];
-    const dismissed = new Set<string>();
-    const answer = (cardId: string) => events.push({ kind: 'answered', cardId });
-    const dismiss = (cardId: string) => {
-      const result = applyDismiss(live, cardId, dismissed);
+    const events: { kind: string; cardId: string }[] = [];
+    for (const cardId of ['tuesday-night', 'cool']) {
+      const result = applyDismiss(live, cardId);
       live = result.plan;
       events.push({ kind: result.event!, cardId });
-      if (result.event === 'dismissed') dismissed.add(cardId);
-    };
-    answer('cool');
-    dismiss('on-tv');
-    answer('embarrassing');
-    answer('immigrants');
-    dismiss('on-tv');
-    expect(live.queue).toEqual(['cool', 'embarrassing', 'immigrants']);
-    expect(events.map((e) => e.kind)).toEqual([
-      'answered',
-      'dismissed',
-      'answered',
-      'answered',
-      'deferred',
-    ]);
-
-    // Resume: the same inputs as at the start (this session's answers are not history yet), then
-    // this session's dismissals replayed in seq order. The queue comes back the same.
-    let resumed = planSession(start);
-    const seen = new Set<string>();
-    for (const event of events) {
-      if (event.kind === 'answered') continue;
-      resumed = applyDismiss(resumed, event.cardId, seen).plan;
-      if (event.kind === 'dismissed') seen.add(event.cardId);
     }
-    expect(resumed.queue).toEqual(live.queue);
-    const done = events.filter((e) => e.kind !== 'dismissed').map((e) => e.cardId);
-    expect(isSessionOver(resumed, done)).toBe(true);
-  });
+    expect(events.map((e) => e.kind)).toEqual(['dismissed', 'deferred']);
+    expect(live.queue).toEqual(['rich-poor']);
 
-  it("feeding this session's answers back as history would change the plan, so the client must not", () => {
-    const fresh = planSession(start).queue;
-    const polluted = planSession({ ...start, answeredIds: ['tuesday-night', 'cool'] }).queue;
-    expect(polluted).not.toEqual(fresh);
+    let resumed = planSession(start);
+    for (const event of events) resumed = applyDismiss(resumed, event.cardId).plan;
+    expect(resumed).toEqual(live);
   });
 });
 
 describe('the worked example, continued', () => {
-  it('six cards, counts 3 and 1, seed "example": the order, then one and two dismissals of the first card', () => {
-    const deck = exampleDeck();
-    const session = { deck, warmupsPerSession: 3, checkpointsPerSession: 1, seed: 'example' };
-    const plan = planSession({ ...session, answeredIds: [], deferredIds: [] });
-    expect(plan.queue).toEqual(['cool', 'on-tv', 'embarrassing', 'immigrants']);
-
-    // First dismissal of "cool": to the end, event dismissed. The session goes on.
-    const once = applyDismiss(plan, 'cool', []);
-    expect(once.plan.queue).toEqual(['on-tv', 'embarrassing', 'immigrants', 'cool']);
+  it('"cool" set aside in round 1, back in round 2, set aside again: out of the deck for good', () => {
+    const counts = { deck: exampleDeck(), warmupsPerSession: 3, checkpointsPerSession: 1 };
+    const round1 = planSession({
+      ...counts,
+      seed: 'example',
+      answeredIds: [],
+      deferredIds: [],
+      dismissedIds: [],
+    });
+    expect(round1.queue).toEqual(['cool', 'on-tv', 'embarrassing', 'immigrants']);
+    const once = applyDismiss(round1, 'cool');
     expect(once.event).toBe('dismissed');
-    expect(isSessionOver(once.plan, ['on-tv', 'embarrassing', 'immigrants'])).toBe(false);
+    expect(once.plan.queue).toEqual(['on-tv', 'embarrassing', 'immigrants']);
+    expect(isSessionOver(once.plan, ['on-tv', 'embarrassing', 'immigrants'])).toBe(true);
 
-    // Second dismissal of "cool", once it comes round again: out of the queue, event deferred.
-    const twice = applyDismiss(once.plan, 'cool', ['cool']);
-    expect(twice.plan.queue).toEqual(['on-tv', 'embarrassing', 'immigrants']);
-    expect(twice.event).toBe('deferred');
-    expect(isSessionOver(twice.plan, ['on-tv', 'embarrassing', 'immigrants'])).toBe(true);
-
-    // Next session: "cool" is owed a showing and comes first, counted as one of the three warm-ups.
-    const next = planSession({
-      ...session,
+    const round2 = planSession({
+      ...counts,
       seed: 'next',
       answeredIds: ['on-tv', 'embarrassing', 'immigrants'],
-      deferredIds: ['cool'],
+      deferredIds: [],
+      dismissedIds: ['cool'],
     });
-    expect(next.queue[0]).toBe('cool');
-    expect(next.queue).toHaveLength(4);
+    expect(round2.queue).toEqual(['tuesday-night', 'cool', 'rich-poor']);
+    const twice = applyDismiss(round2, 'cool');
+    expect(twice.event).toBe('deferred');
+
+    const round3 = planSession({
+      ...counts,
+      seed: 'third',
+      answeredIds: ['on-tv', 'embarrassing', 'immigrants', 'tuesday-night'],
+      deferredIds: ['cool'],
+      dismissedIds: [],
+    });
+    expect(round3.queue).toEqual(['rich-poor']);
   });
 });

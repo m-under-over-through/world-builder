@@ -28,6 +28,28 @@ Three small functions in `packages/deck/src/random.ts`, each a few lines, no dep
 
 `planSession` adds two choices on top. Each set gets its own sub-seed, `<seed>:warmup` and `<seed>:checkpoint`, so the order of the checkpoints does not depend on how many warm-ups the deck has. And the ids of a set are sorted before the shuffle, so the order depends on which cards the set holds and not on where they sit in `deck.json`. Both choices make the same statement: the order of a set is a function of the seed and the set's ids, and of nothing else.
 
+## How a card set aside finds its place
+
+Added on 5 November 2026, with the deck rules of that day (ADR 0020). The rule "deferred cards first" named above is gone; this is what replaced it.
+
+A card set aside once leaves its round and comes back in a later one. Where it lands is decided from the seed, the same way the order is, so a reload or a second device puts it in the same place. The engine lays out each set of a round in three steps.
+
+1. **The fresh cards, in seeded order.** The cards of the set never answered, never set aside and not out for good, shuffled from `<seed>:warmup` (or `:checkpoint`) as before. The cards coming back are shuffled too, from their own sub-seed `<seed>:warmup:back`, sorted first so the order they were set aside in does not matter.
+2. **The gaps.** Picture the fresh cards in a row with a gap after each one. A card coming back may only go into a gap, and each gap takes at most one. That single rule gives both of Marco's: a card in a gap has a fresh card right before it, so it is never first and never next to another card coming back. The gap before the first fresh card is open only when the place before the set holds a fresh card, which is how a checkpoint coming back can follow the last warm-up.
+3. **The draw.** Which gaps are used is drawn from `<seed>:warmup:places` with the same shuffle: the open gaps are shuffled and the first ones taken. The cards coming back go into them in their seeded order. As many come back as there are gaps for; the rest wait for a later round, where the draw starts again.
+
+A worked case, with the six cards of the worked example and counts 3 and 1. Round 1, seed `example`, is `cool, on-tv, embarrassing, immigrants`. Set "cool" aside and answer the other three. Round 2, seed `next`: one fresh warm-up is left, `tuesday-night`, so the warm-ups have two places, one fresh card and one gap after it; "cool" takes the gap. Round 2 is `tuesday-night, cool, rich-poor`. Set "cool" aside again, answer `tuesday-night` and leave `rich-poor` for later: "cool" is out for good, round 3 (seed `third`) is `rich-poor` alone, and once it is answered the deck is done.
+
+Two finer points. When a set has more cards coming back than gaps, because its fresh cards are running out, every gap opens, the one before the first fresh card included, and the cards are spread as evenly as they go: with one fresh card and two coming back, the set reads set-aside, fresh, set-aside. Keeping them apart was chosen over keeping the first place fresh (ADR 0020). And when the next set has a card waiting to come back, the last gap of this set is kept empty if there is another to use, so the checkpoint can come back in the same round: with three warm-ups, a warm-up coming back then always lands second and the checkpoint last.
+
+To see it, from the repository root:
+
+```
+npx vitest run packages/deck -t "comes back"
+```
+
+The test names read as the rules: "it comes back in the next round when there is room, never first", "its place in the round is drawn from the seed: the second or the third", "with one fresh warm-up left and two coming back, they stand on either side of it". Two longer tests play a deck to its end, a small one 25 times and the real one 20 times, with a coin for each card (answer or set aside), and check every round against the rules.
+
 ## How to check it yourself
 
 The tests, named as behaviours:
