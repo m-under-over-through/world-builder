@@ -1,26 +1,257 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "cards": [
-    { "id": "tuesday-night", "set": "warmup", "text": "What is a typical Tuesday night?" },
-    { "id": "on-tv", "set": "warmup", "text": "What is on TV?" },
-    { "id": "embarrassing", "set": "warmup", "text": "What is embarrassing?" },
-    { "id": "cool", "set": "warmup", "text": "What is cool?" },
     {
-      "id": "school-classes",
-      "set": "warmup",
-      "text": "What are the most important classes at school?"
-    },
-    { "id": "immigrants", "set": "checkpoint", "text": "Are there immigrants? What do they do?" },
-    { "id": "rich-poor", "set": "checkpoint", "text": "Who gets richer, or poorer? How?" },
-    { "id": "inhumane", "set": "checkpoint", "text": "What is considered inhumane?" },
-    {
-      "id": "something-breaks",
+      "id": "raw-materials-from",
       "set": "checkpoint",
-      "text": "What happens when something breaks?"
+      "text": "Where do the raw materials come from?",
+      "area": "Raw materials"
     },
-    { "id": "abundant-scarce", "set": "checkpoint", "text": "What is abundant? What is scarce?" },
-    { "id": "institution", "set": "checkpoint", "text": "What is the most important institution?" },
-    { "id": "crime", "set": "checkpoint", "text": "What is a crime?" },
-    { "id": "bots", "set": "checkpoint", "text": "What are bots doing?" }
+    {
+      "id": "what-town-makes",
+      "set": "checkpoint",
+      "text": "What does the town make that people far away want?",
+      "area": "Making"
+    },
+    {
+      "id": "who-buys",
+      "set": "checkpoint",
+      "text": "Who buys what the town makes?",
+      "area": "Distribution"
+    },
+    {
+      "id": "who-picks",
+      "set": "checkpoint",
+      "text": "Who picks the crops?",
+      "area": "Food"
+    },
+    {
+      "id": "jobs-to-robots",
+      "set": "checkpoint",
+      "text": "What do people do now whose jobs went to robots?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "afford-house",
+      "set": "checkpoint",
+      "text": "Can someone who works at the plant afford a house here?",
+      "area": "Workers"
+    },
+    {
+      "id": "worker-voice",
+      "set": "checkpoint",
+      "text": "When workers disagree with the boss, what do they do?",
+      "area": "Workers"
+    },
+    {
+      "id": "who-gets-rich",
+      "set": "checkpoint",
+      "text": "Who gets rich here?",
+      "area": "Money and power"
+    },
+    {
+      "id": "who-decides-built",
+      "set": "checkpoint",
+      "text": "Who decides what gets built here?",
+      "area": "Money and power"
+    },
+    {
+      "id": "water-shortage",
+      "set": "checkpoint",
+      "text": "Who gets the water when there isn't enough?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "newest-arrivals",
+      "set": "checkpoint",
+      "text": "What work do the newest arrivals in town do?",
+      "area": "People and generations"
+    },
+    {
+      "id": "who-lost-out",
+      "set": "checkpoint",
+      "text": "Who lost out when things changed?",
+      "area": "Losses and the transition"
+    },
+    {
+      "id": "tuesday-night",
+      "set": "warmup",
+      "text": "What is a typical Tuesday night?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "first-sound",
+      "set": "warmup",
+      "text": "What is the first sound you hear in the morning?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "made-nearby-home",
+      "set": "warmup",
+      "text": "What in your kitchen was made within a day's drive?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "loading-dock",
+      "set": "warmup",
+      "text": "What arrives at the loading dock each morning?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "abundant",
+      "set": "warmup",
+      "text": "What is abundant?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "trash-now-valuable",
+      "set": "warmup",
+      "text": "What used to be trash and is now worth something?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "grows-for-factory",
+      "set": "warmup",
+      "text": "What grows here that ends up in a factory, not on a plate?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "town-known-for",
+      "set": "warmup",
+      "text": "What is the town known for making?",
+      "area": "Making"
+    },
+    {
+      "id": "through-the-plant",
+      "set": "warmup",
+      "text": "Pick one thing made here. What happens to it on its way through the plant?",
+      "area": "Making"
+    },
+    {
+      "id": "plant-smell",
+      "set": "warmup",
+      "text": "What does the plant smell like?",
+      "area": "Making"
+    },
+    {
+      "id": "who-fixes-machines",
+      "set": "warmup",
+      "text": "Who fixes the machines when they break?",
+      "area": "Making"
+    },
+    {
+      "id": "how-goods-leave",
+      "set": "warmup",
+      "text": "How does a finished thing leave town?",
+      "area": "Distribution"
+    },
+    {
+      "id": "from-far-away",
+      "set": "warmup",
+      "text": "What still has to come from the other side of the world?",
+      "area": "Distribution"
+    },
+    {
+      "id": "fields-around",
+      "set": "warmup",
+      "text": "What grows in the fields around town?",
+      "area": "Food"
+    },
+    {
+      "id": "lunch-break",
+      "set": "warmup",
+      "text": "What do people eat on their lunch break at the plant?",
+      "area": "Food"
+    },
+    {
+      "id": "ugly-fruit",
+      "set": "warmup",
+      "text": "What happens to the fruit that isn't pretty enough to sell?",
+      "area": "Food"
+    },
+    {
+      "id": "robots-doing",
+      "set": "warmup",
+      "text": "What are the robots doing right now?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "by-hand",
+      "set": "warmup",
+      "text": "What is still done by hand?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "learn-trade",
+      "set": "warmup",
+      "text": "How does a sixteen-year-old learn a trade here?",
+      "area": "Workers"
+    },
+    {
+      "id": "hardest-hire",
+      "set": "warmup",
+      "text": "What job is hardest to hire for?",
+      "area": "Workers"
+    },
+    {
+      "id": "night-shift-kids",
+      "set": "warmup",
+      "text": "Who looks after the kids during the night shift?",
+      "area": "Workers"
+    },
+    {
+      "id": "town-meeting",
+      "set": "warmup",
+      "text": "What do people argue about at the town meeting?",
+      "area": "Money and power"
+    },
+    {
+      "id": "river-color",
+      "set": "warmup",
+      "text": "What color is the river?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "waste-goes",
+      "set": "warmup",
+      "text": "Where does the plant's waste go?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "heat-wave",
+      "set": "warmup",
+      "text": "What happens at the plant during a heat wave?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "grow-up-be",
+      "set": "warmup",
+      "text": "What do kids want to be when they grow up?",
+      "area": "People and generations"
+    },
+    {
+      "id": "embarrassing",
+      "set": "warmup",
+      "text": "What is embarrassing?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "show-visitor",
+      "set": "warmup",
+      "text": "What would a local show off to a visitor?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "town-celebrates",
+      "set": "warmup",
+      "text": "What does the town celebrate every year?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "people-miss",
+      "set": "warmup",
+      "text": "What do older people miss about how things were?",
+      "area": "Losses and the transition"
+    }
   ]
 }

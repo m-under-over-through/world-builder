@@ -9,6 +9,8 @@ export const cardSchema = z.object({
   id: slugLikeSchema,
   set: z.enum(CARD_SETS),
   text: z.string().min(1).max(300),
+  /** The area of the taxonomy the card probes, shown as the card's label; the deck sheet's word (build log, 3 November 2026). */
+  area: z.string().min(1).max(40).optional(),
 });
 export type Card = z.infer<typeof cardSchema>;
 

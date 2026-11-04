@@ -3,3 +3,5 @@ package-lock.json
 .claude/worktrees
 .claude/skills
 .claude/agents
+# The design handoff folder is an export from the design canvas: read, never reformatted.
+design/
