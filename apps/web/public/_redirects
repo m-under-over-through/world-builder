@@ -1,3 +1,7 @@
-# The API function answers /api/*; everything else is the single-page client.
-/api/*  /.netlify/functions/api  200
-/*      /index.html              200
+# The API function answers /api/*; everything else is the single-page client. A workshop's
+# addresses get the workshop's own copy of the page, which links its manifest, so an app installed
+# from them starts in the workshop (ADR 0016): one line per folder under workshops/, before the
+# catch-all. A file that exists at the address (the manifest, the reminder) is served as itself.
+/api/*                  /.netlify/functions/api        200
+/rural-manufacturing/*  /rural-manufacturing/index.html  200
+/*                      /index.html                    200

@@ -6,9 +6,10 @@ import { manifestHref, pointManifest } from './lib/install.ts';
 import { parseRoute } from './lib/route.ts';
 import { findWorkshop } from './lib/workshops.ts';
 
-// An app installed from a workshop's page opens at that workshop: its manifest, not the root one
-// (apps/web/pwa.ts). Done before anything else, so the browser reads the right one when asked.
-// Only in a build: the development server has no manifests at all.
+// An app installed from a workshop's page opens at that workshop: its manifest, not the root one.
+// The build writes the right link into the workshop's own copy of the page (apps/web/pwa.ts,
+// ADR 0016); this keeps a browser that reads the link at install time right on the root page
+// too. Only in a build: the development server has no manifests at all.
 const slug = parseRoute(location.pathname)?.slug;
 if (!import.meta.env.DEV && slug && findWorkshop(slug)) pointManifest(document, manifestHref(slug));
 

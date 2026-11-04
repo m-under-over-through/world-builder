@@ -51,7 +51,7 @@ import {
   type SyncStatus,
 } from './sync.ts';
 import { truncateCodePoints } from './text.ts';
-import { defaultCopy, findWorkshop, VERSION, type Workshop } from './workshops.ts';
+import { defaultCopy, findWorkshop, onlyWorkshop, VERSION, type Workshop } from './workshops.ts';
 
 /**
  * The state of the client and everything that changes it, in one place a reader can follow from
@@ -442,9 +442,11 @@ export class AppState {
     const route = parseRoute(pathname);
     this.workshop = route ? findWorkshop(route.slug) : undefined;
     if (!route || !this.workshop) {
-      // The installed app starts at `/` (apps/web/pwa.ts); it goes on to the workshop this device
-      // last opened. With none remembered, this is not a workshop.
-      const last = !route ? this.lastWorkshop() : null;
+      // An app installed from the root manifest starts at `/` (apps/web/pwa.ts); it goes on to
+      // the workshop this device last opened, or, when this build has exactly one workshop, to
+      // that one: an iPhone's home-screen app remembers nothing, and there is nowhere else to go
+      // (ADR 0016). With none remembered and several to choose from, this is not a workshop.
+      const last = !route ? (this.lastWorkshop() ?? onlyWorkshop()) : null;
       if (last && findWorkshop(last)) {
         this.go(pageHref(last));
         return;

@@ -69,6 +69,21 @@ export function findWorkshop(slug: string): Workshop | undefined {
   return bySlug.get(slug);
 }
 
+/** The slugs of every workshop in this build, in name order. */
+export function workshopSlugs(): string[] {
+  return [...bySlug.keys()].sort();
+}
+
+/**
+ * The one workshop of this build, when there is exactly one: where an address without a
+ * workshop goes when the device remembers none (an installed app on an iPhone starts with an
+ * empty memory, docs/learn/10-the-installed-app.md). With two or more, there is no telling.
+ */
+export function onlyWorkshop(): string | null {
+  const slugs = workshopSlugs();
+  return slugs.length === 1 ? slugs[0]! : null;
+}
+
 /**
  * The words to use before a workshop is known: "Loading…" and "This address is not a workshop".
  * They are the same in every workshop folder, so the first folder's copy serves; a deploy with no

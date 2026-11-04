@@ -379,11 +379,19 @@ describe('the session end', () => {
 });
 
 describe('the installed app opens at the root', () => {
-  it('goes on to the workshop this device last opened, and says "not a workshop" when there is none', async () => {
+  it('goes on to the workshop this device last opened, or, with one workshop in the build, to that one', async () => {
     stubRoutes({});
     localStorage.removeItem('wb:lastWorkshop');
-    const first = await opened('/');
-    expect(first.screen).toBe('no-workshop');
+    // Nothing remembered (an iPhone's home-screen app), one workshop in this build: there.
+    const fresh: string[] = [];
+    history.replaceState(null, '', '/');
+    const first = new AppState();
+    first.go = (href) => fresh.push(href);
+    await first.open('/');
+    expect(fresh).toEqual([`/${SLUG}/`]);
+    // An address that names a workshop this build lacks is not a workshop, remembered or not.
+    const unknown = await opened('/no-such-workshop/');
+    expect(unknown.screen).toBe('no-workshop');
 
     const visited = await opened(`/${SLUG}/join/wave-1`);
     expect(visited.screen).toBe('welcome');

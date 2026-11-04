@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { pwaOptions, workshopManifests, workshopReminders } from './pwa.ts';
+import { pwaOptions, workshopManifests, workshopPages, workshopReminders } from './pwa.ts';
 import { Copy } from './src/lib/copy.ts';
 import type { ReminderInput } from './src/lib/reminder.ts';
 
@@ -56,6 +56,7 @@ export default defineConfig({
     svelteTesting(),
     VitePWA(pwaOptions),
     workshopManifests(slugs),
+    workshopPages(slugs),
     workshopReminders(reminders),
   ],
   build: { outDir: 'dist', emptyOutDir: true },
