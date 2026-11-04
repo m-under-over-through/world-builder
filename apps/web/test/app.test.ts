@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { tick } from 'svelte';
 import App from '../src/App.svelte';
 import { fill } from '../src/lib/copy.ts';
-import { AppState, TOAST_MS } from '../src/lib/state.svelte.ts';
+import { AppState, RETRY_FIRST_MS } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import {
@@ -53,7 +54,10 @@ async function open(pathname: string, wait?: AppState['wait']): Promise<AppState
   const app = new AppState();
   app.wait = wait ?? (async () => {});
   render(App, { app });
-  await screen.findAllByRole('heading');
+  // The card screen on a phone has no heading (the onboarding card is part of the stack), so
+  // the open is done when the state has left "loading" and the screen has been drawn.
+  await waitFor(() => expect(app.screen).not.toBe('loading'));
+  await tick();
   return app;
 }
 
@@ -66,14 +70,17 @@ function held(): { wait: AppState['wait']; release: () => void } {
   return { wait, release: () => release() };
 }
 
-/** A wait that holds only the toast's timer, so a test can read the toast; every other wait is instant. */
-function heldToast(): { wait: AppState['wait']; release: () => void } {
-  const toast = held();
+/** A wait that holds only the first retry of a failed sync, so a test can see the outbox wait; every other wait is instant. */
+function heldRetry(): { wait: AppState['wait']; release: () => void } {
+  const retry = held();
   return {
-    wait: (ms) => (ms === TOAST_MS ? toast.wait(ms) : Promise.resolve()),
-    release: toast.release,
+    wait: (ms) => (ms === RETRY_FIRST_MS ? retry.wait(ms) : Promise.resolve()),
+    release: retry.release,
   };
 }
+
+/** Back, at the top of a page above its title (the first) or at its bottom (the last). */
+const backs = () => screen.getAllByRole('button', { name: copy.item('Buttons', 'back') });
 
 // A fresh in-memory IndexedDB per test, so nothing one test stored (a code, an arrival) reaches the next.
 beforeEach(freshIndexedDb);
@@ -89,18 +96,18 @@ describe('a device with no link and no code', () => {
     const calls = stubApi(() => ({ status: 404, body: { error: 'WORKSHOP_UNKNOWN' } }));
     await open(`/${SLUG}/`);
     expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'new here') })).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'i understand') })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(calls).toEqual([]);
   });
 });
 
 describe('a device arriving through a wave link', () => {
-  it('sees "New here", and the open is counted once', async () => {
+  it('sees the welcome with "I understand", and the open is counted once', async () => {
     const calls = stubApi(() => ({ status: 200, body: { ok: true } }));
     await open(`/${SLUG}/join/wave-1`);
     expect(
-      await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }),
+      await screen.findByRole('button', { name: copy.item('Buttons', 'i understand') }),
     ).toBeTruthy();
     expect(calls).toEqual([{ path: `/api/${SLUG}/waves/wave-1/opened`, method: 'POST' }]);
     expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
@@ -155,7 +162,7 @@ describe('the pages a participant can open directly', () => {
     expect(screen.getByText(copy.item('Privacy panel', 'nothing stored'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/about`);
     expect(calls).toEqual([]);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    await user.click(backs().at(-1)!);
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/`);
   });
@@ -241,7 +248,7 @@ describe('the pages a participant can open directly', () => {
     const user = userEvent.setup();
     await open(`/${SLUG}/trust`);
     expect(screen.getByRole('heading', { name: copy.item('Titles', 'trust page') })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    await user.click(backs().at(-1)!);
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/`);
   });
@@ -260,7 +267,7 @@ describe('the pages a participant can open directly', () => {
     await user.click(screen.getByRole('button', { name: copy.item('Trust page links', 'terms') }));
     expect(await screen.findByText(copy.item('Titles', 'terms'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/terms`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    await user.click(backs().at(-1)!);
     expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/about`);
     await user.click(
@@ -268,10 +275,27 @@ describe('the pages a participant can open directly', () => {
     );
     expect(await screen.findByText(copy.item('Titles', 'privacy policy'))).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/privacy`);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    await user.click(backs().at(-1)!);
     expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
-    expect(await screen.findByText(copy.text('Welcome: new here'))).toBeTruthy();
+    await user.click(backs()[0]!);
+    expect(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'i understand') }),
+    ).toBeTruthy();
+    expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
+  });
+
+  it('Back at the top of the page, above its title, goes where the Back at the bottom goes', async () => {
+    stubRoutes({});
+    const user = userEvent.setup();
+    await open(`/${SLUG}/join/wave-1`);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
+    const top = backs()[0]!;
+    expect(top.closest('.top-back')!.nextElementSibling!.tagName).toBe('H1');
+    await user.click(top);
+    expect(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'i understand') }),
+    ).toBeTruthy();
     expect(location.pathname).toBe(`/${SLUG}/join/wave-1`);
   });
 
@@ -281,7 +305,7 @@ describe('the pages a participant can open directly', () => {
     await open(`/${SLUG}/`);
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
     expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    await user.click(backs().at(-1)!);
     expect(await screen.findByText(copy.text('Welcome: no link'))).toBeTruthy();
   });
 
@@ -296,20 +320,13 @@ describe('the pages a participant can open directly', () => {
 });
 
 describe('the first session', () => {
+  /** The welcome, then "I understand": the consent, on the one page before the cards (ADR 0019). */
   async function throughTheIntro(
     user: ReturnType<typeof userEvent.setup>,
     wait?: AppState['wait'],
   ) {
     const app = await open(`/${SLUG}/join/wave-1`, wait);
-    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }));
-    expect(screen.getByText(copy.text('Intro 1'))).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
-    expect(screen.getByText(copy.text('Intro 2'))).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
-    expect(screen.getByText(copy.text('Intro 1'))).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
-    expect(screen.getByText(copy.text('Intro 3, consent'))).toBeTruthy();
+    expect(await screen.findByText(copy.text('Welcome'))).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
     return app;
   }
@@ -318,20 +335,41 @@ describe('the first session', () => {
   async function openTheCard(user: ReturnType<typeof userEvent.setup>) {
     await user.click(
       await screen.findByRole('button', {
-        name: (name) => name.includes(copy.item('Card labels', 'tap to answer')),
+        name: (name) => name.includes(copy.item('Card labels', 'write an answer')),
       }),
     );
     return screen.findByRole('textbox');
   }
 
-  it('intro 1, intro 2 with Back, consent, then the demo card, then the first card, which opens with the hint', async () => {
+  it('the welcome is the one page before the cards: no intro screens, no Next; "I understand" joins and the cards come', async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const user = userEvent.setup();
+    const app = await open(`/${SLUG}/join/wave-1`);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(copy.text('Welcome: title'));
+    expect(screen.queryByRole('button', { name: /next/i })).toBeNull();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
+    await waitFor(() => expect(app.screen).toBe('card'));
+    expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
+    expect(app.code).toMatch(/^\d{16}$/);
+    expect(await new WorkshopStore(SLUG).get('consent')).toBeTruthy();
+  });
+
+  it('"I understand", then the onboarding card in front of the stack, then the first card, which opens with the hint', async () => {
     pretendUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0');
     const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED] });
     const user = userEvent.setup();
-    await throughTheIntro(user);
+    const app = await throughTheIntro(user);
     expect(await screen.findByText(copy.text('Demo card'))).toBeTruthy();
+    expect(app.screen).toBe('card');
     expect(calls.filter((c) => c.path.endsWith('/join'))).toHaveLength(1);
+    // The first card waits behind it: not yet a button.
+    const first = app.card!;
+    expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    // The first card comes to the front, with no toast.
+    expect(await screen.findByRole('button', { name: (n) => n.includes(first.text) })).toBeTruthy();
+    expect(screen.queryByText(copy.text('Demo card'))).toBeNull();
+    expect(document.querySelector('[role="status"]')).toBeNull();
     // The stack: no field until the card is opened, and no hint either.
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
@@ -368,7 +406,7 @@ describe('the first session', () => {
     await user.type(await openTheCard(user), 'Half an answer');
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
     expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'back') }));
+    await user.click(backs().at(-1)!);
     expect(((await screen.findByRole('textbox')) as HTMLTextAreaElement).value).toBe(
       'Half an answer',
     );
@@ -398,7 +436,7 @@ describe('the first session', () => {
     expect(await screen.findByText(copy.error('JOIN_CODE_TAKEN'))).toBeTruthy();
   });
 
-  it('a full wave is shown in its wording on the consent screen', async () => {
+  it('a full wave is shown in its wording on the welcome', async () => {
     stubRoutes({
       [`/api/${SLUG}/join`]: [() => ({ status: 403, body: { error: 'JOIN_WAVE_FULL' } })],
     });
@@ -507,7 +545,7 @@ describe('the page about the app', () => {
     const gone: string[] = [];
     const app = await open(`/${SLUG}/join/wave-1`);
     app.go = (href) => gone.push(href);
-    expect(['demo', 'card']).toContain(app.screen);
+    expect(app.screen).toBe('card');
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'delete') }));
     await user.click(
@@ -541,15 +579,14 @@ describe('the core loop', () => {
   /** The front card: one button, named by its label, the question and the affordance. */
   const frontCard = () =>
     screen.findByRole('button', {
-      name: (name) => name.includes(copy.item('Card labels', 'tap to answer')),
+      name: (name) => name.includes(copy.item('Card labels', 'write an answer')),
     });
 
   async function toTheFirstCard(user: ReturnType<typeof userEvent.setup>, wait?: AppState['wait']) {
     const app = await open(`/${SLUG}/join/wave-1`, wait);
-    await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'new here') }));
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'next') }));
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
+    await user.click(
+      await screen.findByRole('button', { name: copy.item('Buttons', 'i understand') }),
+    );
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
     await frontCard();
     return app;
@@ -562,11 +599,10 @@ describe('the core loop', () => {
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
   }
 
-  it('Save: the answered card leaves and the next is the front at once; the toast says "Synced" once the server took it, then goes', async () => {
+  it('Save: the answered card leaves and the next is the front at once, with no toast and no status line; the answer syncs in the background', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED, SYNCED] });
     const user = userEvent.setup();
-    const { wait, release } = heldToast();
-    const app = await toTheFirstCard(user, wait);
+    const app = await toTheFirstCard(user);
     const first = app.card!;
     await answer(user, 'An answer');
     await waitFor(() =>
@@ -574,45 +610,41 @@ describe('the core loop', () => {
     );
     expect(await frontCard()).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
-    const status = screen.getByRole('status');
-    expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(await screen.findByText(copy.item('Card states', 'synced'))).toBeTruthy();
-    expect(status.textContent).toContain(copy.item('Card states', 'synced'));
-    release();
-    await waitFor(() => expect(screen.queryByText(copy.item('Card states', 'synced'))).toBeNull());
+    await waitFor(() => expect(app.sync.lastResult).toBe('ok'));
+    expect(document.querySelector('[role="status"], .toast, .toast-slot')).toBeNull();
     expect(app.live!.answered.has(first.id)).toBe(true);
     expect(app.world.tiles.map((t) => t.answer)).toEqual(['An answer']);
   });
 
-  it('offline, the toast says "Saved on this device. Syncs when you are online."', async () => {
+  it('offline, nothing is said: the card leaves as ever, and the answer waits in the outbox for the retry', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [() => 'offline'] });
     const user = userEvent.setup();
-    const { wait, release } = heldToast();
-    await toTheFirstCard(user, wait);
+    const { wait, release } = heldRetry();
+    const app = await toTheFirstCard(user, wait);
+    const first = app.card!;
     await answer(user, 'An answer');
-    expect(await screen.findByText(copy.item('Card states', 'offline'))).toBeTruthy();
+    await waitFor(() => expect(app.sync.lastResult).toBe('offline'));
+    expect(app.sync.outboxSize).toBeGreaterThan(0);
+    expect((await frontCard()).textContent).not.toContain(first.text);
+    expect(document.querySelector('[role="status"]')).toBeNull();
     release();
+    await waitFor(() => expect(app.sync.lastResult).toBe('ok'));
   });
 
-  it('Set aside by the button: the toast says so, the next card is the front, and the card comes round again at the end', async () => {
+  it('Set aside by the button: no toast, the next card is the front with its area as the label, and the card is listed under "Set aside"', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
     const user = userEvent.setup();
-    const { wait, release } = heldToast();
-    const app = await toTheFirstCard(user, wait);
+    const app = await toTheFirstCard(user);
     const first = app.card!;
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
     );
-    expect(screen.getByRole('status').textContent).toContain(copy.item('Card states', 'dismissed'));
-    expect(app.live!.plan.queue.at(-1)).toBe(first.id);
+    expect(document.querySelector('[role="status"]')).toBeNull();
     expect(app.live!.dismissed.has(first.id)).toBe(true);
     const next = app.card!;
-    expect((await frontCard()).textContent).toContain(
-      fill(copy.item('Card labels', 'position with area'), { n: '02', total: 4, area: next.area! }),
-    );
-    expect(app.world.chips.map((c) => c.cardId)).toEqual([first.id]);
-    release();
+    expect((await frontCard()).querySelector('.label')!.textContent).toBe(next.area);
+    expect(app.world.aside.map((c) => c.cardId)).toEqual([first.id]);
   });
 
   it('the foot of "Your world so far" on a phone carries the "Remind me" line, with the link to the calendar file', async () => {
@@ -627,8 +659,8 @@ describe('the core loop', () => {
     expect(dialog.contains(remind)).toBe(true);
     expect(remind.getAttribute('href')).toBe(`/${SLUG}/reminder.ics`);
     expect(remind.closest('p')!.textContent).toContain(copy.text('Remind me'));
-    // Under the tiles and the set-aside cards: the last thing in the sheet.
-    expect(dialog.lastElementChild).toBe(remind.closest('p'));
+    // Under the tiles and the set-aside cards: the last thing in the sheet's body.
+    expect(dialog.querySelector('.sheet-body')!.lastElementChild).toBe(remind.closest('p'));
   });
 
   it('a swipe sets the card aside as the button does', async () => {

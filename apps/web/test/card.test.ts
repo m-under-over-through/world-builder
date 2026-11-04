@@ -6,7 +6,7 @@ import App from '../src/App.svelte';
 import Card from '../src/screens/Card.svelte';
 import { fill } from '../src/lib/copy.ts';
 import { currentCardId, replaySession } from '../src/lib/session.ts';
-import { AppState, tintOf, TOAST_MS } from '../src/lib/state.svelte.ts';
+import { AppState, tintOf } from '../src/lib/state.svelte.ts';
 import { answerKey, WorkshopStore } from '../src/lib/store.ts';
 import { codePoints } from '../src/lib/text.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
@@ -15,7 +15,7 @@ import { freshIndexedDb, stubRoutes, SYNCED } from './helpers.ts';
 /**
  * The card screen of the design (design/DESIGN.md; ADR 0015), rendered from a state a test
  * sets up by hand: the stack and its states, the label and the tint, the counter, the swipe,
- * the toast, "Your world so far" as a sheet and as a column, and the laptop page.
+ * the onboarding card, "Your world so far" as a sheet and as a column, and the laptop page.
  */
 const SLUG = 'rural-manufacturing';
 const workshop = findWorkshop(SLUG)!;
@@ -71,17 +71,9 @@ function renderApp(app: AppState) {
   return render(App, { app });
 }
 
-/** A wait that holds only the toast's timer, so a test can read the toast; every other wait is instant. */
-function holdToast(app: AppState): { endHolds: () => void } {
-  const holds: (() => void)[] = [];
-  app.wait = (ms) =>
-    ms === TOAST_MS ? new Promise<void>((r) => holds.push(r)) : Promise.resolve();
-  return { endHolds: () => holds.splice(0).forEach((r) => r()) };
-}
-
 const frontCard = () =>
   screen.getByRole('button', {
-    name: (name) => name.includes(copy.item('Card labels', 'tap to answer')),
+    name: (name) => name.includes(copy.item('Card labels', 'write an answer')),
   });
 const tintOfSlot = (selector: string) =>
   (document.querySelector(selector) as HTMLElement).style.getPropertyValue('--tint');
@@ -99,25 +91,40 @@ describe('the label and the tint', () => {
     ]);
   });
 
-  it('the front card is "01 of 4 · Area" in the sun tint; the two behind carry the next tints', async () => {
+  it('the front card is labelled with its area alone, no number, in the sun tint; the two behind carry the next tints', async () => {
     const app = await onACard();
     render(Card, { app });
-    expect(frontCard().textContent).toContain(`01 of 4 · ${app.card!.area}`);
+    expect(frontCard().querySelector('.label')!.textContent).toBe(app.card!.area);
+    expect(frontCard().textContent).not.toMatch(/\d+ of \d+|\b0\d\b/);
     expect(tintOfSlot('.slot-0')).toBe('var(--tint-sun)');
     expect(tintOfSlot('.slot-1')).toBe('var(--tint-mint)');
     expect(tintOfSlot('.slot-2')).toBe('var(--tint-sky)');
     expect(app.backCards.map((b) => b.card.id)).toEqual(app.live!.plan.queue.slice(1, 3));
   });
 
-  it('a card without an area is "01 of 4"', async () => {
+  it('a card without an area shows no label at all', async () => {
     const app = await onACard();
     const { id, set, text } = app.card!;
     app.card = { id, set, text };
     render(Card, { app });
-    expect(frontCard().textContent).toContain(
-      fill(copy.item('Card labels', 'position'), { n: '01', total: 4 }),
-    );
+    expect(frontCard().querySelector('.label')!.textContent).toBe('');
     expect(frontCard().textContent).not.toContain('·');
+  });
+
+  it('the affordance is the pen and "Write an answer", on a phone and with a mouse alike', async () => {
+    for (const fine of [false, true]) {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: fine && query.includes('pointer: fine'),
+      }));
+      const app = await onACard();
+      const { unmount } = render(Card, { app });
+      const affordance = frontCard().querySelector('.affordance')!;
+      expect(affordance.textContent!.trim()).toBe(copy.item('Card labels', 'write an answer'));
+      const pen = affordance.querySelector('svg')!;
+      expect(pen.getAttribute('width')).toBe('18');
+      expect(pen.getAttribute('stroke-width')).toBe('1.75');
+      unmount();
+    }
   });
 
   it('a card set aside keeps its number and its tint when it comes round', async () => {
@@ -130,7 +137,7 @@ describe('the label and the tint', () => {
     await app.setAside();
     expect(app.card!.id).toBe(first.id);
     expect(app.cardNo).toBe(1);
-    expect(app.queueLength).toBe(4);
+    expect(app.live!.queueAsPlanned).toHaveLength(4);
   });
 });
 
@@ -185,70 +192,74 @@ describe('the states of the card', () => {
     expect(exit.textContent).toContain(app.card!.text);
   });
 
-  /** A sync that answers only when the test says, and a wait that holds only the toast's timer. */
-  function heldSync(app: AppState) {
-    let answerSync = () => {};
-    const fetchMock = vi.fn(
-      () =>
-        new Promise<Response>((resolve) => {
-          answerSync = () =>
-            resolve(
-              new Response(JSON.stringify(SYNCED().body), {
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-              }),
-            );
-        }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-    const holds: (() => void)[] = [];
-    app.wait = (ms) =>
-      ms === TOAST_MS ? new Promise<void>((r) => holds.push(r)) : Promise.resolve();
-    return {
-      answerSync: async (nth: number) => {
-        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(nth));
-        answerSync();
-      },
-      endHolds: () => holds.splice(0).forEach((r) => r()),
-    };
-  }
-
-  it('Save: the toast says "Saved on this device" while the next card is the front, then "Synced" when the server takes it; silent once the toast is gone', async () => {
+  it('Save: no toast and no status line; the next card is the front at once and the answer syncs in the background', async () => {
     const app = await onACard({ cardState: 'answering', draft: 'An answer' });
-    const sync = heldSync(app);
+    const calls = stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
+    renderApp(app);
     const first = app.card!;
-    const saved = app.save();
-    await waitFor(() => expect(app.toast).toBe('saved'));
+    expect(await app.save()).toBe(true);
     expect(app.card!.id).not.toBe(first.id);
     expect(app.cardState).toBe('fresh');
     expect(app.draft).toBe('');
-    await sync.answerSync(1);
-    expect(await saved).toBe(true);
-    expect(app.toast).toBe('synced');
-    // The toast goes before the next answer's sync comes back: nothing more is said.
-    app.cardState = 'answering';
-    app.draft = 'Another';
-    const again = app.save();
-    await waitFor(() => expect(app.toast).toBe('saved'));
-    sync.endHolds();
-    await waitFor(() => expect(app.toast).toBe(''));
-    await sync.answerSync(2);
-    expect(await again).toBe(true);
-    expect(app.toast).toBe('');
+    expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true);
+    expect(app).not.toHaveProperty('toast');
+    expect(document.querySelector('[role="status"], .toast, .toast-slot')).toBeNull();
+  });
+});
+
+describe('what a screen reader hears', () => {
+  it('a hidden line announces the save and the set-aside; the same words say again the next time', async () => {
+    const app = await onACard({ cardState: 'answering', draft: 'An answer' });
+    stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
+    renderApp(app);
+    const live = () => document.querySelector('[aria-live="polite"]')!;
+    expect(live().textContent).toBe('');
+    expect(await app.save()).toBe(true);
+    await waitFor(() => expect(live().textContent).toBe(copy.item('Announcements', 'saved')));
+    const first = app.announcement.n;
+    await app.setAside();
+    await waitFor(() => expect(live().textContent).toBe(copy.item('Announcements', 'set aside')));
+    expect(app.announcement.n).toBe(first + 1);
+    expect(document.querySelector('[role="status"], .toast')).toBeNull();
+  });
+});
+
+describe('the onboarding card', () => {
+  it('is the front of the stack on the first open; "Got it" sends it away and the first card comes forward, recorded shown only then', async () => {
+    const app = await onACard({ demoFront: true });
+    await app.store!.unset('demoSeen');
+    const user = userEvent.setup();
+    renderApp(app);
+    const first = app.card!;
+    expect(document.querySelector('.slot-0 .card.demo')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    await waitFor(() => expect(app.demoFront).toBe(false));
+    expect(document.querySelector('.card.demo')).toBeNull();
+    expect(frontCard().textContent).toContain(first.text);
+    await waitFor(() => expect(document.activeElement).toBe(frontCard()));
+    await waitFor(() => expect(app.live!.shown.has(first.id)).toBe(true));
+    expect(document.querySelector('[role="status"]')).toBeNull();
   });
 
-  it('the toast is a polite status that goes after its hold', async () => {
-    const app = await onACard({ cardState: 'answering', draft: 'An answer' });
-    const sync = heldSync(app);
-    renderApp(app);
-    void app.save();
-    await waitFor(() => expect(app.toast).toBe('saved'));
-    const status = screen.getByRole('status');
-    expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(status.textContent).toContain(copy.item('Card states', 'saved'));
-    sync.endHolds();
-    await waitFor(() => expect(app.toast).toBe(''));
-    expect(status.textContent?.trim()).toBe('');
+  it('a swipe sends it away as "Got it" does', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('reduced-motion'),
+    }));
+    const app = await onACard({ demoFront: true });
+    render(Card, { app });
+    const demo = document.querySelector('.card.demo')!;
+    for (const [type, x] of [
+      ['pointerdown', 200],
+      ['pointermove', 150],
+      ['pointermove', 60],
+      ['pointerup', 60],
+    ] as const)
+      demo.dispatchEvent(
+        new PointerEvent(type, { clientX: x, clientY: 100, pointerId: 1, bubbles: true }),
+      );
+    await waitFor(() => expect(app.demoFront).toBe(false));
+    expect(app.live!.dismissed.size).toBe(0);
   });
 });
 
@@ -289,22 +300,23 @@ describe('the counter', () => {
 });
 
 describe('set aside', () => {
-  it('the button: the toast says "Set aside"; the second time "Set aside for later", and the card leaves the round', async () => {
+  it('the button: no toast and no status line; the card is set aside and listed under "Set aside", even once it is out of the queue', async () => {
     const app = await onACard();
-    holdToast(app);
     const user = userEvent.setup();
-    render(Card, { app });
+    renderApp(app);
     const first = app.card!;
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
     await waitFor(() => expect(app.card!.id).not.toBe(first.id));
-    expect(app.toast).toBe('dismissed');
-    expect(app.world.chips.map((c) => c.cardId)).toEqual([first.id]);
-    while (app.card!.id !== first.id) await app.setAside();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
-    await waitFor(() => expect(app.toast).toBe('deferred'));
-    expect(copy.item('Card states', 'deferred')).toBe('Set aside for later');
-    expect(app.live!.deferred.has(first.id)).toBe(true);
-    expect(app.live!.plan.queue).not.toContain(first.id);
+    expect(app.live!.dismissed.has(first.id)).toBe(true);
+    expect(app.world.aside.map((c) => c.cardId)).toEqual([first.id]);
+    expect(document.querySelector('[role="status"]')).toBeNull();
+    // The list is the round's record of what was set aside, not a reading of the queue: a card
+    // the engine takes out of the queue stays listed (fix 19 moves a card set aside to a later round).
+    app.live = {
+      ...app.live!,
+      plan: { ...app.live!.plan, queue: app.live!.plan.queue.filter((id) => id !== first.id) },
+    };
+    expect(app.world.aside.map((c) => c.cardId)).toEqual([first.id]);
   });
 
   it('a swipe of more than 100 pixels sets the card aside; one of 100 brings it back; a drag of 7 pixels does not open the card', async () => {
@@ -369,9 +381,7 @@ describe('your world so far', () => {
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(screen.getByText(copy.item('Your world', 'empty'))).toBeTruthy();
     expect(
-      screen.getByText(
-        fill(copy.item('Your world', 'summary'), { answered: 0, aside: 0, left: 4 }),
-      ),
+      screen.getByText(fill(copy.item('Your world', 'summary'), { answered: 0, aside: 0 })),
     ).toBeTruthy();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -392,7 +402,7 @@ describe('your world so far', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('the sheet shows the words of an answer written here, the question with a quiet line for one written elsewhere, and the set-aside chips', async () => {
+  it('the sheet shows the words of an answer written here, the question with a quiet line for one written elsewhere, and the card set aside as a white tile after them', async () => {
     const app = await onACard();
     const [a, b, c] = app.live!.plan.queue;
     const written = answeredEvent(a!, 1);
@@ -406,22 +416,35 @@ describe('your world so far', () => {
     app.worldOpen = true;
     renderApp(app);
     const dialog = await screen.findByRole('dialog');
-    const tiles = [...dialog.querySelectorAll('.tile')];
+    const tiles = [...dialog.querySelectorAll('.world-section.answered .tile')];
     expect(tiles).toHaveLength(2);
     const card = (id: string) => workshop.deck.cards.find((x) => x.id === id)!;
-    expect(tiles[0]!.textContent).toContain(`01 · ${card(a!).area}`);
+    expect(tiles[0]!.querySelector('.label')!.textContent).toBe(card(a!).area);
     expect(tiles[0]!.textContent).toContain(card(a!).text);
     expect(tiles[0]!.querySelector('.a')!.textContent).toBe('Two lines\nof words');
     expect(tiles[1]!.textContent).toContain(card(b!).text);
     expect(tiles[1]!.textContent).toContain(copy.item('Your world', 'written elsewhere'));
     expect(tiles[1]!.textContent).not.toContain('QQQQ');
     expect(tintOfSlot('.tile')).toBe('var(--tint-sun)');
-    expect(dialog.querySelector('.chip')!.textContent).toBe(card(c!).text);
-    expect(dialog.querySelectorAll('.chip button')).toHaveLength(0);
+    // The card set aside: a tile of the same kind, white, its area and its question, no answer, no button.
+    const aside = dialog.querySelector('.world-section.aside')!;
+    expect(aside.querySelector('.section-label')!.textContent).toBe(
+      copy.item('Your world', 'set aside'),
+    );
+    const asideTile = aside.querySelector('li.tile.aside')!;
+    expect(asideTile.querySelector('.label')!.textContent).toBe(card(c!).area);
+    expect(asideTile.querySelector('.q')!.textContent).toBe(card(c!).text);
+    expect(asideTile.querySelector('.a')).toBeNull();
+    expect(asideTile.getAttribute('style') ?? '').not.toContain('--tint');
+    expect(aside.querySelectorAll('button')).toHaveLength(0);
+    expect(dialog.querySelector('.chip, .chips')).toBeNull();
+    // After the answers, as in the laptop's column.
     expect(
-      screen.getByText(
-        fill(copy.item('Your world', 'summary'), { answered: 2, aside: 1, left: 2 }),
-      ),
+      dialog.querySelector('.world-section.answered')!.compareDocumentPosition(aside) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByText(fill(copy.item('Your world', 'summary'), { answered: 2, aside: 1 })),
     ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: fill(copy.item('Your world', 'pill label'), { n: 2 }) }),
@@ -430,7 +453,7 @@ describe('your world so far', () => {
 });
 
 describe('the laptop page', () => {
-  it('from 600 pixels: the stack in the left column, the world in the right with the tiles and the set-aside row, no pill and no sheet, the progress strip and "n of M answered" in the top bar', async () => {
+  it('from 600 pixels: the stack in the left column, the world in the right with the empty notice as one tile-sized cell and the set-aside tile, no pill and no sheet, and in the top bar the count of answers so far instead of a strip', async () => {
     const app = await onACard({ wide: true });
     // A laptop: a wide window and a mouse.
     vi.stubGlobal('matchMedia', (query: string) => ({
@@ -441,21 +464,24 @@ describe('the laptop page', () => {
     const page = document.querySelector('.page')!;
     expect(page.querySelector('.col-stack .card.front')).toBeTruthy();
     expect(page.querySelector('.col-stack')!.textContent).toContain(
-      copy.item('Card labels', 'click to answer'),
+      copy.item('Card labels', 'write an answer'),
     );
     const world = screen.getByRole('region', { name: copy.item('Your world', 'title') });
     expect(world.classList.contains('col-world')).toBe(true);
-    expect(world.textContent).toContain(copy.item('Your world', 'empty laptop'));
-    expect(world.querySelector('.chips .chip')).toBeTruthy();
+    // The empty notice sits in the grid as one cell, where the first tile will land.
+    const empty = world.querySelector('.tiles > .world-empty')!;
+    expect(empty.textContent).toBe(copy.item('Your world', 'empty laptop'));
+    expect(world.querySelector('.world-section.aside .tile.aside')).toBeTruthy();
     expect(screen.queryByText(copy.item('Card labels', 'swipe hint'))).toBeTruthy();
     expect(document.querySelector('.pill.world')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
     const header = document.querySelector('header')!;
-    expect(header.querySelectorAll('.progress .seg')).toHaveLength(4);
-    expect(header.querySelector('.progress')!.getAttribute('aria-hidden')).toBe('true');
-    expect(header.querySelectorAll('.progress .seg.aside')).toHaveLength(1);
-    expect(header.textContent).toContain(
-      fill(copy.item('Your world', 'progress'), { n: 0, total: 4 }),
+    expect(header.querySelector('.progress, .seg')).toBeNull();
+    const count = header.querySelector('.answered-so-far')!;
+    expect(count.querySelector('.figure')!.textContent).toBe('0');
+    expect(count.querySelector('svg')!.getAttribute('aria-hidden')).toBe('true');
+    expect(count.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      fill(copy.item('Your world', 'answered so far'), { n: 0 }),
     );
     expect(document.querySelector('.app')!.classList.contains('wide')).toBe(true);
   });
@@ -476,6 +502,10 @@ describe('the laptop page', () => {
     expect(page.querySelector('.col-stack h1')).toBeNull();
     const world = screen.getByRole('region', { name: copy.item('Your world', 'title') });
     expect(world.querySelectorAll('.tile')).toHaveLength(4);
+    // The count in the top bar is the answers so far, across rounds, not this round's.
+    await waitFor(() =>
+      expect(document.querySelector('.answered-so-far .figure')!.textContent).toBe('4'),
+    );
   });
 });
 

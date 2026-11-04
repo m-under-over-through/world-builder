@@ -2,7 +2,6 @@
   import { MAX_ANSWER_CHARS } from '@wb/contracts';
   import { tick } from 'svelte';
   import { fill } from '../lib/copy.ts';
-  import { finePointer } from '../lib/platform.ts';
   import { tintOf, type AppState } from '../lib/state.svelte.ts';
   import { reducedMotion, swipe, SWIPE_MS } from '../lib/swipe.ts';
   import { codePoints, truncateCodePoints } from '../lib/text.ts';
@@ -11,12 +10,18 @@
    * The stack (design/DESIGN.md, Layout and Components; ADR 0015): the front card and the two
    * behind it, each in a slot that keeps its element while the cards change places, so a card
    * moving one slot forward moves on the screen. While the stack is `fresh` the front card is
-   * one button: tap, click or Enter opens it (`answering`), with the question as the label of
-   * the field, the nudge, the counter near the limit, "Prefer to talk?" and Save. × closes it
-   * and keeps the draft. The answered card leaves through `app.exiting`, drawn here on its way
-   * out while the next card is already the front. Under the stack: Set aside, which makes the
-   * card leave sideways before recording it, and on a phone the hint that a swipe does the
-   * same (lib/swipe.ts).
+   * one button, labelled with its area and nothing else (no numbers, ADR 0019), with the pen
+   * and "Write an answer" at its foot: tap, click or Enter opens it (`answering`), with the
+   * question as the label of the field, the counter near the limit, "Prefer to talk?" and Save.
+   * × closes it and keeps the draft. The answered card leaves through `app.exiting`, drawn here
+   * on its way out while the next card is already the front. Under the stack: Set aside, which
+   * makes the card leave sideways before recording it, and on a phone the hint that a swipe
+   * does the same (lib/swipe.ts).
+   *
+   * On the first open the onboarding card is the front (`app.demoFront`, ADR 0019): tinted,
+   * "Try a card" as its label, the words large, "Got it" at its foot; the first real cards
+   * wait behind it in their tints. "Got it", a swipe or Set aside sends it away, and the first
+   * card comes forward one slot, as any card does.
    *
    * The dictation hint (architecture plan, section 7) sits inside the open card, where the
    * field is: by itself on the first card of the first session, and from "Prefer to talk?".
@@ -32,19 +37,16 @@
   const count = $derived(codePoints(app.draft));
   const busy = $derived(app.cardState === 'saving');
   const open = $derived(app.cardState !== 'fresh');
-  /** The cards on the screen, back to front, so the front one paints last. */
+  /** With the onboarding card in front, every real card sits one slot further back. */
+  const behind = $derived(app.demoFront ? 1 : 0);
+  /** The real cards on the screen, back to front, so the front one paints last. */
   const slots = $derived([
-    ...app.backCards.map((b, i) => ({ ...b, slot: i + 1 })).reverse(),
-    ...(app.card ? [{ card: app.card, n: app.cardNo, slot: 0 }] : []),
+    ...app.backCards
+      .slice(0, 2 - behind)
+      .map((b, i) => ({ ...b, slot: i + 1 + behind }))
+      .reverse(),
+    ...(app.card ? [{ card: app.card, n: app.cardNo, slot: behind }] : []),
   ]);
-
-  /** "03 of 4 · Everyday life", or "03 of 4" for a card without an area. */
-  function label(n: number, area?: string): string {
-    const parts = { n: String(n).padStart(2, '0'), total: app.queueLength };
-    return area
-      ? fill(app.copy.item('Card labels', 'position with area'), { ...parts, area })
-      : fill(app.copy.item('Card labels', 'position'), parts);
-  }
 
   /** The question's size by its length: larger when it fits in two lines, smaller when long (DESIGN.md, Content). */
   function sizeClass(text: string): string {
@@ -61,6 +63,7 @@
       : '',
   );
 
+  /** The front card leaves sideways, then is recorded set aside; the onboarding card just goes. */
   async function setAside() {
     if (busy || leaving || open) return;
     leaving = true;
@@ -78,15 +81,23 @@
   }
 
   // The field takes focus when the card opens; the front card takes it when the card closes
-  // or the next one comes, so the keyboard and the screen reader stay on the loop.
+  // or the onboarding card goes, so the keyboard and the screen reader stay on the loop.
   let wasOpen = false;
+  let wasDemo = false;
   $effect(() => {
     const isOpen = app.cardState !== 'fresh';
+    const isDemo = app.demoFront;
     if (isOpen && !wasOpen) void tick().then(() => field?.focus());
-    if (!isOpen && wasOpen) void tick().then(() => front?.focus());
+    if ((!isOpen && wasOpen) || (!isDemo && wasDemo)) void tick().then(() => front?.focus());
     wasOpen = isOpen;
+    wasDemo = isDemo;
   });
 </script>
+
+{#snippet label(area: string | undefined)}
+  {#if area}<span class="label">{area}</span>{:else}<span class="label" aria-hidden="true"
+    ></span>{/if}
+{/snippet}
 
 <div class="stack" class:answering={open}>
   {#each slots as entry (entry.card.id)}
@@ -103,7 +114,7 @@
           }}
           onclick={() => app.openCard()}
         >
-          <span class="label">{label(entry.n, entry.card.area)}</span>
+          {@render label(entry.card.area)}
           <span class="question {sizeClass(entry.card.text)}">{entry.card.text}</span>
           <span class="affordance">
             <svg
@@ -115,17 +126,18 @@
               stroke="currentColor"
               stroke-width="1.75"
               stroke-linecap="round"
+              stroke-linejoin="round"
             >
-              <circle cx="12" cy="12" r="3.5" />
-              <path d="M4.5 12a7.5 7.5 0 0 1 2.2-5.3M19.5 12a7.5 7.5 0 0 1-2.2 5.3" />
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
-            {app.copy.item('Card labels', finePointer() ? 'click to answer' : 'tap to answer')}
+            {app.copy.item('Card labels', 'write an answer')}
           </span>
         </button>
       {:else if entry.slot === 0}
         <div class="card open">
           <div class="head">
-            <span class="label">{label(entry.n, entry.card.area)}</span>
+            {@render label(entry.card.area)}
             <button
               type="button"
               class="close"
@@ -154,9 +166,8 @@
             oninput={onInput}
             disabled={busy}
             placeholder={app.copy.item('Card labels', 'placeholder')}
-            aria-describedby="answer-nudge answer-count"></textarea>
+            aria-describedby="answer-count"></textarea>
           <div class="meta">
-            <span id="answer-nudge">{app.copy.text('Card nudge')}</span>
             <span id="answer-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span
             >
           </div>
@@ -213,17 +224,32 @@
       {/if}
     </div>
   {/each}
+  {#if app.demoFront}
+    <div class="slot slot-0" style:--tint={`var(--tint-${tintOf(0)})`}>
+      <div
+        class="card front demo"
+        class:leaving
+        use:swipe={{ onDismiss: () => app.dismissDemo(), enabled: () => !leaving }}
+      >
+        <span class="label">{app.copy.item('Card labels', 'demo label')}</span>
+        <p class="demo-words">{app.copy.text('Demo card')}</p>
+        <button type="button" class="pill" disabled={leaving} onclick={setAside}
+          >{app.copy.item('Buttons', 'got it')}</button
+        >
+      </div>
+    </div>
+  {/if}
   {#if app.exiting}
     <div class="slot exit" aria-hidden="true" style:--tint={`var(--tint-${tintOf(app.exiting.n)})`}>
       <div class="card done">
-        <span class="label">{label(app.exiting.n, app.exiting.card.area)}</span>
+        {@render label(app.exiting.card.area)}
         <span class="question">{app.exiting.card.text}</span>
         <span class="answer">{app.exiting.answer}</span>
       </div>
     </div>
   {/if}
 </div>
-{#if !open && app.card}
+{#if !open && (app.card || app.demoFront)}
   <div class="aside-row">
     <button type="button" class="ghost" disabled={busy || leaving} onclick={setAside}>
       {app.copy.item('Buttons', 'set aside')}

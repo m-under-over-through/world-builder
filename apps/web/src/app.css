@@ -92,7 +92,6 @@
   --shadow-card-back-2: 0 10px 28px rgba(23, 23, 26, 0.1);
   --shadow-card-exit: 0 1px 2px rgba(23, 23, 26, 0.08), 0 24px 48px rgba(23, 23, 26, 0.2);
   --shadow-primary: 0 8px 24px rgba(23, 23, 26, 0.18);
-  --shadow-toast: 0 2px 10px rgba(23, 23, 26, 0.12);
   --shadow-code: 0 2px 10px rgba(23, 23, 26, 0.08);
   --shadow-sheet: 0 -10px 40px rgba(23, 23, 26, 0.22);
 
@@ -233,40 +232,6 @@ li {
   line-height: 1.2;
 }
 
-/* the toast: its own slot under the top bar on a phone, so nothing moves when it comes */
-.toast-slot {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  height: 42px;
-  padding: 6px var(--space-page-x) 0;
-}
-.toast {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 6px 14px 6px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-toast);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-  animation: toast-in 160ms ease-out;
-}
-.toast .tick {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-pill);
-  background: var(--color-ink);
-  color: var(--color-surface);
-}
-
 /* buttons: an ink pill for the one action, a ghost pill for the others, a text link for the quiet ones */
 button {
   font: inherit;
@@ -319,27 +284,30 @@ button.primary {
   min-height: 50px;
   font-size: 16px;
 }
+/* the one full-width action of a page: "I understand" on the welcome */
+button.primary.wide {
+  width: 100%;
+  min-height: 54px;
+}
+/* a quiet link outside a sentence: 44 pixels tall, the hit area on its own text, no negative margins */
 button.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 4px;
+  margin: 0;
   border: 0;
+  border-radius: 0;
   background: none;
-  padding: 0;
-  min-height: 0;
   font-weight: 600;
   font-size: inherit;
   text-decoration: underline;
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
-  display: inline;
 }
 button.link:hover {
   background: none;
   color: var(--color-muted);
-}
-/* a link inside a line of text keeps the line's rhythm and still 44 pixels to tap */
-p.aside button.link {
-  padding: 11px 0;
-  margin-block: -11px;
-  vertical-align: baseline;
 }
 p a,
 dd a {
@@ -367,7 +335,7 @@ section .row {
   font-size: 15px;
 }
 
-/* the text screens: welcome, intro, code, the page about the app (restyled next) */
+/* the text screens: the welcome, the page about the app, the terms and the policy */
 .text {
   flex: 1 1 auto;
   width: 100%;
@@ -427,6 +395,122 @@ summary {
   align-items: center;
   font-weight: 600;
 }
+
+/* the welcome, the one page before the cards (ADR 0019; the design's Welcome artboard) */
+.welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-top: 8px;
+}
+.welcome .fan {
+  position: relative;
+  height: 230px;
+}
+.welcome .fan span {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 150px;
+  height: 200px;
+  margin-left: -75px;
+  border-radius: var(--radius-tile);
+  background: var(--tint);
+  transform: rotate(var(--turn));
+  box-shadow: var(--shadow-card-back-1);
+}
+.welcome .fan span:last-child {
+  box-shadow: var(--shadow-card);
+}
+.welcome h1 {
+  margin: 0 0 14px;
+}
+.welcome .words p {
+  margin-bottom: 14px;
+  font-size: 16px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.welcome .words p.purpose {
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--color-ink-soft);
+}
+.welcome .words p.line {
+  font-size: 15px;
+  color: var(--color-muted);
+}
+.welcome .words p:last-child {
+  margin-bottom: 0;
+}
+.welcome .go p {
+  margin-bottom: 12px;
+}
+
+/* Back at the top of the about page, the terms and the policy: a ghost pill with an arrow */
+.top-back {
+  margin-top: 8px;
+}
+.back-pill {
+  padding: 0 18px 0 14px;
+  gap: 6px;
+}
+
+/* the about page: a few plain sentences, then the technical details folded away */
+p.remind + p.in-short {
+  margin-top: 20px;
+}
+details.technical {
+  margin: 24px 0 32px;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+details.technical > summary {
+  min-height: 56px;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 17px;
+  list-style: none;
+}
+details.technical > summary::-webkit-details-marker {
+  display: none;
+}
+details.technical > summary .caret {
+  flex: none;
+  transition: transform 160ms ease-out;
+}
+details.technical[open] > summary .caret {
+  transform: rotate(180deg);
+}
+details.technical > section:last-child {
+  margin-bottom: 24px;
+}
+dd .note {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+/* the foot of the about page: a line, then the terms and the policy as quiet links */
+footer.page-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+  margin-top: 40px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-line);
+}
+footer.page-foot button.link {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+footer.page-foot button.link:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
 @media (max-width: 360px) {
   dl div {
     grid-template-columns: 1fr;
@@ -481,7 +565,7 @@ textarea::placeholder {
   font-size: 15px;
 }
 
-/* a plain card outside the stack (the demo card): the same paper, in the surface colour */
+/* the paper of every card; the stack below places it */
 .card {
   position: relative;
   border-radius: var(--radius-card);
@@ -491,14 +575,6 @@ textarea::placeholder {
   padding: var(--space-card-pad);
   margin: 16px 0 24px;
   touch-action: pan-y;
-}
-.card p.question {
-  font-family: var(--font-display);
-  font-size: 27px;
-  line-height: 1.08;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
 }
 .card.swiping {
   cursor: grabbing;
@@ -640,7 +716,31 @@ textarea::placeholder {
   color: var(--color-ink-soft);
 }
 
-/* the open card: the question as the field's label, the field, the nudge and the counter, the actions */
+/* the onboarding card: the front of the stack on the first open, words large, "Got it" at its foot */
+.card.front.demo {
+  justify-content: flex-start;
+  gap: 16px;
+  cursor: default;
+}
+.card .demo-words {
+  margin: 0;
+  max-width: none;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.card.demo .pill {
+  margin-top: auto;
+  align-self: stretch;
+  min-height: 50px;
+  font-size: 16px;
+}
+
+/* the open card: the question as the field's label, the field, the counter, the actions */
 .card.open {
   padding: 20px 22px 18px;
   display: flex;
@@ -710,7 +810,7 @@ textarea::placeholder {
 .card .meta {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   font-size: 12px;
   line-height: 1.3;
@@ -736,17 +836,30 @@ textarea::placeholder {
 .card .actions .save.busy {
   opacity: 0.6;
 }
+/* "Prefer to talk?": a text link with a mic, underlined 1.5px, not a box; 44px to tap all the same */
 .card .talk {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  align-self: center;
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.2;
   text-decoration: none;
+  border: 0;
   border-bottom: 1.5px solid currentColor;
-  padding: 11px 0 1px;
   border-radius: 0;
+  padding: 0 0 1px;
   min-height: 0;
+}
+.card .talk::before {
+  content: '';
+  position: absolute;
+  inset: -12px -6px;
+}
+.card .talk svg {
+  flex: none;
 }
 .card .talk:hover {
   background: none;
@@ -828,12 +941,12 @@ textarea::placeholder {
   padding: 8px var(--space-page-x) calc(10px + var(--space-safe-bottom));
 }
 .foot .about {
+  min-height: var(--tap);
+  padding: 12px 28px;
   font-size: 12px;
   font-weight: 400;
   color: var(--color-muted);
   text-decoration: none;
-  padding: 14px 8px;
-  margin: 0;
 }
 .foot .about:hover {
   color: var(--color-ink);
@@ -872,6 +985,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin: 0;
 }
 .tiles {
   list-style: none;
@@ -917,32 +1031,17 @@ textarea::placeholder {
 .tile .a.elsewhere {
   color: var(--color-ink-soft);
 }
-.chips {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 2px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.chip {
-  margin: 0;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: var(--radius-pill);
+/* a card set aside: the same tile, white with a line instead of a tint, and no answer */
+.tile.aside {
+  background: var(--color-surface);
   border: 1.5px solid var(--color-line);
-  background: var(--color-ground);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
 }
+/* nothing answered yet: one notice the size of a tile, in the place of the first one */
 .world-empty {
+  margin: 0;
+  max-width: none;
   border-radius: var(--radius-tile);
-  padding: 20px;
+  padding: 16px 16px 18px;
   border: 1.5px dashed var(--color-line-dashed);
   font-size: 14px;
   line-height: 1.45;
@@ -1040,12 +1139,14 @@ textarea::placeholder {
   inset: -4px;
   border-radius: inherit;
 }
-.sheet .world-section.answered {
+.sheet-body {
   flex: 1 1 auto;
   min-height: 0;
-}
-.sheet .tiles {
   overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   padding-bottom: calc(20px + var(--space-safe-bottom));
 }
 
@@ -1073,42 +1174,27 @@ textarea::placeholder {
 .app.wide .topbar .organizer {
   font-size: 12px;
 }
-.progress-row {
+/* the count of cards answered so far, like a streak: the figure large, the words small */
+.answered-so-far {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  margin: 0;
+  color: var(--color-ink-soft);
 }
-.progress {
-  display: flex;
-  gap: 4px;
-  width: 180px;
+.answered-so-far .figure {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
 }
-.progress .seg {
-  flex: 1 1 0;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--progress-empty);
-}
-.progress .seg.answered {
-  background: var(--tint);
-}
-.progress .seg.aside {
-  background: var(--progress-aside);
-}
-.progress-text {
+.answered-so-far .words {
   font-size: 13px;
-  color: var(--color-muted);
-}
-.app.wide .toast-slot {
-  position: relative;
-  height: 0;
-  padding: 0;
-  z-index: 2;
-  overflow: visible;
-}
-.app.wide .toast {
-  position: absolute;
-  top: 4px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 .page {
   flex: 1 1 auto;
@@ -1212,39 +1298,19 @@ textarea::placeholder {
 .app.wide .tile .q {
   font-size: 17px;
 }
-.app.wide .chips {
-  flex-wrap: wrap;
-  overflow: visible;
-}
-.app.wide .chip {
-  background: var(--color-surface);
-}
 .app.wide .world-section.aside {
   margin-top: 8px;
   gap: 10px;
 }
 .app.wide .world-empty {
   border-radius: 20px;
-  padding: 28px;
-  max-width: 420px;
-  font-size: 15px;
-  line-height: 1.5;
+  padding: 18px 18px 20px;
 }
 .app.wide .foot {
   padding: 8px 36px 20px;
 }
 
 /* ---------- motion ---------- */
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 @keyframes card-exit {
   to {
     transform: translate(210px, 330px) rotate(16deg);
@@ -1302,7 +1368,6 @@ textarea::placeholder {
   .slot.exit {
     animation-name: fade-out;
   }
-  .toast,
   .tile {
     animation-name: fade-in;
   }
@@ -1328,4 +1393,17 @@ textarea::placeholder {
 .section-label {
   margin: 0;
   font-family: var(--font-ui);
+}
+
+/* Read by a screen reader, drawn nowhere: the announcement of a saved or set-aside card. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
