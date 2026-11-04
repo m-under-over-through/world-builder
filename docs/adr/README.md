@@ -18,3 +18,6 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0012   | Libraries for the walking skeleton, and rate limiting without addresses                          |
 | 0013   | Privacy in one place, and the way back: the one page, the plain session end, the reminder        |
 | 0014   | Answers stay readable on the device, for the participant; the server holds sealed envelopes only |
+| 0015   | The card screen in the new design: the stack, the world, the laptop page, the fonts              |
+| 0016   | Not used                                                                                         |
+| 0017   | Rounds instead of sessions: no end screen, no install offer                                      |

@@ -730,7 +730,8 @@ export class AppState {
     this.cardState = 'fresh';
     if (roundDone(this.live)) await this.startRound(this.live.session.sessionNo);
     // Still over: the round planned nothing (a workshop.json asking for no cards, or a deck
-    // without them). The stack is empty, and no further round is started (`roundDone`).
+    // without them), or a new round was over at once. Either way the stack is empty and no
+    // further round is started (`roundDone` needs a plan), so one open starts at most one round.
     if (sessionOver(this.live)) {
       this.card = undefined;
       this.cardNo = 0;
