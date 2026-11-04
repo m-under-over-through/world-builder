@@ -207,6 +207,23 @@ describe('the states of the card', () => {
   });
 });
 
+describe('what a screen reader hears', () => {
+  it('a hidden line announces the save and the set-aside; the same words say again the next time', async () => {
+    const app = await onACard({ cardState: 'answering', draft: 'An answer' });
+    stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
+    renderApp(app);
+    const live = () => document.querySelector('[aria-live="polite"]')!;
+    expect(live().textContent).toBe('');
+    expect(await app.save()).toBe(true);
+    await waitFor(() => expect(live().textContent).toBe(copy.item('Announcements', 'saved')));
+    const first = app.announcement.n;
+    await app.setAside();
+    await waitFor(() => expect(live().textContent).toBe(copy.item('Announcements', 'set aside')));
+    expect(app.announcement.n).toBe(first + 1);
+    expect(document.querySelector('[role="status"], .toast')).toBeNull();
+  });
+});
+
 describe('the onboarding card', () => {
   it('is the front of the stack on the first open; "Got it" sends it away and the first card comes forward, recorded shown only then', async () => {
     const app = await onACard({ demoFront: true });

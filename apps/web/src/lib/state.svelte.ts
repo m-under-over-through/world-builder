@@ -207,6 +207,8 @@ export class AppState {
   /** The card's number in this session, its place in the queue as planned (lib/session.ts, cardNumber). */
   cardNo = $state(0);
   cardState = $state<CardState>('fresh');
+  /** The last thing done to a card, for a screen reader: the leaving card is drawn as decoration (ADR 0019). */
+  announcement = $state<{ n: number; text: string }>({ n: 0, text: '' });
   /**
    * True while the onboarding card is the front of the stack (ADR 0019): on the first open of a
    * first round, once per device (`demoSeen`). The first real card is already `card`, behind
@@ -376,7 +378,8 @@ export class AppState {
     }
     const aside: AsideTile[] = [];
     if (this.live) {
-      // From the round's own record of what was set aside, in the order it happened, and never
+      // From the round's own record of what was set aside, the dismissed cards first and then the
+      // deferred ones, each in the order recorded, and never
       // from the queue: a card set aside may leave the queue (the deck engine decides where it
       // comes back), and the list must keep it all the same.
       const { answered, dismissed, deferred } = this.live;
@@ -844,10 +847,16 @@ export class AppState {
     this.cardState = 'fresh';
   }
 
+  /** Said once, to a screen reader only, each time a card is saved or set aside; `n` makes the same words say again. */
+  private announce(key: 'saved' | 'set aside' | 'set aside for later'): void {
+    this.announcement = { n: this.announcement.n + 1, text: this.copy.item('Announcements', key) };
+  }
+
   /** The answered card leaves the stack: drawn on its way out for EXIT_MS, then gone. */
   private leave(exiting: ExitingCard): void {
     const token = ++this.exitToken;
     this.exiting = exiting;
+    this.announce('saved');
     void this.wait(EXIT_MS).then(() => {
       if (this.exitToken === token) this.exiting = null;
     });
@@ -909,6 +918,7 @@ export class AppState {
     if (this.draft.trim()) this.drafts.set(card.id, this.draft);
     else this.drafts.delete(card.id);
     await this.record(event);
+    this.announce(event === 'deferred' ? 'set aside for later' : 'set aside');
     this.live = live;
     void this.requestSync();
     await this.showCard();

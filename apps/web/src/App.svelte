@@ -95,6 +95,9 @@
     <p class="warning" role="status">{app.copy.error('CLIENT_STORAGE_UNAVAILABLE')}</p>
   {/if}
   {#if loop}
+    <p class="sr-only" aria-live="polite">
+      {#key app.announcement.n}{app.announcement.text}{/key}
+    </p>
     {#if app.wide}
       <main class="page-main"><Card {app} /></main>
     {:else}

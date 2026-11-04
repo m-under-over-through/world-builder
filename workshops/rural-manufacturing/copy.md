@@ -159,6 +159,16 @@ The link this phone remembered is not in use any more. Open the link from your e
 - close without saving: Close without saving
 - could not save: Could not save.
 
+## Announcements (under 6 words each)
+
+<!-- Said to a screen reader only, each time a card is saved or set aside: the card leaving the stack is drawn as decoration, so these words are the feedback a screen reader gets (ADR 0019). -->
+
+[placeholder]
+
+- saved: Saved
+- set aside: Set aside
+- set aside for later: Set aside for later
+
 ## Card states (under 10 words each)
 
 <!-- "saving" is the Save button's label while the answer is sealed. Nothing else is said after Save or Set aside: the card leaving and the next one coming to the front is the feedback (ADR 0019). -->

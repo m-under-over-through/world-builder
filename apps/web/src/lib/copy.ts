@@ -201,6 +201,7 @@ export const COPY_LISTS = {
     'remind me',
   ],
   'App labels': ['loading', 'app name', 'retrying'],
+  Announcements: ['saved', 'set aside', 'set aside for later'],
   'Card labels': [
     'demo label',
     'write an answer',

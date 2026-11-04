@@ -20,7 +20,7 @@ The consent is a legal moment, not only a button. It must keep its words ("I und
 ## Consequences
 
 - The legal reviewers read one page instead of three: the welcome's paragraph and its one button. `docs/participant-texts.md` should carry the "Welcome" block next to the consent draft it replaces; the sentence "we cannot find out" predates ADR 0018 and is theirs to reword.
-- The screen map's First session table shrinks to two rows: the welcome's "I understand" and the onboarding card. The Core loop loses its `synced` state and every toast.
+- The screen map's First session table shrinks to two rows: the welcome's "I understand" and the onboarding card. The Core loop loses its `synced` state and every toast. A line drawn nowhere and read by a screen reader (`aria-live`, the "Announcements" block) says "Saved" or "Set aside" each time, since the card leaving the stack is drawn as decoration.
 - One tap from the welcome to a question, after "Got it". A person who reads nothing still taps "I understand" under the facts, as before they tapped it under the same facts on the third screen.
 - The client loses three screens (`intro-1`, `intro-2`, `consent`), the `demo` screen and `DemoCard.svelte`, the toast and its timer, the progress strip, and nine copy blocks and keys; it gains `demoFront` on the state, a demo-front mode in the stack, and four copy blocks and keys, all placeholders until Marco words them.
 - The events, the sync, the API and the contracts do not change. `demoSeen` and the consent day are stored as before.
