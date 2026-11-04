@@ -2,7 +2,7 @@
 
 A card-based reflection app for participatory future-building workshops. Participants open a link from a newsletter, see one simple question at a time about an alternative future, and answer in their own words over several short sessions. No accounts, no cookies, no tracking; answers are encrypted on the device to a key the server never has.
 
-Planning sprint: 23 October 2026. First workshop: the future of local manufacturing in rural America, launching 16 November 2026. Next: a worldbuilding class at the end of November.
+Planning sprint: 23 October 2026. First workshop: the future of local production in America, launching 16 November 2026. Next: a worldbuilding class at the end of November.
 
 ## The map
 
