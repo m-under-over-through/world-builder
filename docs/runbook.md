@@ -84,7 +84,7 @@ Meaning: the deploy context has no `DATABASE_URL`, or no `WB_PEPPER`, or a peppe
 
 ### CLIENT_STORAGE_UNAVAILABLE
 
-Meaning: IndexedDB or localStorage refused to open or write, so the code cannot be kept between visits. Cause: private browsing with storage blocked, or a full disk. Today the client does not produce this code: a storage failure on open surfaces as an unhandled error and the screen stays on "Loading" (the UI builder's item 9 detects it, runs one session in memory, warns, and shows the code at the end, as the screen map says). Fix: none on our side; tell the participant to keep their code, or to open the link outside private browsing. Confirm: the app opens and the privacy panel shows the stored code.
+Meaning: IndexedDB or localStorage refused to open or write, so the code cannot be kept between visits. Cause: private browsing with storage blocked, or a full disk. Today the client does not produce this code: a storage failure on open surfaces as an unhandled error and the screen stays on "Loading" (the UI builder's item 9 detects it, runs in memory, warns, and shows the code on the about page, as the screen map says). Fix: none on our side; tell the participant to keep their code, or to open the link outside private browsing. Confirm: the app opens and the about page shows the stored code.
 
 ### CLIENT_SEAL_FAILED
 

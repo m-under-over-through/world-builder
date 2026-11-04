@@ -367,7 +367,7 @@ section .row {
   font-size: 15px;
 }
 
-/* the text screens: welcome, intro, code, session end, the page about the app (restyled next) */
+/* the text screens: welcome, intro, code, the page about the app (restyled next) */
 .text {
   flex: 1 1 auto;
   width: 100%;
@@ -442,10 +442,6 @@ summary {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-p .code {
-  display: block;
-  margin-top: 8px;
-}
 input.code {
   display: block;
   width: 100%;
@@ -468,7 +464,7 @@ textarea::placeholder {
   opacity: 1;
 }
 
-/* a note beside the content: the install offer at the session end, the dictation hint on a card */
+/* a note beside the content: the dictation hint on a card */
 .hint {
   background: var(--color-surface);
   border-radius: var(--radius-tile);
@@ -952,6 +948,14 @@ textarea::placeholder {
   line-height: 1.45;
   color: var(--color-muted);
 }
+/* "Remind me": a quiet line at the foot of the world and under "what this is" (ADR 0017) */
+.remind {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-muted);
+  text-wrap: pretty;
+}
 
 /* the sheet (phone): from 112px down, over a scrim */
 .scrim {
@@ -1123,11 +1127,6 @@ textarea::placeholder {
   justify-content: center;
   gap: 24px;
   padding: 24px 0;
-}
-.col-stack .text {
-  padding: 0;
-  margin: 0;
-  max-width: 400px;
 }
 .col-world {
   flex: 999 1 560px;

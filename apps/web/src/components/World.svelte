@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fill } from '../lib/copy.ts';
+  import { reminderHref } from '../lib/reminder.ts';
   import { tintOf, type AppState } from '../lib/state.svelte.ts';
 
   /**
@@ -7,7 +8,9 @@
    * device wrote them and a quiet line where another device did; and the cards set aside in
    * this session as chips, with their questions. In the sheet the chips come before the tiles,
    * as the design draws it; in the laptop's column they come after. The chips carry no button:
-   * "bring back" is a second stage (ADR 0015, Open).
+   * "bring back" is a second stage (ADR 0015, Open). Under both, in the sheet and in the
+   * column, a quiet line with "Remind me", the workshop's calendar file (lib/reminder.ts); it
+   * moved here from the session end, which is gone (ADR 0017).
    */
   let { app, sheet = false }: { app: AppState; sheet?: boolean } = $props();
   const world = $derived(app.world);
@@ -65,4 +68,10 @@
 {:else}
   {@render tiles()}
   {@render chips()}
+{/if}
+{#if app.workshop}
+  <p class="remind">
+    {app.copy.text('Remind me')}
+    <a href={reminderHref(app.workshop.config.slug)}>{app.copy.item('Buttons', 'remind me')}</a>
+  </p>
 {/if}

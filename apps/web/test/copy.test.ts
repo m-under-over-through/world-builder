@@ -128,15 +128,12 @@ describe('every workshop folder has the words the client reads', () => {
       }
     });
 
-    it(`${slug}: the session end says nothing twice, and nobody says "That is a session"`, () => {
-      const title = copy.item('Titles', 'session end');
-      for (const block of [
-        'Session end: your code',
-        'Session end: install',
-        'Session end: come back',
-      ] as const)
-        expect(copy.text(block)).not.toContain(title);
-      expect(copy.text('Session end: install')).not.toContain(copy.item('Titles', 'install'));
+    it(`${slug}: no block is left for the session end or the install offer, and nobody says "That is a session"`, () => {
+      // Both went with ADR 0017; a block nothing reads is a block nobody keeps up to date.
+      for (const heading of copy.sections.keys())
+        expect(heading).not.toMatch(/^(Session end|Install steps)/);
+      expect(copy.sections.get('Titles')?.items).not.toHaveProperty('session end');
+      expect(copy.sections.get('Buttons')?.items).not.toHaveProperty('install');
       for (const section of copy.sections.values()) {
         expect(section.text).not.toContain('That is a session');
         for (const value of Object.values(section.items))
@@ -145,10 +142,7 @@ describe('every workshop folder has the words the client reads', () => {
     });
 
     it(`${slug}: the words a screen fills are still there`, () => {
-      expect(copy.text('Session end: your code')).toContain('[code]');
-      expect(copy.text('Session end: install')).toContain('[per-platform steps]');
       expect(copy.item('Reminder', 'description')).toContain('[link]');
-      expect(copy.item('Install steps', 'iPhone and iPad')).toMatch(/code/);
     });
   }
 });

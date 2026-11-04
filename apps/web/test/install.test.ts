@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { installDue, manifestHref, pointManifest } from '../src/lib/install.ts';
+import { manifestHref, pointManifest } from '../src/lib/install.ts';
 import { reminderCalendar, reminderHref } from '../src/lib/reminder.ts';
 import {
   API_PATH,
@@ -9,15 +9,6 @@ import {
   workshopManifests,
   workshopReminders,
 } from '../pwa.ts';
-
-describe('the install offer is due', () => {
-  it('on a platform with steps, and never in an installed app', () => {
-    expect(installDue({ platform: 'Android', installed: false })).toBe(true);
-    expect(installDue({ platform: 'iPhone and iPad', installed: false })).toBe(true);
-    expect(installDue({ platform: 'Android', installed: true })).toBe(false);
-    expect(installDue({ platform: null, installed: false })).toBe(false);
-  });
-});
 
 describe('the installable app', () => {
   it('has a root manifest at /, which the client sends on to the last workshop', () => {

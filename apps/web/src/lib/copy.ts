@@ -127,9 +127,7 @@ export const COPY_TEXT = [
   'Intro 3, consent',
   'Demo card',
   'Card nudge',
-  'Session end: your code',
-  'Session end: install',
-  'Session end: come back',
+  'Remind me',
   'Not a workshop',
   'Welcome: new here',
   'Welcome: I have a code',
@@ -166,7 +164,6 @@ export const TRUST_BLOCKS = [
 /** The lists the client reads, with the keys it reads from each. */
 export const COPY_LISTS = {
   'Dictation hint': ['iPhone and iPad', 'Android', 'Mac', 'Windows', 'ChromeOS'],
-  'Install steps': ['iPhone and iPad', 'Android', 'Mac', 'Windows', 'ChromeOS'],
   'Trust page variables': [
     'organizer',
     'data owners',
@@ -189,8 +186,6 @@ export const COPY_LISTS = {
     'consent',
     'demo card',
     'dictation hint',
-    'session end',
-    'install',
     'closed',
     'not open yet',
     'about',
@@ -216,7 +211,6 @@ export const COPY_LISTS = {
     'keep',
     'got it',
     'prefer to talk',
-    'install',
     'remind me',
   ],
   'App labels': ['loading', 'app name', 'retrying'],
@@ -246,7 +240,6 @@ export const COPY_LISTS = {
     'progress',
     'close',
   ],
-  'Session end': ['waiting to sync'],
   'Privacy panel': [
     'code',
     'code note',

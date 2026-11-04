@@ -10,7 +10,6 @@
   import EnterCode from './screens/EnterCode.svelte';
   import Intro from './screens/Intro.svelte';
   import NotAWorkshop from './screens/NotAWorkshop.svelte';
-  import SessionEnd from './screens/SessionEnd.svelte';
   import TextPage from './screens/TextPage.svelte';
   import Welcome from './screens/Welcome.svelte';
 
@@ -32,18 +31,12 @@
   const onAPage = $derived(
     app.screen === 'about' || app.screen === 'terms' || app.screen === 'privacy',
   );
-  /** The core loop's two screens: the card, and the session end that follows it. */
-  const loop = $derived(app.screen === 'card' || app.screen === 'session-end');
+  /** The core loop: the card screen, where rounds follow one another without a screen between them (ADR 0017). */
+  const loop = $derived(app.screen === 'card');
   const phoneLoop = $derived(loop && !app.wide);
   let worldPill: HTMLButtonElement | undefined = $state();
 
   onMount(() => {
-    // Chrome's own install offer, if it makes one: kept for the install offer (lib/install.ts).
-    const keep = (event: Event) => {
-      event.preventDefault();
-      app.installOffer = event as AppState['installOffer'];
-    };
-    window.addEventListener('beforeinstallprompt', keep);
     // The network is back: the outbox goes out now, not at the retry timer's next tick.
     const online = () => void app.reconnected();
     window.addEventListener('online', online);
@@ -61,7 +54,6 @@
     }
     void app.open(location.pathname);
     return () => {
-      window.removeEventListener('beforeinstallprompt', keep);
       window.removeEventListener('online', online);
       stopWide();
     };
@@ -119,7 +111,7 @@
   {#if app.storageUnavailable}
     <p class="warning" role="status">{app.copy.error('CLIENT_STORAGE_UNAVAILABLE')}</p>
   {/if}
-  {#if app.screen === 'card' || (app.screen === 'session-end' && app.wide)}
+  {#if loop}
     {#if app.wide}
       <main class="page-main"><Card {app} /></main>
     {:else}
@@ -139,8 +131,6 @@
         <Intro {app} />
       {:else if app.screen === 'demo'}
         <DemoCard {app} />
-      {:else if app.screen === 'session-end'}
-        <SessionEnd {app} />
       {:else if app.screen === 'closed'}
         <Closed {app} />
       {:else if app.screen === 'about'}
