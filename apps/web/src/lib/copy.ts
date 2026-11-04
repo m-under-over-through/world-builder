@@ -136,6 +136,7 @@ export const COPY_TEXT = [
   'Enter code',
   'Enter code: too short',
   'Closed',
+  'Thank you card',
   'Not open yet',
   'About: what this is',
   'About: delete',
