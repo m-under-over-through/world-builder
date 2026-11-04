@@ -1926,3 +1926,17 @@ Marco went through every screen of the preview on his phone and on a laptop and 
 - Taken by the integrator before the merge: the glossary's session sentence and the word round, the "Remind me" line in the about page entry, the decision records index up to 0017 (0016 not used), the runbook's `CLIENT_STORAGE_UNAVAILABLE` entry, the plan's section 8.1 and the calendar note, which all pointed at the session end; a stale comment in `reminder.ts`; the bound on rounds per open said in `showCard`'s comment. The reviewer's test gap (a round of warm-ups only) is left open: the deck contract requires a card of each set, so the case cannot arise from a valid deck.
 - Review fixes applied by the integrator before the merge: the link's code is derived from the last sixteen digits of the digest, not the first (a 256-bit number's first digit is "1" far more often than any other); `adopt` no longer wipes the device while the old participant's outbox cannot go out, and returns whether the switch happened, so the old participant stays for that open and the link's code waits under `linkCode` (a test covers the offline case); a bare `#` is removed from the address too; the queued join's acceptance of `JOIN_CODE_TAKEN` for a device-made code is said to be on purpose; the trust text's "Your controls" speaks of the link, not the code; ADR 0018 is accepted with its two open items and names the `linkCode` setting.
 - Review fixes applied by the integrator before the merge: with every toast gone nothing told a screen reader that a card was saved or set aside; a line drawn nowhere (`aria-live`) now says it from the "Announcements" block, with a test. The screen map's "Remind me" row no longer speaks of chips, the dead `--shadow-toast` token is gone, and the set-aside list's comment says its order. Left to Marco: the welcome's title says "local production in America" while the consent sentences, under legal review, say "local manufacturing in rural America".
+
+## 2026-11-04, Wednesday afternoon, later. "Local production in America" everywhere
+
+### What
+
+Marco's wording for the workshop, "the future of local production in America", replaces "local manufacturing in rural America" (and "rural US communities") in every text a participant sees: the welcome's purpose line and paragraph, the terms, the consent and policy drafts in `docs/participant-texts.md`, `workshop.json`'s purpose, and the README's one line. The welcome's title already said it (pull request 46).
+
+### Why
+
+The title and the consent sentences no longer matched after the morning pass; Marco chose the title's words on 4 November.
+
+### How to verify
+
+`grep -rn "manufacturing in rural" workshops docs/participant-texts.md README.md` finds nothing. `npm run check`.

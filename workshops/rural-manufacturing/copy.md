@@ -24,14 +24,14 @@ The future of local production in America
 <!-- The line under the title on the welcome. -->
 
 [placeholder]
-Imagine, piece by piece, an alternative future for local manufacturing in rural US communities.
+Imagine, piece by piece, an alternative future for local production in America.
 
 ## Welcome (under 120 words)
 
 <!-- The one paragraph of the welcome, above its one button, "I understand" (Buttons, i understand). It replaces the three intro screens and the consent screen (ADR 0019): what this is, how it works, and the consent. For the legal reviewers: tapping "I understand" is the consent, so the consent facts of the draft of 2 November (docs/participant-texts.md) are all here, in the same words: who runs it, no name, no email, no account, the answers locked on the phone, read and delete until 6 December 2026. "We cannot find out" predates the link of one's own (ADR 0018) and is the reviewers' to reword. "Please don't name real people" is said here once, and in the terms; the open card no longer repeats it. -->
 
 [placeholder]
-This is a research project by Under Over Through and Mechanism about the future of local manufacturing in rural America. You see one card at a time with a question about that future: answer in your own words, or set it aside. There are no right answers. Please don't name real people. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
+This is a research project by Under Over Through and Mechanism about the future of local production in America. You see one card at a time with a question about that future: answer in your own words, or set it aside. There are no right answers. Please don't name real people. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
 
 ## Demo card (under 15 words)
 
@@ -216,7 +216,7 @@ This opens on [day]. Keep the link and come back then.
 <!-- The two sentences at the top of the "About this app" page, with the "Remind me" line under them. -->
 
 [placeholder]
-Under Over Through and Mechanism are asking a few questions about the future of local manufacturing in rural America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
+Under Over Through and Mechanism are asking a few questions about the future of local production in America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
 
 ## About: in short (under 60 words)
 

@@ -6,7 +6,7 @@ The facts behind every sentence are in `docs/architecture-and-risk-plan.md`, sec
 
 ## Consent (the third intro screen, under 80 words)
 
-This is a research project by Under Over Through and Mechanism about the future of local manufacturing in rural America. You answer questions in your own words. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
+This is a research project by Under Over Through and Mechanism about the future of local production in America. You answer questions in your own words. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
 
 [I understand]
 
