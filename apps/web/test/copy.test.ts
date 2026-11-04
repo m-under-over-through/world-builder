@@ -9,7 +9,7 @@ const SAMPLE = `# Copy: sample
 
 Lines above the first heading are not a block.
 
-## Intro 1 (under 60 words)
+## Welcome (under 120 words)
 
 [placeholder]
 First paragraph, on one line.
@@ -37,20 +37,20 @@ describe('the copy parser', () => {
   const by = (heading: string) => sections.find((s) => s.heading === heading)!;
 
   it('reads one block per heading, with the heading name without its note', () => {
-    expect(sections.map((s) => s.heading)).toEqual(['Intro 1', 'Buttons', 'Final words', 'Empty']);
-    expect(by('Intro 1').note).toBe('under 60 words');
+    expect(sections.map((s) => s.heading)).toEqual(['Welcome', 'Buttons', 'Final words', 'Empty']);
+    expect(by('Welcome').note).toBe('under 120 words');
     expect(by('Final words').note).toBe('');
   });
 
   it('joins soft-wrapped lines and keeps paragraphs apart', () => {
-    expect(by('Intro 1').text).toBe(
+    expect(by('Welcome').text).toBe(
       'First paragraph, on one line.\n\nSecond paragraph, soft-wrapped onto two lines.',
     );
   });
 
   it('strips the [placeholder] marker and remembers it', () => {
-    expect(by('Intro 1').placeholder).toBe(true);
-    expect(by('Intro 1').text).not.toContain('[placeholder]');
+    expect(by('Welcome').placeholder).toBe(true);
+    expect(by('Welcome').text).not.toContain('[placeholder]');
     expect(by('Final words').placeholder).toBe(false);
   });
 
@@ -74,8 +74,8 @@ describe('looking words up', () => {
   const copy = Copy.parse(SAMPLE);
 
   it('returns the text of a block and the entries of a list', () => {
-    expect(copy.text('Intro 1')).toContain('First paragraph');
-    expect(copy.paragraphs('Intro 1')).toHaveLength(2);
+    expect(copy.text('Welcome')).toContain('First paragraph');
+    expect(copy.paragraphs('Welcome')).toHaveLength(2);
     expect(copy.item('Buttons', 'save')).toBe('Save');
   });
 
@@ -93,7 +93,7 @@ describe('looking words up', () => {
   });
 
   it('lists the blocks still marked as placeholders', () => {
-    expect(copy.placeholders()).toEqual(['Intro 1']);
+    expect(copy.placeholders()).toEqual(['Welcome']);
   });
 });
 
@@ -143,6 +143,41 @@ describe('every workshop folder has the words the client reads', () => {
 
     it(`${slug}: the words a screen fills are still there`, () => {
       expect(copy.item('Reminder', 'description')).toContain('[link]');
+      expect(copy.item('Your world', 'answered so far')).toContain('[n]');
+    });
+
+    it(`${slug}: no block is left for the intro screens, the toasts, the nudge on the card or the numbers of a round (ADR 0019)`, () => {
+      for (const heading of [
+        'Intro 1',
+        'Intro 2',
+        'Intro 3, consent',
+        'Welcome: new here',
+        'Card nudge',
+      ])
+        expect(copy.has(heading), heading).toBe(false);
+      const keys = (heading: string) => Object.keys(copy.sections.get(heading)?.items ?? {});
+      expect(keys('Titles')).not.toEqual(
+        expect.arrayContaining([expect.stringMatching(/^(intro 1|intro 2|consent|demo card)$/)]),
+      );
+      expect(keys('Buttons')).not.toContain('new here');
+      expect(keys('Buttons')).not.toContain('next');
+      expect(keys('Card labels')).not.toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^(position|tap to answer|click to answer)/),
+        ]),
+      );
+      expect(keys('Card states')).toEqual(['saving']);
+      expect(keys('Your world')).not.toEqual(
+        expect.arrayContaining([expect.stringMatching(/^(tile label|progress)/)]),
+      );
+      expect(copy.item('Your world', 'summary')).not.toContain('[left]');
+    });
+
+    it(`${slug}: the welcome's title and workshop.json's name are the same words`, () => {
+      const config = JSON.parse(readFileSync(join(root, slug, 'workshop.json'), 'utf8')) as {
+        name: string;
+      };
+      expect(copy.text('Welcome: title')).toBe(config.name);
     });
   }
 });

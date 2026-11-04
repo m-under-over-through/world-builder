@@ -1824,6 +1824,105 @@ Marco tried the card screen on his iPhone on 4 November and decided that a parti
 - Outside this builder's files, still describing the session end or the install offer: `docs/runbook.md` (`CLIENT_STORAGE_UNAVAILABLE`, "shows the code at the end"), `docs/architecture-and-risk-plan.md` (section 8.1), `docs/learn/11-the-calendar-file.md` ("Remind me" at the session end), and `docs/adr/README.md`, whose index stops at 0014.
 - The second phase, identity by the link (ADR 0018), after the newsletter tool's test send.
 - Not tried on a real phone: the rounds in the hand, and the calendar sheet from the new place of "Remind me" on an iPhone.
+
+## 2026-11-04, Wednesday. Identity by the link: no code typed or shown (pull request 45)
+
+### What
+
+- **The link's value** (`apps/web/src/lib/identity.ts`, new). `valueFromHash` reads `#p=<value>` from the fragment only: letters, digits, `-` and `_`, 4 to 80 of them; anything else is no value. `codeFromValue` makes the 16-digit code: SHA-256 of the value's UTF-8 bytes (`crypto.subtle.digest`), the digest read as one big decimal number, its last sixteen digits. `test/identity.test.ts` pins the rule with one vector: `test-link-value-0001` makes `1871948336772442`.
+- **Open** (`lib/state.svelte.ts`, `open`). Any fragment is taken out of the address first (`history.replaceState`), so a share or a copy of the address does not carry the value on. With a value whose code the device does not hold, the code is kept under `linkCode` in the store (never the value) and `GET /me` is asked with it. Known: the code becomes the device's, the sync on open runs with that answer, and the device lands on the cards, no intro. `AUTH_CODE_UNKNOWN`, or no answer: the welcome, with "This link is yours" in the place of "New here"'s line, and the intro.
+- **Join** (`join`). With a link's code the join carries that code. `JOIN_CODE_TAKEN` then means "this is me": the code is kept, the sync on open runs, the device lands. For a code the device makes (no value in the link), the one silent retry with a fresh code stays. A queued join answered `JOIN_CODE_TAKEN` is done too (`lib/sync.ts`, `sendPendingJoin`): the server knows the code.
+- **The link wins** over a different stored code (`adopt`): the old code's outbox goes out with the old code, as far as the network allows, then the device's rows are wiped and the new code stored; the arrival is kept.
+- **Gone**: `screens/EnterCode.svelte`, `lib/code-input.ts` and its test, `continueWithCode`, `copyCode`, `tooShort`, the `enter-code` screen, the `continue` page (an old `/continue` lands where the device lands), the "I have a code" line on the welcome, and the "Your code" section of the about page.
+- **Words** (`workshops/rural-manufacturing/copy.md` and `lib/copy.ts` together, every block `[placeholder]`): new "Welcome: your link"; "Welcome: code not accepted" is now "Welcome: link not accepted"; a sentence each in "About: what this is", "Trust page: what we never collect" and "About: delete" ("Opening your link again starts you over from nothing."). Removed: "Welcome: I have a code", "Enter code", "Enter code: too short", the title "enter code", the buttons "i have a code", "continue", "copy", "copied", and the "Privacy panel" keys "code", "code note", "no code yet". Reworded because they told the participant to type or find a code: `AUTH_CODE_UNKNOWN`, `AUTH_CODE_MISSING`, `CLIENT_STORAGE_UNAVAILABLE`.
+- `docs/screen-map.md`: the Entry table (the link with a value, the link without, `/continue` gone), the about page without "Your code", the privacy panel without a code line, the failure lines. `docs/adr/0018-identity-by-the-link.md`, proposed, verbatim from the integrator's draft.
+
+### Why
+
+On 4 November, typing the code on an iPhone offered Marco's credit card number as autofill, and the code was the one thing participants had to understand and keep. He decided that the newsletter's link itself carries who you are, after the `#`, which no server sees (`docs/briefs/rethink-2026-11-04.md`, section "2 and 4"; ADR 0018). The server sees what it saw before: a keyed hash of a code, a wave, days. No contract or API change.
+
+### How to verify
+
+1. `npm run check`: green. The tests that carry the change: `apps/web/test/identity.test.ts` (the vector, the fragment parsing); in `state.test.ts`, "identity by the link (ADR 0018)": the fragment leaves the address and the join carries the derived code; no request path, body or header carries the value and the store keeps only the code; a second open with the same value on a fresh device continues through `JOIN_CODE_TAKEN`; a known participant's link opens straight to the cards; the link wins over a different stored code; a deleted participant's link starts over; a link without a value makes a device code; a malformed value is ignored. In `sync.test.ts`, the queued join answered `JOIN_CODE_TAKEN`. In `screens.test.ts` and `app.test.ts`, the welcome without "I have a code", the about page without a code, `/continue` landing home.
+2. By hand on a phone, against a preview or staging (the value is made up; any 4 to 80 letters, digits, `-` or `_`): open `/rural-manufacturing/join/wave-1#p=marco-test-0001`. The address bar shows `/rural-manufacturing/join/wave-1`, without the `#` part. The welcome says "This link is yours...". Go through the intro, answer one card.
+3. Open the same address, with the `#p=` part, on a second device or in a private window: it lands on the cards, no welcome, no intro, and "Your world so far" shows the answer as written elsewhere.
+4. Open `/rural-manufacturing/join/wave-1` without the `#` part in a fresh private window: the welcome says "New here..." with no "This link is yours", and the intro leads to a new participant, as before.
+5. "About this app": no code anywhere, no "Copy". Delete everything, then open the `#p=` link again: the welcome and the intro, a new participant.
+6. In the browser's network tab during steps 2 to 5: no request path or body contains `marco-test-0001`; the `Authorization` header carries a 16-digit code.
+
+### Decisions made on the way
+
+- **The code waits under `linkCode` until the server knows it**, not under `code`: a reload during the intro has lost the value from the address, and a stored `code` the server does not know would be read as a deleted participant and forgotten.
+- **Without an answer from `GET /me`** (offline, a server error), a link's code is treated as new: welcome and intro, and the join, queued if need be, settles it. A queued join answered `JOIN_CODE_TAKEN` is therefore taken as done, for any code.
+- **The link wins with a wipe.** When a different code is stored, its outbox is sent first, then the device's rows go, so one person's readable answers (ADR 0014) never show under another's link and nothing of theirs is synced under the new code. What the old code could not send (offline at that moment) is lost from this device.
+- **A deleted participant's link** makes the same code, which the server no longer knows: the welcome shows "This link is yours", not the "link not accepted" line.
+- **Any fragment is removed** from the address on open, not only a valid `p=`: the app uses none, and a malformed value is as personal as a good one.
+
+### Open
+
+- The partner's test send: whether the newsletter tool can put a value per recipient and spares in a link, and whether its click tracking keeps the part after `#`. ADR 0018 stays proposed until then.
+- The wording: every new or changed block is a placeholder for Marco tomorrow; the terms, the privacy policy and the consent still speak of the 16-digit code and go through `docs/participant-texts.md` and the legal review.
+- Outside this builder's files: `docs/glossary.md` ("code", "about page" and "privacy panel" still mention the code shown), `docs/adr/README.md` (index), `docs/runbook.md` (`AUTH_CODE_UNKNOWN`'s participant-facing advice).
+
+## 2026-11-04, Wednesday. Marco's morning pass: one page before the cards, no numbers, no toasts (pull request 46)
+
+### What
+
+Fixes 1 to 18 of Marco's pass over every screen of the preview, in his numbering. Every fix applies to the phone and the laptop alike.
+
+1. **"About this app" at the foot** is a 44-pixel box with 28 pixels each side, the pointer over the whole box (`.foot .about`).
+2. and 4. **One page before the cards** (`screens/Welcome.svelte`, ADR 0019). The welcome takes the design's Welcome artboard: the fanned tinted cards (decoration, `aria-hidden`), the title, the purpose line, one paragraph, one full-width 54-pixel button, the foot link. The paragraph is the new block "Welcome": the old "Welcome: new here", "Intro 1", "Intro 2" and "Intro 3, consent" in a few sentences, the consent facts word for word, "Please don't name real people" said once, and a note in `copy.md` for the legal reviewers. The button reads "I understand" and does what it did on the consent screen: the link's code or a fresh one, the join, the first card; its errors and "trying again" show under the paragraph. "This link is yours", "open the link you were sent" and "the link this phone remembered is not in use any more" stay as the lines under the paragraph. Gone: `screens/Intro.svelte`, the screens `intro-1`, `intro-2`, `consent`, Back and Next, "New here".
+3. **The title and the purpose are copy blocks**, "Welcome: title" ("The future of local production in America") and "Welcome: purpose", read by the welcome. `workshop.json`'s `name` carries the same words, and a test keeps the two equal.
+4. and 6. **No demo screen.** On the first open the onboarding card is the front of the real stack (`components/Stack.svelte`, `app.demoFront`): lilac, "Try a card" in the small uppercase label, the "Demo card" words at 32 pixels, "Got it" as an ink pill at its foot, the first real cards behind it in their tints. "Got it", a swipe or Set aside sends it away and the first card comes forward one slot, recorded `shown` only then. `demoSeen` stays the one-time rule. Gone: the `demo` screen, `screens/DemoCard.svelte`, "Titles: demo card".
+5. **The front card's affordance** is a pen (18 pixels, stroke 1.75) and "Write an answer" on every device. Gone: "Tap to answer", "Click to answer", `finePointer()`.
+6. and 9. **No numbers anywhere.** A card's label and a tile's label are the area alone, and nothing for a card without one; the tint still follows the card's number in the round, never shown. The laptop's top bar shows the answers so far like a streak: a small card glyph, the figure at 24 pixels, "answered" small (new "Your world: answered so far", `[n] answered`), the same number as the phone's pill. The world's summary reads "1 answered · 1 set aside". Gone: the progress strip, `progress`, `queueLength`, `answeredCount`, the world's `left`, and the keys "position", "position with area", "tile label", "tile label without area", "progress".
+7. **The nudge leaves the open card.** The row under the field holds the counter alone, right-aligned, from 3,000; `aria-describedby` names the counter only. Gone: the "Card nudge" block.
+8. **"Prefer to talk?"** is the design's text link again: no box, a 1.5-pixel line under it, the mic level with the text, a 44-pixel hit area from a transparent `::before`.
+9. **Every toast goes**: "Saved on this device", "Synced", the offline and problem wordings, "Set aside", "Set aside for later". Gone with them: the toast slot, `app.toast`, `flash`, `TOAST_MS`; "Card states" keeps only `saving`, the Save button's label.
+10. **On the laptop the empty notice is one cell of the grid**, the width, padding and radius of a tile, with a dashed line, so the column does not jump when the first tile lands.
+11. **A card set aside is a tile** like an answered one, white with the 1.5-pixel line instead of a tint, the area and the question, no answer; in the sheet and in the column alike, after the answered tiles, under "Set aside". `world.chips` is now `world.aside`. Gone: the chips, their scrolling row and their styles. The sheet's body now scrolls as one under its head.
+12. **The delete button** reads "Delete everything and start over".
+13. **The foot of the about page** has 40 pixels above it, a 1-pixel line, and the terms and the policy as quiet 14-pixel links 24 pixels apart. Every `button.link` is `inline-flex`, 44 pixels tall, with the hit area on its own text and no negative margins.
+14. **Back at the top** of the about, terms and policy pages, above the title: a ghost pill with a left arrow (`components/TopBack.svelte`), doing what the Back at the bottom does.
+15. **The about page, simplified.** Visible: Back, the lead, the "Remind me" line, a few plain sentences (new "About: in short"), one closed fold "The technical details" (new "Titles: technical details"), the delete section, Back, the foot. In the fold: the six trust paragraphs, the facts rows and the diagnostics. The microphone row has a note beside its value (new "Privacy panel: permissions note"). `/trust` and `/panel` open the page with the fold open, scrolled to their section.
+
+Every new or changed string is a `[placeholder]` block or entry in `copy.md`, with `COPY_TEXT` and `COPY_LISTS` in step and the removed keys gone from both. `docs/screen-map.md`: the Entry, First session, Core loop, Always reachable and Offline tables. `docs/adr/0019-one-page-before-the-cards.md`, proposed.
+
+### Why
+
+Marco went through every screen of the preview on his phone and on a laptop and dictated these fixes. Five taps stood between the link and a first question, the same facts were spread over three screens, and numbers like "04 of 4" then "01 of 4" counted rounds nobody sees since ADR 0017. The toasts said things the card leaving already said. The about page led with paragraphs a participant does not need to read to trust it, and its foot links were hard to hit.
+
+### How to verify
+
+1. `npm run check`: green. The tests that carry the change: in `screens.test.ts`, the one-page welcome (title and purpose from `copy.md`, the paragraph, one wide "I understand", the fan as decoration), its errors and "trying again"; the area label and the pen; the counter alone under the field; the onboarding card as the front with the first card behind it; the about page's order, the closed fold and its opening at `/trust` and `/panel`, the microphone note, the delete words, the foot; Back at the top of the about, terms and policy pages. In `app.test.ts`, "I understand" joins with no intro screens; the onboarding card, then the first card with no toast; no toast or status line after a save, offline or a set aside; the top Back. In `card.test.ts`, the label and the pen on a phone and with a mouse, "Got it" and a swipe on the onboarding card, the set-aside tile, the empty cell in the grid and the count in the top bar. In `state.test.ts`, the onboarding card records nothing until it goes, and Set aside sends it away. In `copy.test.ts`, the removed blocks and keys are gone, and the welcome's title equals `workshop.json`'s name.
+2. At 390 pixels wide, on the pull request's deploy preview, in a fresh private window: open `/rural-manufacturing/join/wave-1`. The welcome: the fanned cards, "The future of local production in America", the purpose line, one paragraph with the consent and "Please don't name real people", a full-width "I understand", "About this app" at the foot.
+3. "I understand": the card screen, with a lilac card in front labelled "TRY A CARD", "Got it" at its foot, a yellow and a green card behind it. "Got it": the yellow card comes forward. No toast.
+4. The front card's label is its area alone ("CULTURE AND PRIDE"), with a pen and "Write an answer" at its foot. Open it: no nudge under the field, the row under it empty until 3,000 characters; "Prefer to talk?" is an underlined text link with a mic, not a box. Write a line, Save: the card leaves, the next comes, nothing is said. Set aside the next one: the same.
+5. The pill "Your world so far": "1 answered · 1 set aside"; the answer as a yellow tile with its area as the label; under "Set aside", a white tile with a line, its area and its question; "Remind me" at the end. Scroll the sheet's body; swipe down on its head to close it.
+6. "About this app": a "Back" pill above the title; the two sentences, "Remind me", a few plain sentences, "The technical details" closed; "Delete everything and start over"; Back; a line, then "Terms" and "Privacy policy" as quiet links. Open the fold: the microphone row says the page cannot use them and that dictation is the keyboard's own. Open `/rural-manufacturing/panel`: the fold is open, at "Right now, from this phone". Open the terms: a Back pill above the title.
+7. At 1280 pixels wide, in another fresh private window, through the welcome and "Got it": the top bar's right shows a card glyph, "0" large and "answered" small, no strip; the right column shows the empty notice as one cell the size of a tile. Answer one card: the figure is 1 and the tile takes the cell's place without the column moving. Set one aside: a white tile under "Set aside".
+
+### Decisions made on the way
+
+- **"Try a card" moved to "Card labels: demo label"**: the brief removes "Titles: demo card", and the words still needed a home.
+- **No "area label" key.** The notes proposed one holding only `[area]`; the label is the deck's area itself, so there is nothing to word.
+- **The onboarding card's tint is lilac**, `tintOf(0)`, the tint before the first card's sun, so it never matches the card right behind it.
+- **The first card is recorded `shown` only when the onboarding card goes**: it is not shown while it is covered, and `untouched` stays true for the dictation hint.
+- **Set aside sends the onboarding card away**, as a swipe does, so the row under the stack stays where it is; nothing is recorded.
+- **The "Demo card" words were shortened** to fit 32 pixels in the card on a small phone: "Open a card to answer. Swipe it away to set it aside." (placeholder, under 15 words).
+- **The set-aside list is read from the round's `dismissed` and `deferred` sets**, minus the answered cards, in the order they were set aside, never from the queue: the integrator's request, since fix 19 takes a card set aside out of its round's queue. The tests touched here no longer assume a card set aside comes round at the end of its round.
+- **The set-aside tiles come after the answered ones in the sheet too** (the chips came first there): a tile is taller than a chip, and the answers are what the sheet is for. The sheet's body scrolls as one; a swipe down closes the sheet from its head only.
+- **The terms and the policy got Back at the top but no foot links**: they had none, and the brief's foot is the about page's.
+- **The consent sentences moved unchanged**, including "we cannot find out", which predates ADR 0018; the note in `copy.md` hands it to the reviewers.
+- **`app.test.ts`'s `open` waits for the state to leave "loading"**, not for a heading: the phone's card screen has none now that the onboarding card is part of the stack.
+- **Dated by the machine's clock**, 4 November; Marco's notes are dated 5 November.
+
+### Open
+
+- Fix 19, the deck rules, is the deck session's, after this one.
+- The words are Marco's to adjust: every new or changed block is a placeholder ("Welcome", "Welcome: title", "Welcome: purpose", "Demo card", "About: in short", the "permissions note", "answered so far", "write an answer", "demo label", "technical details", the delete button). `docs/participant-texts.md` should carry the "Welcome" block for the legal review, next to the consent draft it replaces.
+- Outside this builder's files: `design/DESIGN.md` still describes the toasts, the progress strip, "NN of 12" labels and the chips; `docs/adr/README.md`'s index.
+- Not tried on a real phone.
 - Taken by the integrator before the merge: the glossary's session sentence and the word round, the "Remind me" line in the about page entry, the decision records index up to 0017 (0016 not used), the runbook's `CLIENT_STORAGE_UNAVAILABLE` entry, the plan's section 8.1 and the calendar note, which all pointed at the session end; a stale comment in `reminder.ts`; the bound on rounds per open said in `showCard`'s comment. The reviewer's test gap (a round of warm-ups only) is left open: the deck contract requires a card of each set, so the case cannot arise from a valid deck.
 
 ## 2026-11-04, Wednesday. The deck rules of 5 November (pull request 47)
@@ -1876,3 +1975,5 @@ Marco's morning pass of 5 November (fix 19): the old rule shoved set-aside cards
 - The thank-you card's rendering, and whether the client starts the empty last round or reads `isDeckDone` before it, are the screens' session's.
 - The deck tuning in `workshop.json` (3 and 1) is Marco's. Whether a warm-up coming back should also avoid its old place in the round is his call (ADR 0020, Open).
 - The architecture plan's section 8 still describes the old rule; the decision records index in `docs/adr/README.md` needs 0020. Both the integrator's.
+- Review fixes applied by the integrator before the merge: the link's code is derived from the last sixteen digits of the digest, not the first (a 256-bit number's first digit is "1" far more often than any other); `adopt` no longer wipes the device while the old participant's outbox cannot go out, and returns whether the switch happened, so the old participant stays for that open and the link's code waits under `linkCode` (a test covers the offline case); a bare `#` is removed from the address too; the queued join's acceptance of `JOIN_CODE_TAKEN` for a device-made code is said to be on purpose; the trust text's "Your controls" speaks of the link, not the code; ADR 0018 is accepted with its two open items and names the `linkCode` setting.
+- Review fixes applied by the integrator before the merge: with every toast gone nothing told a screen reader that a card was saved or set aside; a line drawn nowhere (`aria-live`) now says it from the "Announcements" block, with a test. The screen map's "Remind me" row no longer speaks of chips, the dead `--shadow-toast` token is gone, and the set-aside list's comment says its order. Left to Marco: the welcome's title says "local production in America" while the consent sentences, under legal review, say "local manufacturing in rural America".

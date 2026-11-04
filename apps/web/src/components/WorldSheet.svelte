@@ -7,7 +7,8 @@
 
   /**
    * The sheet (phone; design/DESIGN.md, Components and Accessibility; ADR 0015): "Your world so
-   * far" from 112 pixels down over a scrim, as a modal dialog. Focus moves to × when it opens
+   * far" from 112 pixels down over a scrim, as a modal dialog, its head fixed and its body (the
+   * answers, the cards set aside, "Remind me") scrolling as one. Focus moves to × when it opens
    * and stays inside; Esc, ×, a tap on the scrim or a swipe down on its head close it, and
    * focus returns to the pill that opened it. The page behind does not scroll meanwhile.
    */
@@ -24,8 +25,7 @@
   const summary = $derived(
     fill(app.copy.item('Your world', 'summary'), {
       answered: world.tiles.length,
-      aside: world.chips.length,
-      left: world.left,
+      aside: world.aside.length,
     }),
   );
 
@@ -72,10 +72,10 @@
     }
   }
 
-  /** A swipe down that starts on the head (not in the scrolling lists) closes the sheet. */
+  /** A swipe down that starts on the head (not in the scrolling body) closes the sheet. */
   function onDown(event: PointerEvent) {
     const target = event.target instanceof Element ? event.target : null;
-    startY = target?.closest('.tiles, .chips, button') ? null : event.clientY;
+    startY = target?.closest('.sheet-body, button') ? null : event.clientY;
   }
   function onUp(event: PointerEvent) {
     if (startY !== null && event.clientY - startY > SWIPE_DOWN_PX) void close();
@@ -123,5 +123,7 @@
       >
     </button>
   </div>
-  <World {app} sheet />
+  <div class="sheet-body">
+    <World {app} sheet />
+  </div>
 </div>

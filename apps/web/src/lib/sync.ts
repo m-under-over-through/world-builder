@@ -58,7 +58,15 @@ export async function sendPendingJoin(
   const join = await pendingJoin(store);
   if (!join) return null;
   const res = await api(`/${slug}/join`, { body: join });
-  if (res.ok) await store.unset(PENDING_JOIN);
+  // JOIN_CODE_TAKEN means the server already knows the code, so the join is done: for a link's
+  // code, the same participant joined from another device (ADR 0018); for a code the device
+  // made, an earlier try landed and its answer was lost. A collision with someone else's code
+  // (one in 10^16) is accepted here on purpose: a queued join has no code to fall back to, since
+  // events may already carry this one, and a wrong participant is caught on the next open.
+  if (res.ok || res.error === 'JOIN_CODE_TAKEN') {
+    await store.unset(PENDING_JOIN);
+    return { ok: true, data: {} };
+  }
   return res;
 }
 
@@ -109,7 +117,7 @@ async function pushOutbox(store: Store, slug: string, code: string): Promise<Syn
  * On open: ask the server what it holds, re-queue anything it lacks (a restored database refills
  * itself from the phones: sessions as well as events, since an event needs its session row), and
  * prune accepted events past the retention window. Returns the server's view for the privacy
- * panel. A caller that has just asked GET /me itself ("I have a code" checks the code that way)
+ * panel. A caller that has just asked GET /me itself (a link's code is checked that way)
  * hands the answer in, so the server is not asked twice.
  */
 export async function reconcile(

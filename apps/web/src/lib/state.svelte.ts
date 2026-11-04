@@ -1,8 +1,5 @@
 import {
-  formatCode,
   generateCode,
-  normalizeCode,
-  codeSchema,
   MAX_ANSWER_CHARS,
   type Card,
   type Event,
@@ -13,8 +10,9 @@ import {
 } from '@wb/contracts';
 import { sealAnswer } from '@wb/crypto';
 import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
-import type { Copy, ListKey } from './copy.ts';
+import type { Copy } from './copy.ts';
 import { dayStatus } from './days.ts';
+import { codeFromValue, valueFromHash } from './identity.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
@@ -62,19 +60,7 @@ import { defaultCopy, findWorkshop, VERSION, type Workshop } from './workshops.t
  * (the workshop, the server's answer) are kept raw, so nothing wraps the copy or the deck.
  */
 export type Screen =
-  | 'loading'
-  | 'no-workshop'
-  | 'welcome'
-  | 'enter-code'
-  | 'intro-1'
-  | 'intro-2'
-  | 'consent'
-  | 'demo'
-  | 'card'
-  | 'about'
-  | 'terms'
-  | 'privacy'
-  | 'closed';
+  'loading' | 'no-workshop' | 'welcome' | 'card' | 'about' | 'terms' | 'privacy' | 'closed';
 
 /** The two pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
 export type TextPage = Extract<Page, 'terms' | 'privacy'>;
@@ -83,7 +69,7 @@ export type TextPage = Extract<Page, 'terms' | 'privacy'>;
  * The sections of the one page about the app (ADR 0013), in order, each with the id of its
  * heading on the page: /trust opens the page at "protected", /panel at "now".
  */
-export const ABOUT_SECTIONS = ['protected', 'code', 'now', 'delete'] as const;
+export const ABOUT_SECTIONS = ['protected', 'now', 'delete'] as const;
 export type AboutSection = (typeof ABOUT_SECTIONS)[number];
 
 /** Which section of the page an older address opens; the page's own address opens the top. */
@@ -94,19 +80,16 @@ export function aboutSectionFor(page: Page): AboutSection | null {
 /**
  * What the front card is doing (docs/screen-map.md, Core loop; design/DESIGN.md, States).
  * `fresh` is the stack with the question; `answering` the card opened with the field;
- * `saving` the moment the answer is sealed and written. The screen map's other rows (`saved`,
- * `synced`, `dismissed`, `deferred`) are the toast under the top bar, `toast`, while the card
- * that was answered or set aside leaves and the next one is already the front.
+ * `saving` the moment the answer is sealed and written. There is no toast after a save or a set
+ * aside (ADR 0019, Marco's morning pass): the card leaving and the next one coming to the
+ * front is the feedback, and the about page's diagnostics keep the sync's facts.
  */
 export type CardState = 'fresh' | 'answering' | 'saving';
-
-/** The words of the toast, from "Card states"; `saving` is the Save button's label, not a toast. */
-export type Toast = Exclude<ListKey<'Card states'>, 'saving'>;
 
 /** The answered card on its way out of the stack, drawn for the length of its exit (ADR 0015). */
 export interface ExitingCard {
   card: Card;
-  /** Its number in the session, for the label and the tint. */
+  /** Its number in the session, for the tint; never shown (no numbers on the screen, ADR 0019). */
   n: number;
   answer: string;
 }
@@ -116,7 +99,7 @@ export interface WorldTile {
   key: string;
   cardId: string;
   sessionNo: number;
-  /** The card's number in its session, for the label and the tint. */
+  /** The card's number in its session, for the tint; never shown (ADR 0019). */
   n: number;
   area?: string;
   question: string;
@@ -124,22 +107,16 @@ export interface WorldTile {
   answer: string | null;
 }
 
-/** One card set aside in this session: the chip. */
-export interface WorldChip {
+/**
+ * One card set aside in this round: a tile like an answered one, white with a line instead of
+ * a tint, with its area and its question and no answer (ADR 0019).
+ */
+export interface AsideTile {
   cardId: string;
-  n: number;
   area?: string;
   question: string;
 }
 
-/** A segment of the laptop's progress strip: one per card of the session as planned. */
-export interface ProgressSegment {
-  n: number;
-  state: 'answered' | 'aside' | 'empty';
-}
-
-/** How long a toast stays up. */
-export const TOAST_MS = 1600;
 /** How long the answered card takes to leave the stack. */
 export const EXIT_MS = 320;
 
@@ -162,6 +139,13 @@ function roundDone(live: LiveSession): boolean {
 /** The slug of the workshop this device last opened, so the installed app's `/` can find it. */
 export const LAST_WORKSHOP = 'wb:lastWorkshop';
 
+/**
+ * The store's key for a code made from a link's value that is not yet this device's participant
+ * (ADR 0018): kept so a reload in the middle of the intro, once the value has left the address,
+ * still joins with it. The value itself is never stored, only the code it makes.
+ */
+export const LINK_CODE = 'linkCode';
+
 /** The sync is retried while the outbox is not empty: first after this long, then doubling, up to the cap. */
 export const RETRY_FIRST_MS = 5_000;
 export const RETRY_MAX_MS = 5 * 60_000;
@@ -171,10 +155,17 @@ export class AppState {
   workshop = $state.raw<Workshop | undefined>(undefined);
   copy = $state.raw<Copy>(defaultCopy());
   store: Store | undefined;
-  /** True when the browser refused storage: this open runs in memory and the code must be written down. */
+  /** True when the browser refused storage: this open runs in memory and nothing is kept after it. */
   storageUnavailable = $state(false);
   /** True when the stored code was refused on open (AUTH_CODE_UNKNOWN) and forgotten: the welcome says so. */
   codeRefused = $state(false);
+  /**
+   * The code a link's value made, when the server has not met it yet (ADR 0018): a new
+   * participant, so the welcome ("This link is yours"), the intro, and a join with this code
+   * rather than a fresh one. Empty when the link carried no value, or once the code is the
+   * device's participant (`code`).
+   */
+  linkCode = $state('');
   /** True while the retry loop runs, so only one does. */
   private retryLoop = false;
   /** The server said WORKSHOP_CLOSED: the closed screen, and no session is started. */
@@ -183,8 +174,6 @@ export class AppState {
   arrival = $state<Arrival>({});
   /** The error code of the last failure on this screen, shown through its copy.md wording. */
   error = $state('');
-  /** Not an error code: the one local refusal, a code that is not 16 digits yet. */
-  tooShort = $state(false);
   /** The platform whose dictation hint applies, or null when there is none (Linux, unknown). */
   platform = $state<Platform | null>(null);
 
@@ -218,9 +207,14 @@ export class AppState {
   /** The card's number in this session, its place in the queue as planned (lib/session.ts, cardNumber). */
   cardNo = $state(0);
   cardState = $state<CardState>('fresh');
-  /** The words of the toast under the top bar, or nothing. */
-  toast = $state<Toast | ''>('');
-  private toastToken = 0;
+  /** The last thing done to a card, for a screen reader: the leaving card is drawn as decoration (ADR 0019). */
+  announcement = $state<{ n: number; text: string }>({ n: 0, text: '' });
+  /**
+   * True while the onboarding card is the front of the stack (ADR 0019): on the first open of a
+   * first round, once per device (`demoSeen`). The first real card is already `card`, behind
+   * it, and is recorded `shown` only once the onboarding card has gone.
+   */
+  demoFront = $state(false);
   /** The answered card leaving the stack, for the length of its exit; null when none is. */
   exiting = $state.raw<ExitingCard | null>(null);
   private exitToken = 0;
@@ -313,7 +307,7 @@ export class AppState {
       await this.requestSync();
   }
 
-  /** 1 for the participant's first session: the demo card and the hint show only then. */
+  /** 1 for the participant's first session: the onboarding card and the hint show only then. */
   get sessionNo(): number {
     return this.live?.session.sessionNo ?? 0;
   }
@@ -325,16 +319,6 @@ export class AppState {
 
   get saving(): boolean {
     return this.cardState === 'saving';
-  }
-
-  /** How many cards this session has, as planned: the M of "n of M". */
-  get queueLength(): number {
-    return this.live?.queueAsPlanned.length ?? 0;
-  }
-
-  /** Cards answered in this session, for "n of M answered". */
-  get answeredCount(): number {
-    return this.live?.answered.size ?? 0;
   }
 
   /** The next two cards of the queue behind the front one, with their numbers: the backs of the stack. */
@@ -360,10 +344,11 @@ export class AppState {
   /**
    * "Your world so far" (ADR 0014, ADR 0015): one tile per answer in the history, session by
    * session and in card order within a session, with the words where this device wrote them;
-   * the cards set aside in this session as chips; and how many cards this session still has.
+   * and the cards set aside in this round, as white tiles (ADR 0019). No count of the cards
+   * still to come: rounds follow one another, so there is no end to count down to.
    */
-  get world(): { tiles: WorldTile[]; chips: WorldChip[]; left: number } {
-    if (!this.workshop) return { tiles: [], chips: [], left: 0 };
+  get world(): { tiles: WorldTile[]; aside: AsideTile[] } {
+    if (!this.workshop) return { tiles: [], aside: [] };
     const { deck, config } = this.workshop;
     const cards = new Map(deck.cards.map((c) => [c.id, c]));
     const tiles: WorldTile[] = [];
@@ -391,38 +376,25 @@ export class AppState {
         });
       }
     }
-    const chips: WorldChip[] = [];
-    let left = 0;
+    const aside: AsideTile[] = [];
     if (this.live) {
-      const { answered, dismissed, deferred, plan, queueAsPlanned } = this.live;
-      const aside = [...dismissed, ...deferred];
-      for (const id of aside) {
+      // From the round's own record of what was set aside, the dismissed cards first and then the
+      // deferred ones, each in the order recorded, and never
+      // from the queue: a card set aside may leave the queue (the deck engine decides where it
+      // comes back), and the list must keep it all the same.
+      const { answered, dismissed, deferred } = this.live;
+      const ids = new Set([...dismissed, ...deferred]);
+      for (const id of ids) {
         const card = cards.get(id);
         if (!card || answered.has(id)) continue;
-        chips.push({
+        aside.push({
           cardId: id,
-          n: cardNumber(queueAsPlanned, id),
           ...(card.area === undefined ? {} : { area: card.area }),
           question: card.text,
         });
       }
-      left = plan.queue.filter((id) => !answered.has(id) && !deferred.has(id)).length;
     }
-    return { tiles, chips, left };
-  }
-
-  /** The laptop's progress strip: one segment per card of the session as planned, in that order. */
-  get progress(): ProgressSegment[] {
-    if (!this.live) return [];
-    const { answered, dismissed, deferred, queueAsPlanned } = this.live;
-    return queueAsPlanned.map((id, i) => ({
-      n: i + 1,
-      state: answered.has(id)
-        ? 'answered'
-        : dismissed.has(id) || deferred.has(id)
-          ? 'aside'
-          : 'empty',
-    }));
+    return { tiles, aside };
   }
 
   /** Today against the workshop's days, judged on the device (lib/days.ts); the server has the last word. */
@@ -436,8 +408,15 @@ export class AppState {
     return this.workshop !== undefined && this.today() === 'before';
   }
 
-  /** The screen for an address: the entry rows of the screen map. */
-  async open(pathname: string): Promise<void> {
+  /**
+   * The screen for an address: the entry rows of the screen map. `hash` is the part after `#`,
+   * which never reaches a server: a link's value is read from it (ADR 0018), and the fragment is
+   * taken out of the address at once, so a share or a copy of the address does not carry it on.
+   */
+  async open(pathname: string, hash: string = location.hash): Promise<void> {
+    const value = valueFromHash(hash);
+    if (hash || location.href.endsWith('#'))
+      history.replaceState(null, '', location.pathname + location.search);
     const route = parseRoute(pathname);
     this.workshop = route ? findWorkshop(route.slug) : undefined;
     if (!route || !this.workshop) {
@@ -477,15 +456,27 @@ export class AppState {
     } else {
       this.arrival = stored;
     }
-    if (saved) {
+    // A link's value makes the code (lib/identity.ts). Kept until the server has met it, so a
+    // reload during the intro, with the value gone from the address, still has it.
+    const fromValue = value ? await codeFromValue(value) : null;
+    if (fromValue && fromValue !== saved) await this.store.set(LINK_CODE, fromValue);
+    else if (fromValue) await this.store.unset(LINK_CODE);
+    const fromLink = fromValue ?? (await this.store.get(LINK_CODE));
+    if (fromLink && fromLink !== saved) {
+      // The link wins over a different stored code: someone else's phone opening their own link.
+      await this.openWithLink(fromLink, saved);
+    } else if (saved) {
       // With a stored code the device syncs on every open, before any screen: opened at /panel
-      // or /continue as much as at the home, so nothing waits for Back.
+      // as much as at the home, so nothing waits for Back.
       this.code = saved;
       await this.syncOnOpen();
-    }
-    if (route.page === 'continue') {
-      this.screen = 'enter-code';
-      return;
+      // The link's own code was refused (its participant was deleted): the link makes the same
+      // code again, so this is a new participant, with the welcome and the intro (ADR 0018).
+      if (!this.code && fromLink) {
+        this.codeRefused = false;
+        this.linkCode = fromLink;
+        await this.store.set(LINK_CODE, fromLink);
+      }
     }
     if (route.page === 'terms' || route.page === 'privacy') {
       this.openPage(route.page);
@@ -500,10 +491,66 @@ export class AppState {
   }
 
   /**
+   * A code from a link's value that this device does not hold yet (ADR 0018). GET /me with it
+   * says who this is. Known: the link was opened before, on this device or another, and the
+   * consent was given then; the code becomes this device's participant and the device lands on
+   * the cards, no intro. Not known (AUTH_CODE_UNKNOWN), or no answer: a new participant as far as
+   * this device can tell, so the welcome and the intro, and the join goes out with this code
+   * (`join`); a join that finds the code taken continues as the same participant.
+   */
+  private async openWithLink(code: string, saved: string | undefined): Promise<void> {
+    if (!this.store || !this.workshop) return;
+    const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code });
+    if (res.ok) {
+      if (await this.adopt(code, saved)) {
+        await this.syncOnOpen(res);
+      } else {
+        // The old participant's outbox could not go out: they stay for this open (`adopt`).
+        this.code = saved!;
+        await this.syncOnOpen();
+      }
+      return;
+    }
+    if (res.error === 'WORKSHOP_CLOSED') this.closedByServer = true;
+    if (res.error !== 'AUTH_CODE_UNKNOWN') this.lastError = res.error;
+    this.linkCode = code;
+  }
+
+  /**
+   * The link's code becomes this device's participant. A different code stored before (someone
+   * else's phone, or a code this device made on an earlier open without a value) loses to it: its
+   * outbox goes out first with its own code, as far as the network allows, then the device's rows
+   * are wiped, so one participant's readable answers never show under another's (ADR 0014) and
+   * nothing of theirs is synced under the new code. The arrival is kept. Nothing is wiped while
+   * the old outbox cannot go out (offline, a refusal): the old participant stays for this open,
+   * the link's code waits in the store, and the next open tries again. Returns whether the link's
+   * code is now the device's.
+   */
+  private async adopt(code: string, saved: string | undefined): Promise<boolean> {
+    if (!this.store || !this.workshop) return false;
+    const slug = this.workshop.config.slug;
+    if (saved && saved !== code) {
+      const sent = await syncNow(this.store, slug, saved);
+      if (sent.lastResult !== 'ok' || sent.outboxSize > 0 || sent.outboxSessions > 0) {
+        await this.store.set(LINK_CODE, code);
+        return false;
+      }
+      const arrival = await this.store.get('arrival');
+      await this.store.wipe();
+      this.store = await this.openStore(slug);
+      if (arrival) await this.store.set('arrival', arrival);
+    }
+    await this.store.set('code', code);
+    await this.store.unset(LINK_CODE);
+    this.code = code;
+    this.linkCode = '';
+    return true;
+  }
+
+  /**
    * The device's store, or, when the browser refuses it (private browsing with storage blocked,
    * a full disk), one in memory for this open: the cards still run for as long as the tab stays
-   * open, the app warns, and the code is on the page about the app (docs/screen-map.md,
-   * CLIENT_STORAGE_UNAVAILABLE).
+   * open, and the app warns (docs/screen-map.md, CLIENT_STORAGE_UNAVAILABLE).
    */
   private async openStore(slug: string): Promise<Store> {
     try {
@@ -535,18 +582,15 @@ export class AppState {
 
   /**
    * Move to a page a participant can open directly, and put its address in the address bar
-   * (docs/screen-map.md, Entry): "I have a code" is /<slug>/continue; Back from it, or no page,
-   * is the address the device arrived at and where the device lands. The address is replaced,
-   * not pushed, so the browser's back goes to wherever the person came from, never to a stale
-   * screen.
+   * (docs/screen-map.md, Entry); no page is the address the device arrived at and where the
+   * device lands. The address is replaced, not pushed, so the browser's back goes to wherever
+   * the person came from, never to a stale screen.
    */
   async navigate(page?: Page): Promise<void> {
     if (!this.workshop) return;
     history.replaceState(null, '', page ? pageHref(this.workshop.config.slug, page) : this.home);
     this.error = '';
-    this.tooShort = false;
-    if (page === 'continue') this.screen = 'enter-code';
-    else if (page === 'terms' || page === 'privacy') this.openPage(page);
+    if (page === 'terms' || page === 'privacy') this.openPage(page);
     else if (page) await this.openAbout(aboutSectionFor(page));
     else await this.land();
   }
@@ -580,8 +624,8 @@ export class AppState {
 
   /**
    * The sync on open (lib/sync.ts, syncOnOpen): the queued join, then GET /me, then the outbox.
-   * Also what a code typed on "I have a code" goes through before its first card, with the
-   * answer that checked the code handed in so the server is not asked twice.
+   * Also what a link's code goes through once the server has said it knows it, with that answer
+   * handed in so the server is not asked twice.
    */
   private async syncOnOpen(answer?: ApiResult<unknown>): Promise<void> {
     if (!this.store || !this.workshop) return;
@@ -652,7 +696,8 @@ export class AppState {
    * over, the next round starts at once and its first card is the front (ADR 0017): there is no
    * screen between rounds and no end of the deck, since an answered card comes round again once
    * the unanswered ones of its set have run out. The first round of the first open starts with
-   * the demo card, once, and the hint for this platform on its first card (architecture plan, 8.1).
+   * the onboarding card in front of the stack, once (ADR 0019), and the hint for this platform on
+   * its first card (architecture plan, 8.1).
    */
   private async showCard(): Promise<void> {
     if (!this.store || !this.workshop || !this.live) return;
@@ -668,35 +713,41 @@ export class AppState {
       this.screen = 'card';
       return;
     }
-    // The demo card: before anything was done in the first session, once per device. A second
-    // device continuing a first session already under way skips it.
-    if (this.sessionNo === 1 && this.live.untouched && !(await this.store.get('demoSeen'))) {
-      this.screen = 'demo';
-      return;
-    }
     const id = currentCardId(this.live);
     this.card = this.workshop.deck.cards.find((c) => c.id === id);
     this.cardNo = id === undefined ? 0 : cardNumber(this.live.queueAsPlanned, id);
     this.draft = (id === undefined ? undefined : this.drafts.get(id)) ?? '';
     this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
+    // The onboarding card: in front of the first card before anything was done in the first
+    // session, once per device (ADR 0019). A second device continuing a first session already
+    // under way skips it. The card behind it is not shown yet, so nothing is recorded.
+    this.demoFront =
+      this.sessionNo === 1 && this.live.untouched && !(await this.store.get('demoSeen'));
     // Once per card per session: a resumed session or a card coming round again is not a new showing.
-    if (this.card && !this.live.shown.has(this.card.id)) {
+    if (this.card && !this.demoFront && !this.live.shown.has(this.card.id)) {
       await this.record('shown');
       this.live = withShown(this.live, this.card.id);
     }
     this.screen = 'card';
   }
 
-  /** "Got it" on the demo card, or a swipe: seen once per device, then the first card. */
+  /**
+   * "Got it" on the onboarding card, a swipe, or Set aside: seen once per device; it leaves the
+   * stack and the first card, already behind it, comes to the front and is recorded `shown`.
+   */
   async dismissDemo(): Promise<void> {
+    if (!this.demoFront) return;
     await this.store?.set('demoSeen', localDay());
     await this.showCard();
   }
 
   /**
-   * Consent: generate the code, create the participant, start the first session.
-   * A taken code (JOIN_CODE_TAKEN, astronomically unlikely) is retried once, silently, with a
-   * fresh code. A join refused for the minute's budget (RATE_LIMITED, a newsletter landing all at
+   * "I understand" on the welcome, the consent (ADR 0019): create the participant, start the
+   * first session. The code is the link's when the
+   * link carried a value (ADR 0018), else a fresh one the device makes. For the link's code a
+   * taken code (JOIN_CODE_TAKEN) means "this is me": the same participant on another device, so
+   * the code is kept and the device continues where that participant is. For a device-made code
+   * it is astronomically unlikely, and retried once, silently, with a fresh code. A join refused for the minute's budget (RATE_LIMITED, a newsletter landing all at
    * once) waits as long as the server's Retry-After says and is retried once; a second refusal
    * is shown. Offline, the join is queued on the device and the session starts anyway; the join
    * goes out before the first sync (lib/sync.ts). The server's other refusals are shown.
@@ -706,14 +757,26 @@ export class AppState {
     this.joining = true;
     this.error = '';
     try {
+      const fromLink = this.linkCode;
       let retriedTaken = false;
       let waited = false;
       for (;;) {
-        const fresh = generateCode();
+        const fresh = fromLink || generateCode();
         const body: JoinRequest = this.arrival.invite
           ? { code: fresh, invite: this.arrival.invite }
           : { code: fresh, wave: this.arrival.wave ?? 'wave-1' };
         const res = await api(`/${this.workshop.config.slug}/join`, { body });
+        if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && fromLink) {
+          const saved = await this.store.get('code');
+          if (await this.adopt(fromLink, saved)) {
+            await this.store.set('consent', localDay());
+            await this.syncOnOpen();
+          } else {
+            this.code = saved!;
+          }
+          await this.land();
+          return;
+        }
         if (!res.ok && res.error === 'JOIN_CODE_TAKEN' && !retriedTaken) {
           retriedTaken = true;
           continue;
@@ -730,9 +793,21 @@ export class AppState {
           else this.fail(res.error);
           return;
         }
+        // The code is stored before the queued join, since taking over from a different stored
+        // code wipes the device's rows (`adopt`). When that cannot happen yet, the old participant
+        // stays for this open and no join is queued under the link's code.
+        if (fromLink) {
+          const saved = await this.store.get('code');
+          if (!(await this.adopt(fromLink, saved))) {
+            this.code = saved!;
+            await this.land();
+            return;
+          }
+        } else {
+          this.code = fresh;
+          await this.store.set('code', this.code);
+        }
         if (!res.ok) await queueJoin(this.store, body);
-        this.code = fresh;
-        await this.store.set('code', this.code);
         await this.store.set('consent', localDay());
         await this.enterSession();
         return;
@@ -741,28 +816,6 @@ export class AppState {
       this.joining = false;
       this.retrying = false;
     }
-  }
-
-  /** Enter code: the typed digits, checked here, then asked of the server. */
-  async continueWithCode(input: string): Promise<void> {
-    if (!this.store || !this.workshop) return;
-    this.error = '';
-    this.tooShort = false;
-    const typed = normalizeCode(input);
-    if (!codeSchema.safeParse(typed).success) {
-      this.tooShort = true;
-      return;
-    }
-    const res = await api<unknown>(`/${this.workshop.config.slug}/me`, { code: typed });
-    if (!res.ok) {
-      if (res.error === 'WORKSHOP_CLOSED') this.screen = 'closed';
-      else this.fail(res.error);
-      return;
-    }
-    this.code = typed;
-    await this.store.set('code', this.code);
-    await this.syncOnOpen(res);
-    await this.land();
   }
 
   /** One event, as the contract spells it, with this session's next seq; the engine names the kind. */
@@ -784,7 +837,7 @@ export class AppState {
 
   /** Tap, click or Enter on the front card: it opens with the field (`answering`). */
   openCard(): void {
-    if (!this.card || this.cardState !== 'fresh') return;
+    if (!this.card || this.demoFront || this.cardState !== 'fresh') return;
     this.cardState = 'answering';
   }
 
@@ -794,19 +847,16 @@ export class AppState {
     this.cardState = 'fresh';
   }
 
-  /** The toast under the top bar: these words, for TOAST_MS, unless other words replace them first. */
-  private flash(words: Toast): void {
-    const token = ++this.toastToken;
-    this.toast = words;
-    void this.wait(TOAST_MS).then(() => {
-      if (this.toastToken === token) this.toast = '';
-    });
+  /** Said once, to a screen reader only, each time a card is saved or set aside; `n` makes the same words say again. */
+  private announce(key: 'saved' | 'set aside' | 'set aside for later'): void {
+    this.announcement = { n: this.announcement.n + 1, text: this.copy.item('Announcements', key) };
   }
 
   /** The answered card leaves the stack: drawn on its way out for EXIT_MS, then gone. */
   private leave(exiting: ExitingCard): void {
     const token = ++this.exitToken;
     this.exiting = exiting;
+    this.announce('saved');
     void this.wait(EXIT_MS).then(() => {
       if (this.exitToken === token) this.exiting = null;
     });
@@ -814,12 +864,10 @@ export class AppState {
 
   /**
    * Save: seal the draft and write the outbox (`saving`); keep the readable copy next to it,
-   * for this participant on this device (ADR 0014); say so in the toast ("Saved on this
-   * device"); let the answered card leave while the next one is already the front; and sync in
-   * the background. When the server takes the answer while the toast is still up, the toast
-   * says "Synced"; later, it says nothing (design/DESIGN.md, States). Returns whether the
-   * answer was taken; the promise settles once the sync has answered, which nothing waits for
-   * on the screen.
+   * for this participant on this device (ADR 0014); let the answered card leave while the next
+   * one is already the front, which is all the feedback there is (no toast, ADR 0019); and sync
+   * in the background. Returns whether the answer was taken; the promise settles once the sync
+   * has answered, which nothing waits for on the screen.
    */
   async save(answer = this.draft): Promise<boolean> {
     if (!this.workshop || !this.live || !this.card || !this.store || this.cardState === 'saving')
@@ -848,28 +896,21 @@ export class AppState {
     this.live = withAnswer(this.live, card.id);
     this.drafts.delete(card.id);
     this.draft = '';
-    this.flash('saved');
     this.leave({ card, n, answer: text });
     await this.showCard();
-    const status = await this.requestSync();
-    if (this.toast === 'saved')
-      this.flash(
-        status.lastResult === 'ok'
-          ? 'synced'
-          : status.lastResult === 'offline'
-            ? 'offline'
-            : 'sync problem',
-      );
+    await this.requestSync();
     return true;
   }
 
   /**
    * "Set aside", by button or swipe: the engine moves the card to the end of the queue the first
-   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded and the toast
-   * says which; the sync runs in the background; the next card comes at once. A half-written
-   * answer waits in memory for the card to come round.
+   * time (`dismissed`) and out of it the second (`deferred`); the event is recorded; the sync
+   * runs in the background; the next card comes at once, with no toast (ADR 0019). A half-written
+   * answer waits in memory for the card to come round. With the onboarding card in front, the
+   * button and the swipe send it away instead, as "Got it" does: nothing is recorded.
    */
   async setAside(): Promise<void> {
+    if (this.demoFront) return this.dismissDemo();
     if (!this.live || !this.card || this.cardState === 'saving') return;
     const card = this.card;
     const { live, event } = withDismissal(this.live, card.id);
@@ -877,8 +918,8 @@ export class AppState {
     if (this.draft.trim()) this.drafts.set(card.id, this.draft);
     else this.drafts.delete(card.id);
     await this.record(event);
+    this.announce(event === 'deferred' ? 'set aside for later' : 'set aside');
     this.live = live;
-    this.flash(event);
     void this.requestSync();
     await this.showCard();
   }
@@ -961,12 +1002,12 @@ export class AppState {
       this.screen = 'about';
       return;
     }
-    history.replaceState(null, '', to === 'enter-code' ? pageHref(slug, 'continue') : this.home);
+    history.replaceState(null, '', this.home);
     if (to) this.screen = to;
     else await this.land();
   }
 
-  /** "Delete everything I sent": the question first; nothing is sent until "yes". */
+  /** "Delete everything and start over": the question first; nothing is sent until "yes". */
   askDelete(): void {
     this.confirmingDelete = true;
   }
@@ -1003,9 +1044,5 @@ export class AppState {
   get sourceHref(): string {
     const source = this.copy.item('Trust page variables', 'source');
     return VERSION === 'local' ? source : `${source}/tree/${VERSION}`;
-  }
-
-  async copyCode(): Promise<void> {
-    await navigator.clipboard.writeText(formatCode(this.code));
   }
 }
