@@ -1743,3 +1743,43 @@ Read ADR 0014 against ADR 0007; `grep -n "readable" CLAUDE.md README.md docs/arc
 ### Open
 
 - The about page's rows ("sealed body: unreadable here and on the server") and the trust text's "nothing readable stays behind" are the builder's to reword in the card-screen session, with a sentence that says what the phone keeps.
+
+## 2026-11-04, Wednesday, early. The card screen of the new design: the stack, "Your world so far", the laptop page (pull request 41)
+
+### What
+
+- **The design's tokens and base**, in `apps/web/src/app.css`: every colour, size, radius and shadow of `design/DESIGN.md` as a custom property, the ground's dot grid, the top bar, the pills, the text link, the focus ring. Bricolage Grotesque and DM Sans served from this origin (`apps/web/public/fonts/`, four variable woff2 files, the Latin and Latin Extended subsets as Google Fonts serves them, their SIL Open Font License texts beside them, a line in `docs/services.md`), `font-display: swap`, precached by the service worker (`apps/web/pwa.ts`). The client still talks to one origin; the policy is unchanged.
+- **The stack on a phone** (`apps/web/src/components/Stack.svelte`): the front card and the two behind it, tinted by card number; the label "NN of M · Area"; the front card one button, opened by a tap, a click or Enter into the answering card (the question as the field's label, the nudge, the counter by code points from 3,000, "Prefer to talk?", Save, ×); the toast under the top bar for saved, synced, set aside and set aside for another day; the swipe with the design's numbers (`apps/web/src/lib/swipe.ts`); Set aside and its hint; the motion of the spec's table, transforms dropped under reduced motion.
+- **The readable copies** (ADR 0014): at save, after the sealed event goes to the outbox, the words go to a `copies` table next to it (`apps/web/src/lib/store.ts`, database version 2), which no sync reads. "Your world so far" (`components/World.svelte`) shows one tile per answer with the words where this device wrote them and a quiet line where another did; delete-me wipes the copies with the rest. The about page's sealed-body row and the trust text now say what the phone keeps.
+- **The sheet** (`components/WorldSheet.svelte`): from the pill at the foot, a modal dialog over a scrim, focus to × and kept inside, closed by ×, Esc, the scrim or a swipe down, focus back on the pill. The set-aside chips carry the question and no button.
+- **The laptop page** (`screens/Card.svelte`, `App.svelte`): from 600 pixels the stack left and the world right as a tile grid with the set-aside row, the progress strip and "n of M answered" in the top bar, the session end inline in place of the stack. Flex-basis columns as the spec says; nothing sticky.
+- **Words**: the blocks "Card labels", "Card states" and "Your world" and the nudge in `copy.md`; `docs/screen-map.md`'s Card row rewritten, two rows added; ADR 0015; a root `DESIGN.md` that points the design tooling at `design/DESIGN.md`.
+
+### Why
+
+Marco replaced the first visual pass with the design canvas on 3 November and reversed the storage rule on 4 November (ADR 0014); the card screen is the core loop and the first screen built in the new design. The decisions the design left to the build are in ADR 0015: the screen map's states as a mode, a toast and an exit; a card's number as its place in the session as planned, so the tint stays with the card; the world read from the history with the words from the copies; the sheet as a dialog and the column as a region, switched by one media query since they are different documents.
+
+### How to verify
+
+1. `npm run check`: green, 444 tests. `apps/web/test/card.test.ts` is new: the states, the label and the tint, the counter's thresholds, the swipe's thresholds and click suppression, the sheet's focus and Esc, the laptop structure, and the two tests of ADR 0014: a saved answer's words are in the copies table and nowhere in the outbox rows or the sync body; delete-me empties the copies.
+2. `npm run dev:web`, `/rural-manufacturing/join/wave-1` at 390 pixels wide (the browser's device mode). Through the intro and the demo card. The stack with "01 of 4 · Culture and pride" (the seed decides the card). Tap it: the field has focus, the hint is in the card. Type, Save: "Saved on this device", then "Synced" if the API answers; the next card is the front; the pill reads 1. Open "Your world so far": the tile with the words; Esc closes it, focus is back on the pill. Set aside by the button: "Set aside"; swipe the next card past 100 pixels: the same; when the first card comes round, set it aside again: "Set aside for another day", and the session ends after the fourth card.
+3. Widen to 820 pixels: one column, the world under the stack, the progress strip in the top bar. Widen to 1280: two columns.
+4. "About this app": the sealed-body row says the phone keeps the answer readable. Delete everything: the next open has an empty world.
+
+What was seen: the dev server at 390, 820 and 1280 pixels in the app's browser pane, light scheme (the design has no dark one): the stack, the open card, Save with the toast and the promotion, the sheet with the tile and its focus, the page in two columns and in one. The Impeccable detector over the changed files reports nothing. Not tried: a real phone (the keyboard on iOS does not shrink the viewport, so the open card stays full height there and Safari scrolls the field into view; Chrome on Android shrinks it, `interactive-widget=resizes-content`), the motion in the hand, VoiceOver and TalkBack.
+
+### Decisions made on the way
+
+- The toast says "Synced" only while "Saved on this device" is still up; after that the sync is silent and the about page has the diagnostics. Nothing waits for the sync any more (`SETTLE_MS` is gone).
+- M in "NN of M" is the session's planned length, so a deferral never makes the label read "04 of 3".
+- The dictation hint sits inside the open card, where the field is, instead of under the stack.
+- The second line of the top bar is the organizer from `workshop.json`, "Under Over Through x Mechanism"; the workshop's name stays on the welcome screen.
+- `replaySession` plans a session from the sessions numbered before it, not from every other session: the same plan as before for the session being played, and the right one for a past session when its tiles are numbered.
+- The subsets: Latin and Latin Extended, four files, 200 kB in all; Vietnamese left out.
+
+### Open
+
+- **Bring back**: the chips carry no button. The engine replays events and has no event for it; `revisited` exists in the contract without a rule. The deck builder's and the integrator's call (ADR 0015).
+- The phone checks listed above, on an iPhone and on Android.
+- The "x" against the design's "+" in the organizer line: one word in `workshop.json`.
+- The welcome, the onboarding, the code screen and the session end are on the new base but not yet in the new design: the next session.
