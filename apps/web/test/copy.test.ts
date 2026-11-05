@@ -70,6 +70,79 @@ describe('the copy parser', () => {
   });
 });
 
+describe('a file organised by screen', () => {
+  const FILE = `# Copy: sample
+
+## Titles
+
+- about: About this app
+
+# Welcome
+
+Words about the screen, for the editor.
+
+## Welcome
+
+[placeholder]
+First part.
+
+## Buttons
+
+- save: Save
+
+# About
+
+This line sits under a screen heading and is ignored.
+
+## Titles
+
+<!-- a note on the second part -->
+
+- terms: Terms
+
+## Welcome
+
+Second part.
+
+## Buttons
+
+[placeholder]
+
+- back: Back
+`;
+  const sections = parseCopy(FILE);
+  const by = (heading: string) => sections.find((s) => s.heading === heading)!;
+
+  it('ends the block at a "# " heading and starts none, so the lines after it are ignored', () => {
+    expect(sections.map((s) => s.heading)).toEqual(['Titles', 'Welcome', 'Buttons']);
+    for (const section of sections) {
+      expect(section.text).not.toContain('editor');
+      expect(section.text).not.toContain('ignored');
+    }
+    expect(by('Titles').text).toBe('');
+  });
+
+  it('merges blocks with the same heading: entries together, texts as paragraphs in file order, placeholder if any part says so', () => {
+    expect(by('Titles').items).toEqual({ about: 'About this app', terms: 'Terms' });
+    expect(by('Buttons').items).toEqual({ save: 'Save', back: 'Back' });
+    expect(by('Welcome').text).toBe('First part.\n\nSecond part.');
+    expect(by('Welcome').placeholder).toBe(true);
+    expect(by('Titles').placeholder).toBe(false);
+    expect(by('Buttons').placeholder).toBe(true);
+  });
+
+  it('names a key given twice, so the check fails instead of one value winning silently', () => {
+    const twice = parseCopy(
+      '## Buttons\n\n- save: Save\n\n# Other\n\n## Buttons\n\n- save: Store\n',
+    );
+    expect(twice[0]!.duplicateKeys).toEqual(['save']);
+    expect(
+      Copy.parse('## Buttons\n- save: Save\n## Buttons\n- save: Store\n').missingHeadings(),
+    ).toContain('Buttons: save (given twice)');
+    expect(by('Buttons').duplicateKeys).toEqual([]);
+  });
+});
+
 describe('looking words up', () => {
   const copy = Copy.parse(SAMPLE);
 

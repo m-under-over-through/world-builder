@@ -6,6 +6,14 @@ import { CLIENT_ERROR_CODES, ERROR_CODES } from '@wb/contracts';
  * `## heading`, looked up by name. The words are Marco's and the partner's; the headings and the
  * list keys below are the client's, so a block is renamed only together with the client.
  *
+ * The file is organised by screen, for the person editing it. A line that starts with `# ` (one
+ * hash) is a screen heading: it ends the current block and starts none, so the lines after it,
+ * up to the next `## ` heading, are ignored like the preamble. Blocks with the same `## `
+ * heading, wherever they stand, are one block: their list entries merge (a key given twice is
+ * kept as the last one and named in `duplicateKeys`, which `missingHeadings` reports, so a test
+ * fails), their texts join as paragraphs in file order, and the block is a placeholder if any
+ * part says so. That is how "Titles" and "Buttons" can be split over the screens that show them.
+ *
  * The shape of a block (the top of copy.md says the same to the person editing it):
  * - a `[placeholder]` line marks a draft; it is stripped and remembered, never shown;
  * - `- key: value` lines are entries of a list, read by key;
@@ -25,43 +33,69 @@ export interface CopySection {
   text: string;
   items: Record<string, string>;
   placeholder: boolean;
+  /** Keys given more than once in the blocks that share this heading. Empty when the file is clean. */
+  duplicateKeys: string[];
 }
 
+const SCREEN = /^# /;
 const HEADING = /^## (.+?)(?:\s*\(([^)]*)\))?\s*$/;
 const ITEM = /^- ([^:]+):\s*(.*)$/;
 const PLACEHOLDER = '[placeholder]';
 
 export function parseCopy(markdown: string): CopySection[] {
   const sections: CopySection[] = [];
+  const byHeading = new Map<string, CopySection>();
   let current: CopySection | null = null;
   let lines: string[] = [];
   const finish = () => {
-    if (current) current.text = paragraphs(lines).join('\n\n');
+    if (current) {
+      // A block seen before keeps its earlier paragraphs; this part's follow them.
+      const joined = [...(current.text ? [current.text] : []), ...paragraphs(lines)];
+      current.text = joined.join('\n\n');
+    }
     lines = [];
   };
   for (const raw of stripComments(markdown.split('\n'))) {
     const line = raw.trimEnd();
+    if (SCREEN.test(line)) {
+      // A screen heading is for the editor: it ends the block and starts none.
+      finish();
+      current = null;
+      continue;
+    }
     const heading = HEADING.exec(line);
     if (heading) {
       finish();
-      current = {
-        heading: heading[1]!.trim(),
-        note: heading[2]?.trim() ?? '',
-        text: '',
-        items: {},
-        placeholder: false,
-      };
-      sections.push(current);
+      const name = heading[1]!.trim();
+      const note = heading[2]?.trim() ?? '';
+      const known = byHeading.get(name);
+      if (known) {
+        if (!known.note) known.note = note;
+        current = known;
+      } else {
+        current = {
+          heading: name,
+          note,
+          text: '',
+          items: {},
+          placeholder: false,
+          duplicateKeys: [],
+        };
+        byHeading.set(name, current);
+        sections.push(current);
+      }
       continue;
     }
-    if (!current) continue; // the preamble above the first heading
+    if (!current) continue; // the preamble above the first heading, and the lines under a screen heading
     if (line.trim() === PLACEHOLDER) {
       current.placeholder = true;
       continue;
     }
     const item = ITEM.exec(line);
     if (item) {
-      current.items[item[1]!.trim()] = item[2]!.trim();
+      const key = item[1]!.trim();
+      if (key in current.items) current.duplicateKeys.push(key);
+      current.items[key] = item[2]!.trim();
       continue;
     }
     lines.push(line);
@@ -340,6 +374,9 @@ export class Copy {
       const items = this.sections.get(heading)?.items ?? {};
       for (const key of keys) if (!items[key]) gaps.push(`${heading}: ${key}`);
     }
+    for (const section of this.sections.values())
+      for (const key of section.duplicateKeys)
+        gaps.push(`${section.heading}: ${key} (given twice)`);
     return gaps;
   }
 
