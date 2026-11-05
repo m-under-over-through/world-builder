@@ -2009,3 +2009,37 @@ The glossary is law and the participant texts go to Mechanism's legal team this 
 ### Open
 
 - The welcome's title says "local production in America" while the consent sentences say "local manufacturing in rural America": Marco's call, with the legal review.
+
+## 2026-11-05, Thursday. The copy file, screen by screen
+
+### What
+
+`workshops/rural-manufacturing/copy.md` is now organised by screen, in the order a participant meets them: Welcome, Try a card, The card, Your world so far, About this app, The technical details, Delete everything, Terms, Privacy policy, Closed and not yet open, An address that is not a workshop, Error lines, and Everywhere for the words several screens share. Before, it was grouped by kind (one block of all titles, one of all buttons, the errors at the end). Not one word a participant sees changed. The guide at the top is rewritten for Marco in plain words.
+
+Two rules in `parseCopy` (`apps/web/src/lib/copy.ts`) make that possible:
+
+- A line starting with `# ` (one hash) is a screen heading for the person editing. It ends the current block and starts none; the lines after it, up to the next `## ` heading, are ignored like the preamble. Before, such a line would have been read as text of the block above it.
+- Blocks with the same `## ` heading are one block. Their list entries merge, their texts join as paragraphs in file order, the note is the first one given, and the block is a placeholder if any part says so. Before, the first one won silently.
+
+### Why
+
+Marco edits this one file and wants to read it as the app is walked through, not hunt for a button in a list of every button. The app still looks blocks up by name, so the merge keeps "Titles" and "Buttons" whole for the client while the file splits them over the screens.
+
+### How to verify by hand
+
+1. `npm run check` is green; the copy test reads the real file and checks every heading, key and error line.
+2. The proof that nothing was lost: a throwaway script parsed the old file (`git show main:workshops/rural-manufacturing/copy.md`) and the new one with the new `parseCopy`, and compared block by block: same set of headings, same note, same items with the same values, same text, same placeholder flag. Result: `blocks: old 59, new 59; differences: 0`. It also compared every `<!-- -->` note: 29 before, 29 after; the only two that differ are the "Titles" note (now says each title sits under its screen) and the guide's own line about notes.
+3. Open the file: every `# ` heading is a screen; `grep -c '^# ' workshops/rural-manufacturing/copy.md` counts them (14, with the file's own title line).
+4. Break it on purpose: give a key twice (say a second `- save:` under any `## Buttons`), and `npm test` fails with `Buttons: save (given twice)`.
+
+### Decisions made on the way
+
+- **A key given twice is a test failure, not a silent winner.** The last value is kept, the key is named in `duplicateKeys`, and `missingHeadings` reports it, so the copy test fails and names it.
+- **Each part of a split block keeps its own heading line and its own `[placeholder]` line.** The note in brackets after the heading is repeated on each part, so every screen shows what it is; the editor note (`<!-- -->`) sits once. Marco deletes the marker part by part as each is final; the block stays a placeholder until the last is gone.
+- **Words used on more than one screen are under "Everywhere".** That includes "Back", "About this app" (the foot of every screen), "Got it" (the demo card and the dictation hint), "Set aside" and "or swipe the card away" (the demo card and the real card share one row), "Remind me" with its line and the calendar "Reminder", and the loading and app name labels.
+- **"Delete everything" is a heading of its own**, though it is the last part of the About page: the page runs the fold ("The technical details") and then the delete, and the file keeps that order.
+- **No new error code, no new dependency, no decision record:** the change moves words and widens a parser for the person editing; nothing the participant sees or the server stores changes.
+
+### Open
+
+- The block "Thank you card" is in `COPY_TEXT` but no component reads it today (nothing in `apps/web/src` calls it). It sits under "The card", where its note says it appears. The screens' session should confirm whether the thank-you card is rendered.

@@ -1,16 +1,39 @@
 # Copy: rural-manufacturing
 
-Placeholder text, deck 0.1. The partner's final wording is due Thursday 5 November 2026.
-Every heading below is a screen or a block the app renders. Keep each under the length noted.
+Draft wording, deck 0.1. The partner's final wording is due Thursday 5 November 2026.
 
-How the app reads this file:
+This file holds every word the app shows, screen by screen, in the order a participant meets
+them. You can edit the words and nothing else.
 
-- The app looks a block up by its heading, by name, so a heading is renamed only together with the app.
-- A line that says only `[placeholder]` under a heading marks text that is still a draft. Delete the line when the words are final. `grep -c '^\[placeholder\]' copy.md` counts what is left.
-- A line that starts with `- name: ` is one entry of a list; the app reads the entry by its name.
-- A note between `<!--` and `-->` is for the person editing this file; the app never shows it.
-- A word in square brackets inside the text, such as `[code]` or `[day]`, is filled in by the app.
+How this file is built:
+
+- A line that starts with one hash, such as "# Welcome", is a screen heading. It is for you:
+  it tells you which screen the blocks under it belong to. The app does not read it, and any
+  line between it and the next block heading is ignored. You may add notes there.
+- A line that starts with two hashes, such as "## Welcome (under 120 words)", is a block: one
+  piece of text, or one list of short entries, that the app looks up by name. The words in
+  brackets after the name say how long it should be; keep to that.
+- The headings and the names at the start of list lines are the app's, not yours. Do not rename
+  them, or the app cannot find its words. Only the words after them are yours to change.
+- A line that starts with "- name: " is one entry of a list. The app reads the entry by its name.
+- A block may appear more than once, under different screens, when the screens share it. For
+  example "Titles" and "Buttons" appear on each screen with the titles and buttons that screen
+  shows. The app joins the parts into one block. Words used on several screens are under
+  "Everywhere", at the end.
+- A line that says only [placeholder] under a block marks words that are still a draft. Delete
+  the line when the words are final. In a block that appears in several places, each part has
+  its own line. To count what is left, run: grep -c '^\[placeholder\]' copy.md
+- A word in square brackets inside the text, such as [code] or [day], is a slot: the app fills
+  it in. Keep the slot where it makes sense in your sentence; do not translate or change it.
+- A note between <!-- and --> is for the person editing this file. The app never shows it.
 - A blank line starts a new paragraph.
+- Two stars around words, such as **this**, make them bold where a block allows it.
+
+If something goes missing, the check tells you: `npm run check` fails and names the block or the
+entry the app could not find, and so does a block that has the same entry twice. The app also
+shows "[missing: ...]" in place of words it cannot find.
+
+# Welcome
 
 ## Welcome: title (one line)
 
@@ -33,96 +56,12 @@ Imagine, piece by piece, an alternative future for local production in America.
 [placeholder]
 This is a research project by Under Over Through and Mechanism about the future of local production in America. You see one card at a time with a question about that future: answer in your own words, or set it aside. There are no right answers. Please don't name real people. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
 
-## Demo card (under 15 words)
+## Welcome: link not accepted (under 40 words)
 
-<!-- The words on the onboarding card, the front of the stack on the first open, shown large (ADR 0019). Its small label is "demo label" in Card labels; its button is "Got it". -->
-
-[placeholder]
-Open a card to answer. Swipe it away to set it aside.
-
-## Dictation hint (under 25 words, per platform)
+<!-- One quiet line on the welcome screen after the server refused what this phone remembered from a link, for instance after "delete everything I sent" on another phone. -->
 
 [placeholder]
-
-<!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
-
-- iPhone and iPad: Tap the microphone on your keyboard.
-- Android: Tap the microphone on your keyboard.
-- Mac: Press the microphone key twice, or Edit > Start Dictation.
-- Windows: Press Windows + H.
-- ChromeOS: Press Search + D.
-
-## Trust page variables
-
-- organizer: Under Over Through x Mechanism
-- data owners: Under Over Through and Mechanism, jointly
-- storage region: United States
-- collection closes: 6 December 2026
-- deletion: 5 February 2027
-- hostname: worldbuilder.under-over-through.co
-- contact: privacy@under-over-through.co
-- key fingerprint: from workshop.json
-- source: https://github.com/m-under-over-through/world-builder
-- webbkoll: https://webbkoll.dataskydd.net/en/results?url=https%3A%2F%2Fworldbuilder.under-over-through.co%2F
-- blacklight: https://themarkup.org/blacklight?url=worldbuilder.under-over-through.co
-
-## Trust page links
-
-<!-- The names of the links under "How your answers are protected" and at the end of "About this app"; the addresses are in "Trust page variables". -->
-
-[placeholder]
-
-- source: The source code
-- webbkoll: Webbkoll's report on this site
-- blacklight: Blacklight's report on this site
-- terms: Terms
-- privacy policy: Privacy policy
-
-## Titles (one line each)
-
-<!-- The heading of each screen. -->
-
-[placeholder]
-
-- not a workshop: World Builder
-- dictation hint: Prefer to talk?
-- closed: This workshop has closed.
-- not open yet: Not open yet.
-- about: About this app
-- trust page: How your answers are protected
-- privacy panel: Right now, from this phone
-- technical details: The technical details
-- terms: Terms
-- privacy policy: Privacy policy
-
-## Buttons (one or two words each)
-
-[placeholder]
-
-- about: About this app
-- back: Back
-- i understand: I understand
-- save: Save
-- set aside: Set aside
-- delete: Delete everything and start over
-- yes delete: Yes, delete everything
-- keep: Keep my answers
-- got it: Got it
-- prefer to talk: Prefer to talk?
-- remind me: Remind me
-
-## App labels
-
-[placeholder]
-
-- loading: Loading…
-- app name: World Builder
-- retrying: Busy at the moment. Trying again in a moment.
-
-## Not a workshop (under 30 words)
-
-[placeholder]
-This address is not a workshop. Use the link you were sent.
+The link this phone remembered is not in use any more. Open the link from your email again.
 
 ## Welcome: your link (under 40 words)
 
@@ -138,12 +77,34 @@ This link is yours. It opens your cards on any phone. To bring someone in, use t
 [placeholder]
 To start, open the link you were sent. This page cannot start you on its own.
 
-## Welcome: link not accepted (under 40 words)
-
-<!-- One quiet line on the welcome screen after the server refused what this phone remembered from a link, for instance after "delete everything I sent" on another phone. -->
+## App labels
 
 [placeholder]
-The link this phone remembered is not in use any more. Open the link from your email again.
+
+- retrying: Busy at the moment. Trying again in a moment.
+
+## Buttons (one or two words each)
+
+[placeholder]
+
+- i understand: I understand
+
+# Try a card
+
+## Demo card (under 15 words)
+
+<!-- The words on the onboarding card, the front of the stack on the first open, shown large (ADR 0019). Its small label is "demo label" in Card labels; its button is "Got it". -->
+
+[placeholder]
+Open a card to answer. Swipe it away to set it aside.
+
+## Card labels
+
+[placeholder]
+
+- demo label: Try a card
+
+# The card
 
 ## Card labels
 
@@ -151,13 +112,44 @@ The link this phone remembered is not in use any more. Open the link from your e
 
 [placeholder]
 
-- demo label: Try a card
 - write an answer: Write an answer
-- placeholder: Say it the way you would say it out loud.
-- counter: [n] / [max]
-- swipe hint: or swipe the card away
 - close without saving: Close without saving
+- counter: [n] / [max]
+- placeholder: Say it the way you would say it out loud.
 - could not save: Could not save.
+
+## Titles (one line each)
+
+[placeholder]
+
+- dictation hint: Prefer to talk?
+
+## Dictation hint (under 25 words, per platform)
+
+[placeholder]
+
+<!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
+
+- iPhone and iPad: Tap the microphone on your keyboard.
+- Android: Tap the microphone on your keyboard.
+- Mac: Press the microphone key twice, or Edit > Start Dictation.
+- Windows: Press Windows + H.
+- ChromeOS: Press Search + D.
+
+## Buttons (one or two words each)
+
+[placeholder]
+
+- prefer to talk: Prefer to talk?
+- save: Save
+
+## Card states (under 10 words each)
+
+<!-- "saving" is the Save button's label while the answer is sealed. Nothing else is said after Save or Set aside: the card leaving and the next one coming to the front is the feedback (ADR 0019). -->
+
+[placeholder]
+
+- saving: Saving…
 
 ## Announcements (under 6 words each)
 
@@ -169,13 +161,14 @@ The link this phone remembered is not in use any more. Open the link from your e
 - set aside: Set aside
 - set aside for later: Set aside for later
 
-## Card states (under 10 words each)
+## Thank you card (under 30 words)
 
-<!-- "saving" is the Save button's label while the answer is sealed. Nothing else is said after Save or Set aside: the card leaving and the next one coming to the front is the feedback (ADR 0019). -->
+<!-- Shown as the last card in the stack, not a screen, once every card of the deck is answered or set aside twice (ADR 0020). Nothing comes after it. -->
 
 [placeholder]
+Thank you for your answers. That was every card; there are none left to come.
 
-- saving: Saving…
+# Your world so far
 
 ## Your world (under 40 words each)
 
@@ -194,29 +187,15 @@ The link this phone remembered is not in use any more. Open the link from your e
 - written elsewhere: Written on another phone. The words stayed there.
 - close: Close
 
-## Remind me (under 20 words)
+# About this app
 
-<!-- One quiet line with the "Remind me" link (Buttons, remind me) after it, which adds the "Reminder" below to the phone's own calendar. Shown in two places: at the foot of "Your world so far", in the sheet on a phone and in the column on a laptop, under the tiles and the set-aside cards; and on the "About this app" page, under "what this is". -->
+## Titles (one line each)
 
-[placeholder]
-Come back whenever you like. Your calendar can nudge you twice a week.
-
-## Thank you card (under 30 words)
-
-<!-- Shown as the last card in the stack, not a screen, once every card of the deck is answered or set aside twice (ADR 0020). Nothing comes after it. -->
+<!-- The heading of each screen. Each title sits under the screen that shows it; the app reads all the parts as one block. -->
 
 [placeholder]
-Thank you for your answers. That was every card; there are none left to come.
 
-## Closed (under 40 words)
-
-[placeholder]
-Thank you. The answers are being read now.
-
-## Not open yet (under 40 words)
-
-[placeholder]
-This opens on [day]. Keep the link and come back then.
+- about: About this app
 
 ## About: what this is (under 50 words)
 
@@ -232,14 +211,78 @@ Under Over Through and Mechanism are asking a few questions about the future of 
 [placeholder]
 Your answers are locked on this phone before they are sent, and only the research team can unlock them. We never ask for your name or your email. This phone keeps your own answers readable for you. You can delete everything you sent, below, until 6 December 2026.
 
-## Reminder
+# The technical details
 
-<!-- The calendar reminder behind "Remind me" (the block above): a repeating event the phone's own calendar shows twice a week until the close day. Nothing about the person is in it. [link] is the workshop's home address, filled in when the app is built. -->
+## Titles (one line each)
 
 [placeholder]
 
-- summary: World Builder: a few more cards
-- description: A few quiet minutes with the next cards, whenever it suits you. [link]
+- technical details: The technical details
+- trust page: How your answers are protected
+
+## Trust page: what we store (under 80 words)
+
+<!-- The six "Trust page" blocks are the paragraphs under "How your answers are protected" on the "About this app" page, in this order, without headings of their own. Shortened on 3 November 2026 from the drafts of 2 November in docs/participant-texts.md, which the legal review reads; the words in square brackets are the reviewers' decisions. -->
+
+[placeholder]
+For each participant we keep a random code in scrambled form, the day they joined, which link they came through, and how many invites they have left. For each card, whether it was shown, answered or set aside, in what order, on which day. Each answer is a locked block of text our server cannot read. That is the whole of it.
+
+## Trust page: what we never collect (under 60 words)
+
+[placeholder]
+We never collect your name, email, phone, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, analytics identifiers, the page you came from, or audio. The link in your email is yours: anyone who opens it continues your cards.
+
+## Trust page: how it is protected (under 80 words)
+
+[placeholder]
+Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable, for you alone, until you delete them. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
+
+## Trust page: check it yourself (under 100 words)
+
+[placeholder]
+Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database has no column for a name or an email.
+
+## Trust page: who, where, until when (under 100 words)
+
+[placeholder]
+Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer, removes any names, and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
+
+## Trust page: the honest limit (under 60 words)
+
+[placeholder]
+Nobody can prove that a server keeps no record of a connection. That is why this one is built to hold nothing worth taking: no names, no readable answers, no way back from a code to a person.
+
+## Trust page links
+
+<!-- The names of the links under "How your answers are protected" and at the end of "About this app"; the addresses are in "Trust page variables". -->
+
+[placeholder]
+
+- source: The source code
+- webbkoll: Webbkoll's report on this site
+- blacklight: Blacklight's report on this site
+- terms: Terms
+- privacy policy: Privacy policy
+
+## Trust page variables
+
+- organizer: Under Over Through x Mechanism
+- data owners: Under Over Through and Mechanism, jointly
+- storage region: United States
+- collection closes: 6 December 2026
+- deletion: 5 February 2027
+- hostname: worldbuilder.under-over-through.co
+- contact: privacy@under-over-through.co
+- key fingerprint: from workshop.json
+- source: https://github.com/m-under-over-through/world-builder
+- webbkoll: https://webbkoll.dataskydd.net/en/results?url=https%3A%2F%2Fworldbuilder.under-over-through.co%2F
+- blacklight: https://themarkup.org/blacklight?url=worldbuilder.under-over-through.co
+
+## Titles (one line each)
+
+[placeholder]
+
+- privacy panel: Right now, from this phone
 
 ## Privacy panel
 
@@ -288,27 +331,6 @@ Your answers are locked on this phone before they are sent, and only the researc
 - deferred: put off to another session
 - revisited: revisited
 
-## Privacy panel: caveat (under 50 words)
-
-<!-- The quiet line under the rows. -->
-
-[placeholder]
-These numbers come from the same app that makes the claims. They are honest; the three checks above are what make them believable.
-
-## About: delete (under 40 words)
-
-<!-- The line above the "Delete everything and start over" button, at the end of "About this app", only once the phone has started. The last sentence is there because a link makes the same participant again (ADR 0018). -->
-
-[placeholder]
-Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026. Opening your link again starts you over from nothing.
-
-## Privacy panel: delete confirm (under 40 words)
-
-<!-- The second step, with "Yes, delete everything" and "Keep my answers". -->
-
-[placeholder]
-Delete everything you sent, from this phone and from our server? It cannot be brought back.
-
 ## Diagnostics
 
 <!-- Inside the privacy panel: the last sync result, the outbox size and the last error code with its meaning. -->
@@ -322,6 +344,50 @@ Delete everything you sent, from this phone and from our server? It cannot be br
 - ok: ok
 - offline: offline
 - error: failed
+
+## Privacy panel: caveat (under 50 words)
+
+<!-- The quiet line under the rows. -->
+
+[placeholder]
+These numbers come from the same app that makes the claims. They are honest; the three checks above are what make them believable.
+
+# Delete everything
+
+## About: delete (under 40 words)
+
+<!-- The line above the "Delete everything and start over" button, at the end of "About this app", only once the phone has started. The last sentence is there because a link makes the same participant again (ADR 0018). -->
+
+[placeholder]
+Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026. Opening your link again starts you over from nothing.
+
+## Buttons (one or two words each)
+
+[placeholder]
+
+- delete: Delete everything and start over
+
+## Privacy panel: delete confirm (under 40 words)
+
+<!-- The second step, with "Yes, delete everything" and "Keep my answers". -->
+
+[placeholder]
+Delete everything you sent, from this phone and from our server? It cannot be brought back.
+
+## Buttons (one or two words each)
+
+[placeholder]
+
+- yes delete: Yes, delete everything
+- keep: Keep my answers
+
+# Terms
+
+## Titles (one line each)
+
+[placeholder]
+
+- terms: Terms
 
 ## Terms (under 300 words)
 
@@ -341,6 +407,14 @@ Delete everything you sent, from this phone and from our server? It cannot be br
 **No promises beyond these.** The app is provided as it is. If it fails, nothing you wrote is sent anywhere else, and your phone keeps unsent answers for fourteen days and sends them when it can.
 
 **Questions.** [contact address]. [Governing law, if the reviewers want one.]
+
+# Privacy policy
+
+## Titles (one line each)
+
+[placeholder]
+
+- privacy policy: Privacy policy
 
 ## Privacy policy (under 400 words)
 
@@ -367,37 +441,39 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Contact.** [contact address].
 
-## Trust page: what we store (under 80 words)
+# Closed and not yet open
 
-<!-- The six "Trust page" blocks are the paragraphs under "How your answers are protected" on the "About this app" page, in this order, without headings of their own. Shortened on 3 November 2026 from the drafts of 2 November in docs/participant-texts.md, which the legal review reads; the words in square brackets are the reviewers' decisions. -->
-
-[placeholder]
-For each participant we keep a random code in scrambled form, the day they joined, which link they came through, and how many invites they have left. For each card, whether it was shown, answered or set aside, in what order, on which day. Each answer is a locked block of text our server cannot read. That is the whole of it.
-
-## Trust page: what we never collect (under 60 words)
+## Titles (one line each)
 
 [placeholder]
-We never collect your name, email, phone, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, analytics identifiers, the page you came from, or audio. The link in your email is yours: anyone who opens it continues your cards.
 
-## Trust page: how it is protected (under 80 words)
+- not open yet: Not open yet.
+- closed: This workshop has closed.
 
-[placeholder]
-Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable, for you alone, until you delete them. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
-
-## Trust page: check it yourself (under 100 words)
+## Not open yet (under 40 words)
 
 [placeholder]
-Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database has no column for a name or an email.
+This opens on [day]. Keep the link and come back then.
 
-## Trust page: who, where, until when (under 100 words)
-
-[placeholder]
-Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer, removes any names, and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
-
-## Trust page: the honest limit (under 60 words)
+## Closed (under 40 words)
 
 [placeholder]
-Nobody can prove that a server keeps no record of a connection. That is why this one is built to hold nothing worth taking: no names, no readable answers, no way back from a code to a person.
+Thank you. The answers are being read now.
+
+# An address that is not a workshop
+
+## Titles (one line each)
+
+[placeholder]
+
+- not a workshop: World Builder
+
+## Not a workshop (under 30 words)
+
+[placeholder]
+This address is not a workshop. Use the link you were sent.
+
+# Error lines
 
 ## Error: REQUEST_INVALID (one line)
 
@@ -498,3 +574,49 @@ Your answer could not be encrypted, so nothing was saved or sent. Try again.
 
 [placeholder]
 Could not reach the server. Your answers are saved on this device and will sync when you are online.
+
+# Everywhere
+
+## App labels
+
+[placeholder]
+
+- loading: Loading…
+- app name: World Builder
+
+## Buttons (one or two words each)
+
+[placeholder]
+
+- about: About this app
+- back: Back
+- got it: Got it
+- set aside: Set aside
+
+## Card labels
+
+[placeholder]
+
+- swipe hint: or swipe the card away
+
+## Remind me (under 20 words)
+
+<!-- One quiet line with the "Remind me" link (Buttons, remind me) after it, which adds the "Reminder" below to the phone's own calendar. Shown in two places: at the foot of "Your world so far", in the sheet on a phone and in the column on a laptop, under the tiles and the set-aside cards; and on the "About this app" page, under "what this is". -->
+
+[placeholder]
+Come back whenever you like. Your calendar can nudge you twice a week.
+
+## Buttons (one or two words each)
+
+[placeholder]
+
+- remind me: Remind me
+
+## Reminder
+
+<!-- The calendar reminder behind "Remind me" (the block above): a repeating event the phone's own calendar shows twice a week until the close day. Nothing about the person is in it. [link] is the workshop's home address, filled in when the app is built. -->
+
+[placeholder]
+
+- summary: World Builder: a few more cards
+- description: A few quiet minutes with the next cards, whenever it suits you. [link]
