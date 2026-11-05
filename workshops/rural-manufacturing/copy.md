@@ -1,6 +1,6 @@
 # Copy: rural-manufacturing
 
-Draft wording, deck 0.1. The partner's final wording is due Thursday 5 November 2026.
+Draft wording. Marco and Mechanism write the final words here; the card questions live in the cards sheet and in deck.json, not in this file.
 
 This file holds every word the app shows, screen by screen, in the order a participant meets
 them. You can edit the words and nothing else.
