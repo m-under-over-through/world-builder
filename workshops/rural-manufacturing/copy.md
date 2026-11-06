@@ -39,35 +39,36 @@ shows "[missing: ...]" in place of words it cannot find.
 
 <!-- The title of the welcome, the one page before the cards (ADR 0019). workshop.json's "name" carries the same words, for the server and the about page. -->
 
-[placeholder]
 The future of local production in America
 
 ## Welcome: purpose (one line)
 
 <!-- The line under the title on the welcome. -->
 
-[placeholder]
-Imagine, piece by piece, an alternative future for local production in America.
+Imagine, detail by detail, an alternative future for local production in America.
 
 ## Welcome (under 120 words)
 
 <!-- The one paragraph of the welcome, above its one button, "I understand" (Buttons, i understand). It replaces the three intro screens and the consent screen (ADR 0019): what this is, how it works, and the consent. For the legal reviewers: tapping "I understand" is the consent, so the consent facts of the draft of 2 November (docs/participant-texts.md) are all here, in the same words: who runs it, no name, no email, no account, the answers locked on the phone, read and delete until 6 December 2026. "We cannot find out" predates the link of one's own (ADR 0018) and is the reviewers' to reword. "Please don't name real people" is said here once, and in the terms; the open card no longer repeats it. -->
 
-[placeholder]
-This is a research project by Under Over Through and Mechanism about the future of local production in America. You see one card at a time with a question about that future: answer in your own words, or set it aside. There are no right answers. Please don't name real people. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
+This is a research project by Mechanism and Under Over Through about imagining alternative futures for local production in America. Dystopia and utopia are easy, but we want to explore the messy, unresolved middle, and imagine ways to thrive through systemic changes.
+
+You see one card at a time with a question: answer in your own words, or set it aside. Add details, think about the underlying systems. There are no wrong answers.
+
+You can use the same link you received to go back to the cards until December 6th 2026.
+
+We do not ask who you are: no name, no email, no account. Your answers are locked and only the research team can unlock them.
 
 ## Welcome: link not accepted (under 40 words)
 
 <!-- One quiet line on the welcome screen after the server refused what this phone remembered from a link, for instance after "delete everything I sent" on another phone. -->
 
-[placeholder]
 The link this phone remembered is not in use any more. Open the link from your email again.
 
 ## Welcome: your link (under 40 words)
 
 <!-- One line under the welcome's paragraph, above "I understand", when the link this device opened carries a value of its own for the recipient (ADR 0018). -->
 
-[placeholder]
 This link is yours. It opens your cards on any phone. To bring someone in, use the links at the foot of the email, not this one.
 
 ## Welcome: no link (under 40 words)
@@ -166,7 +167,7 @@ Open a card to answer. Swipe it away to set it aside.
 <!-- Shown as the last card in the stack, not a screen, once every card of the deck is answered or set aside twice (ADR 0020). Nothing comes after it. -->
 
 [placeholder]
-Thank you for your answers. That was every card; there are none left to come.
+Thank you for your answers! You can always revisit previous answers.
 
 # Your world so far
 
@@ -184,7 +185,7 @@ Thank you for your answers. That was every card; there are none left to come.
 - set aside: Set aside
 - empty: Nothing here yet. Answer a card and it lands here.
 - empty laptop: Nothing here yet. Answer a card on the left and it lands here, one tile per question. The cards you set aside gather at the bottom.
-- written elsewhere: Written on another phone. The words stayed there.
+- written elsewhere: Written on another phone.
 - close: Close
 
 # About this app
@@ -202,7 +203,7 @@ Thank you for your answers. That was every card; there are none left to come.
 <!-- The two sentences at the top of the "About this app" page, with the "Remind me" line under them. -->
 
 [placeholder]
-Under Over Through and Mechanism are asking a few questions about the future of local production in America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
+Mechanism and Under Over Through are asking a few questions about the future of local production in America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
 
 ## About: in short (under 60 words)
 
@@ -225,7 +226,7 @@ Your answers are locked on this phone before they are sent, and only the researc
 <!-- The six "Trust page" blocks are the paragraphs under "How your answers are protected" on the "About this app" page, in this order, without headings of their own. Shortened on 3 November 2026 from the drafts of 2 November in docs/participant-texts.md, which the legal review reads; the words in square brackets are the reviewers' decisions. -->
 
 [placeholder]
-For each participant we keep a random code in scrambled form, the day they joined, which link they came through, and how many invites they have left. For each card, whether it was shown, answered or set aside, in what order, on which day. Each answer is a locked block of text our server cannot read. That is the whole of it.
+For each participant we keep a random code in scrambled form, the day they joined, which link they came through, and how many invites they have left. For each card, whether it was shown, answered or set aside, in what order, on which day. Each answer is a locked block of text our server cannot read.
 
 ## Trust page: what we never collect (under 60 words)
 
@@ -235,17 +236,17 @@ We never collect your name, email, phone, address, location, IP address, the mak
 ## Trust page: how it is protected (under 80 words)
 
 [placeholder]
-Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable, for you alone, until you delete them. The key's fingerprint is [key fingerprint]; compare it with the one in the source code.
+Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable locally, for you alone. The key's fingerprint is [key fingerprint]. You can compare it with the one in the source code.
 
 ## Trust page: check it yourself (under 100 words)
 
 [placeholder]
-Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database has no column for a name or an email.
+You can verify our claims in three ways. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database has no column for a name or an email.
 
 ## Trust page: who, where, until when (under 100 words)
 
 [placeholder]
-Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer, removes any names, and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
+Mechanism and Under Over Through own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
 
 ## Trust page: the honest limit (under 60 words)
 
@@ -345,13 +346,6 @@ Nobody can prove that a server keeps no record of a connection. That is why this
 - offline: offline
 - error: failed
 
-## Privacy panel: caveat (under 50 words)
-
-<!-- The quiet line under the rows. -->
-
-[placeholder]
-These numbers come from the same app that makes the claims. They are honest; the three checks above are what make them believable.
-
 # Delete everything
 
 ## About: delete (under 40 words)
@@ -394,7 +388,7 @@ Delete everything you sent, from this phone and from our server? It cannot be br
 <!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
 
 [placeholder]
-**What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research. There are no right answers, no score and no payment.
+**What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research.
 
 **Who can take part.** Anyone who received the link [and is 18 or older]. One person may use more than one phone; to us, each phone that has not been linked by a code is a separate participant.
 
@@ -523,7 +517,7 @@ The code we made for you was already taken. Tap again to get a new one.
 ## Error: AUTH_CODE_MISSING (one line)
 
 [placeholder]
-Nothing told our server who you are. Open the link from your email again.
+Auth code missing. Open the link from your email again.
 
 ## Error: AUTH_CODE_UNKNOWN (one line)
 

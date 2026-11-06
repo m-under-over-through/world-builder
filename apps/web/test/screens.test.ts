@@ -64,14 +64,17 @@ describe('the screens render the words of copy.md', () => {
       screen.getByRole('heading', { level: 1, name: copy.text('Welcome: title') }),
     ).toBeTruthy();
     expect(screen.getByText(copy.text('Welcome: purpose'))).toBeTruthy();
-    expect(screen.getByText(copy.text('Welcome'))).toBeTruthy();
+    for (const paragraph of copy.paragraphs('Welcome'))
+      expect(screen.getByText(paragraph)).toBeTruthy();
     const button = iUnderstand()!;
     expect(button.classList.contains('primary')).toBe(true);
     expect(button.classList.contains('wide')).toBe(true);
     // The screen has one button: the consent, under the paragraph that states it.
     expect(screen.getAllByRole('button')).toHaveLength(1);
     const text = document.body.textContent!;
-    expect(text.indexOf(copy.text('Welcome'))).toBeLessThan(text.indexOf(button.textContent!));
+    expect(text.indexOf(copy.paragraphs('Welcome')[0]!)).toBeLessThan(
+      text.indexOf(button.textContent!),
+    );
     const fan = document.querySelector('.fan')!;
     expect(fan.getAttribute('aria-hidden')).toBe('true');
     expect(fan.children).toHaveLength(4);
@@ -101,7 +104,8 @@ describe('the screens render the words of copy.md', () => {
 
   it('welcome, no link: the paragraph, "open the link you were sent" under it, and no button at all', () => {
     render(Welcome, { app: state() });
-    expect(screen.getByText(copy.text('Welcome'))).toBeTruthy();
+    for (const paragraph of copy.paragraphs('Welcome'))
+      expect(screen.getByText(paragraph)).toBeTruthy();
     expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
@@ -498,7 +502,6 @@ describe('the screens render the words of copy.md', () => {
     expect(text).toContain(`${panel['came through']} wave-1`);
     expect(text).toContain(`${panel['invites left']} 3`);
     expect(text).toContain(fill(panel['last sync day']!, { day: '2026-11-17' }));
-    expect(screen.getByText(copy.text('Privacy panel: caveat'))).toBeTruthy();
     // No field for a code on this page, and no second copy of the plan: said once above.
     expect(screen.queryByRole('textbox')).toBeNull();
   });

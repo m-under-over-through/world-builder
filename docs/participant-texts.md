@@ -6,13 +6,19 @@ The facts behind every sentence are in `docs/architecture-and-risk-plan.md`, sec
 
 ## Consent (the third intro screen, under 80 words)
 
-This is a research project by Under Over Through and Mechanism about the future of local production in America. You answer questions in your own words. We do not ask who you are, and we cannot find out: no name, no email, no account. Your answers are locked on your phone before they leave it, and only the research team can unlock them. You can read what we hold about you, and delete it, at any time until 6 December 2026.
+This is a research project by Mechanism and Under Over Through about imagining alternative futures for local production in America. Dystopia and utopia are easy, but we want to explore the messy, unresolved middle, and imagine ways to thrive through systemic changes.
+
+You see one card at a time with a question: answer in your own words, or set it aside. Add details, think about the underlying systems. There are no wrong answers.
+
+You can use the same link you received to go back to the cards until December 6th 2026.
+
+We do not ask who you are: no name, no email, no account. Your answers are locked and only the research team can unlock them.
 
 [I understand]
 
 ## Terms (one page)
 
-**What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research. There are no right answers, no score and no payment.
+**What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research.
 
 **Who can take part.** Anyone who received the link [and is 18 or older]. One person may use more than one phone; to us, each phone that did not open the same newsletter link is a separate participant.
 
@@ -54,13 +60,13 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **2. What we never collect.** Name, email, phone, address, location, IP address, device or browser, exact time, cookies, analytics identifiers, referrer, audio.
 
-**3. How it is protected.** Your answers are locked on your phone with the research team's key. Our servers store scrambled text they cannot read. The key's fingerprint is `{fingerprint}`; compare it with the one in the source code.
+**3. How it is protected.** Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable locally, for you alone. The key's fingerprint is {fingerprint}. You can compare it with the one in the source code.
 
-**4. Check it yourself.** Three checks need no trust in us. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at `{source}`, where the database schema has no column for a name or an email.
+**4. Check it yourself.** You can verify our claims in three ways. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at {source}, where the database has no column for a name or an email.
 
 **5. Your controls.** "About this app", linked at the foot of every screen, shows everything we hold about you as it is stored, and deletes all of it on request, any time until 6 December 2026.
 
-**6. Who, where, until when.** Under Over Through and Mechanism own the answers jointly; Under Over Through runs the system, and the spreadsheet is shared with Mechanism at the end. Everything is stored in the United States. Collection closes 6 December 2026, the spreadsheet is produced the week after, and everything on the server is deleted on 5 February 2027, backups included.
+**6. Who, where, until when.** Mechanism and Under Over Through own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
 
 **7. The honest limit.** Nobody can prove that a server keeps no record of a connection. That is why this one is built to hold nothing worth taking: no names, no readable answers, no way back from a code to a person.
 

@@ -190,7 +190,6 @@
         <dd>{VERSION} ({ENV}); <a href={app.sourceHref}>{label('source')}</a></dd>
       </div>
     </dl>
-    <p class="muted">{app.copy.text('Privacy panel: caveat')}</p>
   </section>
 </details>
 
