@@ -1,5 +1,5 @@
 {
-  "version": "0.3",
+  "version": "0.4",
   "cards": [
     {
       "id": "tuesday-night",
@@ -256,62 +256,74 @@
     {
       "id": "worked",
       "set": "warmup",
-      "text": "What worked?"
+      "text": "What worked?",
+      "area": "Culture and pride"
     },
     {
       "id": "failed",
       "set": "warmup",
-      "text": "What failed?"
+      "text": "What failed?",
+      "area": "Losses and the transition"
     },
     {
       "id": "busiest-office",
       "set": "warmup",
-      "text": "What is the busiest office at City Hall?"
+      "text": "What is the busiest office at City Hall?",
+      "area": "Land, water and energy"
     },
     {
       "id": "law-mad",
       "set": "warmup",
-      "text": "What law just passed that people are mad about?"
+      "text": "What law just passed that people are mad about?",
+      "area": "Losses and the transition"
     },
     {
       "id": "law-happy",
       "set": "warmup",
-      "text": "What law just passed that people are happy about?"
+      "text": "What law just passed that people are happy about?",
+      "area": "Culture and pride"
     },
     {
       "id": "preparing-for",
       "set": "warmup",
-      "text": "What people are preparing for?"
+      "text": "What people are preparing for?",
+      "area": "Culture and pride"
     },
     {
       "id": "newspaper-headline",
       "set": "warmup",
-      "text": "What was the newspaper headline this morning?"
+      "text": "What was the newspaper headline this morning?",
+      "area": "Everyday life"
     },
     {
       "id": "latest-gossip",
       "set": "warmup",
-      "text": "What is the latest gossip?"
+      "text": "What is the latest gossip?",
+      "area": "Everyday life"
     },
     {
       "id": "people-hiding",
       "set": "warmup",
-      "text": "What are people hiding? Why?"
+      "text": "What are people hiding? Why?",
+      "area": "Everyday life"
     },
     {
       "id": "crime",
       "set": "warmup",
-      "text": "What is a crime?"
+      "text": "What is a crime?",
+      "area": "Everyday life"
     },
     {
       "id": "people-and-robots",
       "set": "warmup",
-      "text": "What people do with robots?"
+      "text": "What people do with robots?",
+      "area": "Physical AI and automation"
     },
     {
       "id": "people-and-computers",
       "set": "warmup",
-      "text": "What people do with their computers and AIs?"
+      "text": "What people do with their computers and AIs?",
+      "area": "Physical AI and automation"
     }
   ]
 }
