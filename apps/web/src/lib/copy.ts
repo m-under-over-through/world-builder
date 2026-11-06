@@ -171,7 +171,6 @@ export const COPY_TEXT = [
   'About: what this is',
   'About: in short',
   'About: delete',
-  'Privacy panel: caveat',
   'Privacy panel: delete confirm',
   'Terms',
   'Privacy policy',

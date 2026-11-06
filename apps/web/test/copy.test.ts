@@ -147,7 +147,7 @@ describe('looking words up', () => {
   const copy = Copy.parse(SAMPLE);
 
   it('returns the text of a block and the entries of a list', () => {
-    expect(copy.text('Welcome')).toContain('First paragraph');
+    expect(copy.paragraphs('Welcome')[0]!).toContain('First paragraph');
     expect(copy.paragraphs('Welcome')).toHaveLength(2);
     expect(copy.item('Buttons', 'save')).toBe('Save');
   });

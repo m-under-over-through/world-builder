@@ -2043,3 +2043,28 @@ Marco edits this one file and wants to read it as the app is walked through, not
 ### Open
 
 - The block "Thank you card" is in `COPY_TEXT` but no component reads it today (nothing in `apps/web/src` calls it). It sits under "The card", where its note says it appears. The screens' session should confirm whether the thank-you card is rendered.
+
+## 2026-11-06, Friday morning. Marco's first pass on the words
+
+### What
+
+Marco edited `workshops/rural-manufacturing/copy.md` by hand for the first time, screen by screen: the welcome in four paragraphs, with the consent facts in his words; "detail by detail"; Mechanism named first; the trust page's three claims as "you can verify"; the thank-you card; eleven blocks out of draft. Three things followed from the integrator:
+
+- The welcome's tests expected one paragraph and found four; they now check each paragraph, as the screen renders them.
+- He emptied the privacy panel's quiet caveat line ("these numbers come from the same app that makes the claims"), which the parser reads as a missing block. The line is gone from the about page, the key list and the file; the screen map follows.
+- "revist" is "revisit" on the thank-you card.
+
+The paragraphs that also go to Mechanism's legal review (`docs/participant-texts.md`: the consent, the terms' first sentence, the trust page's sections 3, 4 and 6) now carry his words.
+
+### Why
+
+The words are Marco's and the partner's; the app follows them. Where a block disappears, the code that read it goes with it rather than a placeholder standing in.
+
+### How to verify
+
+`npm run check`; on staging, the welcome shows four paragraphs and "I understand"; the about page's fold ends with the diagnostics and no quiet line under them.
+
+### Open
+
+- One error line now reads "Auth code missing. Open the link from your email again." (`AUTH_CODE_MISSING`); "auth code" is a word participants have not met. Marco's call.
+- The consent facts in the welcome are his wording now, not the legal draft's; the legal review reads the welcome paragraph.

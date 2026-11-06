@@ -326,7 +326,7 @@ describe('the first session', () => {
     wait?: AppState['wait'],
   ) {
     const app = await open(`/${SLUG}/join/wave-1`, wait);
-    expect(await screen.findByText(copy.text('Welcome'))).toBeTruthy();
+    expect(await screen.findByText(copy.paragraphs('Welcome')[0]!)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'i understand') }));
     return app;
   }
