@@ -2105,3 +2105,13 @@ Marco's word on 6 November. The deck version goes to 0.3 so events recorded unde
 
 - Three of the new questions read as notes ("What people are preparing for?", "What people do with robots?", "What people do with their computers and AIs?"); Marco's to reword in the sheet, then re-import.
 - The twelve new cards have no area, so their label on the card is blank; the sheet's area column fills it on the next import.
+
+## 2026-11-06, Friday, late afternoon. Deck 0.4: the twelve new cards get their areas
+
+### What
+
+Marco filled the area, stakes and priority of the twelve cards he had added by hand; the same 54 shortlisted rows as 0.3, re-imported as deck 0.4. No text changed. The three questions that read as notes stand as he wrote them.
+
+### How to verify
+
+`npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
