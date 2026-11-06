@@ -239,6 +239,14 @@
       </div>
     </div>
   {/if}
+  {#if !app.card && !app.demoFront && app.live?.deckDone}
+    <!-- The last card: every card answered or out (ADR 0020). Nothing to tap, nothing after it. -->
+    <div class="slot slot-0" style:--tint={`var(--tint-${tintOf(1)})`}>
+      <div class="card front thanks" role="note">
+        <p class="demo-words">{app.copy.text('Thank you card')}</p>
+      </div>
+    </div>
+  {/if}
   {#if app.exiting}
     <div class="slot exit" aria-hidden="true" style:--tint={`var(--tint-${tintOf(app.exiting.n)})`}>
       <div class="card done">

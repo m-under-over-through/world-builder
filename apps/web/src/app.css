@@ -717,7 +717,8 @@ textarea::placeholder {
 }
 
 /* the onboarding card: the front of the stack on the first open, words large, "Got it" at its foot */
-.card.front.demo {
+.card.front.demo,
+.card.front.thanks {
   justify-content: flex-start;
   gap: 16px;
   cursor: default;

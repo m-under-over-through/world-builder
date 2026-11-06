@@ -222,6 +222,26 @@ describe('what a screen reader hears', () => {
   });
 });
 
+describe('the end of the deck', () => {
+  it('shows the thank-you card, and nothing to tap, once every card is answered or out', async () => {
+    const app = await onACard();
+    app.card = undefined;
+    app.live = { ...app.live!, deckDone: true };
+    render(Card, { app });
+    expect(screen.getByText(copy.text('Thank you card'))).toBeTruthy();
+    expect(document.querySelector('.card.thanks')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeNull();
+  });
+
+  it('shows no thank-you card while the deck is not done', async () => {
+    const app = await onACard();
+    app.card = undefined;
+    app.live = { ...app.live!, deckDone: false };
+    render(Card, { app });
+    expect(screen.queryByText(copy.text('Thank you card'))).toBeNull();
+  });
+});
+
 describe('the onboarding card', () => {
   it('is the front of the stack on the first open; "Got it" sends it away and the first card comes forward, recorded shown only then', async () => {
     const app = await onACard({ demoFront: true });

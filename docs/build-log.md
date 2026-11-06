@@ -2068,3 +2068,21 @@ The words are Marco's and the partner's; the app follows them. Where a block dis
 
 - One error line now reads "Auth code missing. Open the link from your email again." (`AUTH_CODE_MISSING`); "auth code" is a word participants have not met. Marco's call.
 - The consent facts in the welcome are his wording now, not the legal draft's; the legal review reads the welcome paragraph.
+
+## 2026-11-06, Friday, late morning. The thank-you card at the end of the deck
+
+### What
+
+When every card is answered or out (`LiveSession.deckDone`, ADR 0020), the stack shows one last card: the words of the "Thank you card" block in the first tint, nothing to tap, no Set aside row under it. Before, the stack was simply empty. `apps/web/src/components/Stack.svelte`, one style shared with the onboarding card, two tests, the screen map's row.
+
+### Why
+
+Marco is sending the preview to Mechanism; a reviewer who goes through all 42 cards should meet an ending, not a blank. The words are Marco's.
+
+### How to verify
+
+`npm run check`. In the app with a two-card deck, or on staging by answering every card: the thank-you card stands where the stack was; "Your world so far" still opens.
+
+### Open
+
+- The thank-you session started from the card-screen session on 4 November never ran; this closes its task.
