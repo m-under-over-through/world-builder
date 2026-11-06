@@ -437,7 +437,8 @@ describe('your world so far', () => {
     const tiles = [...dialog.querySelectorAll('.world-section.answered .tile')];
     expect(tiles).toHaveLength(2);
     const card = (id: string) => workshop.deck.cards.find((x) => x.id === id)!;
-    expect(tiles[0]!.querySelector('.label')!.textContent).toBe(card(a!).area);
+    // A card without an area (hand-added in the sheet) has no label on its tile.
+    expect(tiles[0]!.querySelector('.label')?.textContent ?? undefined).toBe(card(a!).area);
     expect(tiles[0]!.textContent).toContain(card(a!).text);
     expect(tiles[0]!.querySelector('.a')!.textContent).toBe('Two lines\nof words');
     expect(tiles[1]!.textContent).toContain(card(b!).text);
@@ -450,7 +451,7 @@ describe('your world so far', () => {
       copy.item('Your world', 'set aside'),
     );
     const asideTile = aside.querySelector('li.tile.aside')!;
-    expect(asideTile.querySelector('.label')!.textContent).toBe(card(c!).area);
+    expect(asideTile.querySelector('.label')?.textContent ?? undefined).toBe(card(c!).area);
     expect(asideTile.querySelector('.q')!.textContent).toBe(card(c!).text);
     expect(asideTile.querySelector('.a')).toBeNull();
     expect(asideTile.getAttribute('style') ?? '').not.toContain('--tint');

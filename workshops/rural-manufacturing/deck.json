@@ -1,82 +1,10 @@
 {
-  "version": "0.2",
+  "version": "0.3",
   "cards": [
-    {
-      "id": "raw-materials-from",
-      "set": "checkpoint",
-      "text": "Where do the raw materials come from?",
-      "area": "Raw materials"
-    },
-    {
-      "id": "what-town-makes",
-      "set": "checkpoint",
-      "text": "What does the town make that people far away want?",
-      "area": "Making"
-    },
-    {
-      "id": "who-buys",
-      "set": "checkpoint",
-      "text": "Who buys what the town makes?",
-      "area": "Distribution"
-    },
-    {
-      "id": "who-picks",
-      "set": "checkpoint",
-      "text": "Who picks the crops?",
-      "area": "Food"
-    },
-    {
-      "id": "jobs-to-robots",
-      "set": "checkpoint",
-      "text": "What do people do now whose jobs went to robots?",
-      "area": "Physical AI and automation"
-    },
-    {
-      "id": "afford-house",
-      "set": "checkpoint",
-      "text": "Can someone who works at the plant afford a house here?",
-      "area": "Workers"
-    },
-    {
-      "id": "worker-voice",
-      "set": "checkpoint",
-      "text": "When workers disagree with the boss, what do they do?",
-      "area": "Workers"
-    },
-    {
-      "id": "who-gets-rich",
-      "set": "checkpoint",
-      "text": "Who gets rich here?",
-      "area": "Money and power"
-    },
-    {
-      "id": "who-decides-built",
-      "set": "checkpoint",
-      "text": "Who decides what gets built here?",
-      "area": "Money and power"
-    },
-    {
-      "id": "water-shortage",
-      "set": "checkpoint",
-      "text": "Who gets the water when there isn't enough?",
-      "area": "Land, water and energy"
-    },
-    {
-      "id": "newest-arrivals",
-      "set": "checkpoint",
-      "text": "What work do the newest arrivals in town do?",
-      "area": "People and generations"
-    },
-    {
-      "id": "who-lost-out",
-      "set": "checkpoint",
-      "text": "Who lost out when things changed?",
-      "area": "Losses and the transition"
-    },
     {
       "id": "tuesday-night",
       "set": "warmup",
-      "text": "What is a typical Tuesday night?",
+      "text": "What happens on typical Tuesday night?",
       "area": "Everyday life"
     },
     {
@@ -95,6 +23,12 @@
       "id": "loading-dock",
       "set": "warmup",
       "text": "What arrives at the loading dock each morning?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "raw-materials-from",
+      "set": "checkpoint",
+      "text": "Where do the raw materials come from?",
       "area": "Raw materials"
     },
     {
@@ -122,6 +56,12 @@
       "area": "Making"
     },
     {
+      "id": "what-town-makes",
+      "set": "checkpoint",
+      "text": "What does the town make that people far away want?",
+      "area": "Making"
+    },
+    {
       "id": "through-the-plant",
       "set": "warmup",
       "text": "Pick one thing made here. What happens to it on its way through the plant?",
@@ -130,7 +70,7 @@
     {
       "id": "plant-smell",
       "set": "warmup",
-      "text": "What does the plant smell like?",
+      "text": "What does the street smell like?",
       "area": "Making"
     },
     {
@@ -146,6 +86,12 @@
       "area": "Distribution"
     },
     {
+      "id": "who-buys",
+      "set": "checkpoint",
+      "text": "Who buys what the town makes?",
+      "area": "Distribution"
+    },
+    {
       "id": "from-far-away",
       "set": "warmup",
       "text": "What still has to come from the other side of the world?",
@@ -155,6 +101,12 @@
       "id": "fields-around",
       "set": "warmup",
       "text": "What grows in the fields around town?",
+      "area": "Food"
+    },
+    {
+      "id": "who-picks",
+      "set": "checkpoint",
+      "text": "Who picks the crops?",
       "area": "Food"
     },
     {
@@ -182,6 +134,24 @@
       "area": "Physical AI and automation"
     },
     {
+      "id": "jobs-to-robots",
+      "set": "checkpoint",
+      "text": "What do people do now whose jobs went to machines?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "afford-house",
+      "set": "checkpoint",
+      "text": "Can someone who works at the plant afford a house here?",
+      "area": "Workers"
+    },
+    {
+      "id": "worker-voice",
+      "set": "checkpoint",
+      "text": "When workers disagree with the boss, what do they do?",
+      "area": "Workers"
+    },
+    {
       "id": "learn-trade",
       "set": "warmup",
       "text": "How does a sixteen-year-old learn a trade here?",
@@ -200,10 +170,28 @@
       "area": "Workers"
     },
     {
+      "id": "who-gets-rich",
+      "set": "checkpoint",
+      "text": "Who gets rich here?",
+      "area": "Money and power"
+    },
+    {
+      "id": "who-decides-built",
+      "set": "checkpoint",
+      "text": "Who decides what gets built here?",
+      "area": "Money and power"
+    },
+    {
       "id": "town-meeting",
       "set": "warmup",
       "text": "What do people argue about at the town meeting?",
       "area": "Money and power"
+    },
+    {
+      "id": "water-shortage",
+      "set": "checkpoint",
+      "text": "Who gets the water when there isn't enough?",
+      "area": "Land, water and energy"
     },
     {
       "id": "river-color",
@@ -222,6 +210,12 @@
       "set": "warmup",
       "text": "What happens at the plant during a heat wave?",
       "area": "Land, water and energy"
+    },
+    {
+      "id": "newest-arrivals",
+      "set": "checkpoint",
+      "text": "What work do the newest arrivals in town do?",
+      "area": "People and generations"
     },
     {
       "id": "grow-up-be",
@@ -248,10 +242,76 @@
       "area": "Culture and pride"
     },
     {
+      "id": "who-lost-out",
+      "set": "checkpoint",
+      "text": "Who lost out when things changed?",
+      "area": "Losses and the transition"
+    },
+    {
       "id": "people-miss",
       "set": "warmup",
       "text": "What do older people miss about how things were?",
       "area": "Losses and the transition"
+    },
+    {
+      "id": "worked",
+      "set": "warmup",
+      "text": "What worked?"
+    },
+    {
+      "id": "failed",
+      "set": "warmup",
+      "text": "What failed?"
+    },
+    {
+      "id": "busiest-office",
+      "set": "warmup",
+      "text": "What is the busiest office at City Hall?"
+    },
+    {
+      "id": "law-mad",
+      "set": "warmup",
+      "text": "What law just passed that people are mad about?"
+    },
+    {
+      "id": "law-happy",
+      "set": "warmup",
+      "text": "What law just passed that people are happy about?"
+    },
+    {
+      "id": "preparing-for",
+      "set": "warmup",
+      "text": "What people are preparing for?"
+    },
+    {
+      "id": "newspaper-headline",
+      "set": "warmup",
+      "text": "What was the newspaper headline this morning?"
+    },
+    {
+      "id": "latest-gossip",
+      "set": "warmup",
+      "text": "What is the latest gossip?"
+    },
+    {
+      "id": "people-hiding",
+      "set": "warmup",
+      "text": "What are people hiding? Why?"
+    },
+    {
+      "id": "crime",
+      "set": "warmup",
+      "text": "What is a crime?"
+    },
+    {
+      "id": "people-and-robots",
+      "set": "warmup",
+      "text": "What people do with robots?"
+    },
+    {
+      "id": "people-and-computers",
+      "set": "warmup",
+      "text": "What people do with their computers and AIs?"
     }
   ]
 }

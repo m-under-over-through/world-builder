@@ -644,7 +644,7 @@ describe('the core loop', () => {
     expect(app.live!.plan.queue).not.toContain(first.id);
     expect(app.live!.dismissed.has(first.id)).toBe(true);
     const next = app.card!;
-    expect((await frontCard()).querySelector('.label')!.textContent).toBe(next.area);
+    expect((await frontCard()).querySelector('.label')!.textContent ?? '').toBe(next.area ?? '');
     expect(app.world.aside.map((c) => c.cardId)).toEqual([first.id]);
   });
 

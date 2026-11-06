@@ -2086,3 +2086,22 @@ Marco is sending the preview to Mechanism; a reviewer who goes through all 42 ca
 ### Open
 
 - The thank-you session started from the card-screen session on 4 November never ran; this closes its task.
+
+## 2026-11-06, Friday afternoon. Deck 0.3 from the cards sheet, draft 2
+
+### What
+
+The 54 cards marked "shortlist" in Marco's new sheet ("World Builder cards, rural manufacturing, draft 2", one tab, built by the integrator from his two tabs on 6 November) replace deck 0.2's 42: 12 checkpoints and 42 warm-ups. Three cards are reworded ("What happens on typical Tuesday night?", "What does the street smell like?", "jobs went to machines"); twelve are new, added by Marco by hand, without an area yet (What worked?, What failed?, the busiest office at City Hall, two laws just passed, what people are preparing for, the newspaper headline, the latest gossip, what people are hiding, what is a crime, what people do with robots, and with their computers and AIs). Nothing was dropped. The contracts test that every card carries an area now asks that some do.
+
+### Why
+
+Marco's word on 6 November. The deck version goes to 0.3 so events recorded under 0.2 keep their meaning.
+
+### How to verify
+
+`npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']))"` prints `0.3 54`; the sheet's rows with shortlist = yes next to the file.
+
+### Open
+
+- Three of the new questions read as notes ("What people are preparing for?", "What people do with robots?", "What people do with their computers and AIs?"); Marco's to reword in the sheet, then re-import.
+- The twelve new cards have no area, so their label on the card is blank; the sheet's area column fills it on the next import.
