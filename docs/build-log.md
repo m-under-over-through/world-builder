@@ -2177,3 +2177,16 @@ Launch is 16 November and the plan puts the security pass at the start of week 3
 - Not changed, noted: `/api/health` publishes `lastBackupAt` to the second (a system time, not a participant's); `Content-Type` is not required on the two routes with a body, which lets another site make a simple cross-site POST to join, which is rate-limited and gives that site nothing it could not do itself.
 - A learning note on what the CDN's header file covers and what a function must set itself would help; `docs/learn/` was outside this pass's files.
 - Applied by the integrator before the merge, from the independent review (approve with nits; the new order of the checks on a guessed code is safe, and costs less than before): `seq` and `sessionNo` take the ceiling of their 32-bit columns in the contracts, so a crafted value is `SYNC_PAYLOAD_INVALID` and not a `SERVER_ERROR`; the function's `SERVER_NOT_CONFIGURED` answer carries the security headers. Its log line stays as it was: both messages it can print are fixed strings, and the general redaction would cut the explanation out of them.
+## 2026-11-11, Wednesday. The terms and the policy in the app say the link, not the code
+
+### What
+
+Three sentences of the Terms and the Privacy policy in `workshops/rural-manufacturing/copy.md` still spoke of a 16-digit code the participant keeps and must not share. Since ADR 0018 nobody sees or types a code. They now carry the words `docs/participant-texts.md` has had since 4 November: the link is the key, the spare links are for forwarding, and neither Under Over Through nor Mechanism alone can connect an answer to a person. Found by the go or no-go page's author on 11 November.
+
+### Why
+
+What a participant agrees to must describe the app they are using. The legal review reads these words; they are still marked as drafts.
+
+### How to verify
+
+`grep -n "16-digit" workshops/rural-manufacturing/copy.md` finds the one sentence that says the phone makes the code from the link. `npm run check`.
