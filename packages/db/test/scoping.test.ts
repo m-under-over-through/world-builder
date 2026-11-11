@@ -1,10 +1,14 @@
+import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
+  ensureWave,
   findParticipant,
   findWorkshop,
   joinViaWave,
   participantData,
   syncBatch,
+  waveOpened,
+  waves,
 } from '../src/index.ts';
 import { DAY, freshDb, hash, seedWorkshop, uuid } from './helpers.ts';
 
@@ -32,6 +36,23 @@ describe('everything is scoped to a workshop', () => {
     expect(a.participant.id).not.toBe(b.participant.id);
     expect((await findParticipant(db, alpha.id, hash('same')))?.id).toBe(a.participant.id);
     expect((await findParticipant(db, beta.id, hash('same')))?.id).toBe(b.participant.id);
+  });
+
+  it('a wave of one workshop is unknown in another: no open is counted and no join goes through it', async () => {
+    const db = await freshDb();
+    const alphaId = await seedWorkshop(db, 'alpha');
+    await seedWorkshop(db, 'beta');
+    await ensureWave(db, alphaId, 'wave-2', 'second newsletter');
+    const beta = (await findWorkshop(db, 'beta'))!;
+    expect(await waveOpened(db, beta.id, 'wave-2')).toBe(false);
+    expect(
+      await joinViaWave(db, { workshop: beta, wave: 'wave-2', codeHash: hash('x'), today: DAY }),
+    ).toEqual({ ok: false, reason: 'wave_unknown' });
+    const [row] = await db
+      .select()
+      .from(waves)
+      .where(and(eq(waves.workshopId, alphaId), eq(waves.wave, 'wave-2')));
+    expect(row).toMatchObject({ openedCount: 0, joinedCount: 0 });
   });
 
   it('a session that belongs to another participant is not accepted, nor are its events', async () => {

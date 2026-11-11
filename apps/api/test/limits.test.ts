@@ -115,6 +115,39 @@ describe('rate limits without addresses', () => {
     expect((await t.app.request(`/api/${slug}/me`, { headers: auth(code) })).status).toBe(200);
   });
 
+  it('a burst of guessed codes writes one bucket row for the workshop, never one per code', async () => {
+    const t = await freshApp();
+    const before = await countRateBuckets(t.db);
+    for (let i = 0; i < 40; i++) {
+      await t.app.request(`/api/${slug}/me`, { headers: auth(generateCode()) });
+    }
+    // Forty guesses, thirty answered AUTH_CODE_UNKNOWN and ten RATE_LIMITED, all in the one
+    // unknown-code bucket of this workshop and minute. No guess left a row keyed by its hash.
+    expect((await countRateBuckets(t.db)) - before).toBe(1);
+  });
+
+  it('a burst of wave opens or guessed codes in one workshop leaves another workshop its own budgets', async () => {
+    const t = await freshApp();
+    await seedWorkshop(t.db, { slug: 'other-one' });
+    const other = await joined(t.app, 'other-one');
+    await untilLimited(
+      t,
+      () => t.app.request(`/api/${slug}/waves/wave-1/opened`, { method: 'POST' }),
+      120,
+    );
+    await untilLimited(
+      t,
+      () => t.app.request(`/api/${slug}/me`, { headers: auth(generateCode()) }),
+      30,
+    );
+    expect(
+      (await t.app.request('/api/other-one/waves/wave-1/opened', { method: 'POST' })).status,
+    ).toBe(200);
+    const guessed = await t.app.request('/api/other-one/me', { headers: auth(generateCode()) });
+    expect(errorResponseSchema.parse(await guessed.json()).error).toBe('AUTH_CODE_UNKNOWN');
+    expect((await t.app.request('/api/other-one/me', { headers: auth(other) })).status).toBe(200);
+  });
+
   it('an authenticated code is budgeted at 60 a minute on its own, and another code is not affected', async () => {
     const t = await freshApp();
     const a = await joined(t.app);

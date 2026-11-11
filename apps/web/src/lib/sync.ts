@@ -16,6 +16,40 @@ export interface SyncStatus {
   outboxSize: number;
   /** Sessions waiting in the outbox (a session row goes out before its events). */
   outboxSessions: number;
+  /** The HTTP status of a refusal; absent when it went well or nothing answered. */
+  httpStatus?: number;
+}
+
+/**
+ * The three refusals with a way out: WORKSHOP_CLOSED shows the closed screen and stops the
+ * retries itself, AUTH_CODE_UNKNOWN is settled by the next open, and RATE_LIMITED passes when
+ * the minute turns.
+ */
+const REFUSALS_THAT_PASS: ReadonlySet<string> = new Set([
+  'WORKSHOP_CLOSED',
+  'AUTH_CODE_UNKNOWN',
+  'RATE_LIMITED',
+]);
+
+/**
+ * Whether a failed sync met a refusal that the same request will meet again however often it is
+ * sent: a 4xx other than the three above (and other than 408 and 429, which say "later"). An
+ * event the server's contract refuses (SYNC_PAYLOAD_INVALID), a queued join through a full or
+ * unknown wave, a batch too large: sending them every five minutes would change nothing and write
+ * the same log line on the server each time. The caller stops its timer and leaves the outbox as
+ * it is; the next open, the next saved answer or the network coming back tries once more, so a
+ * fixed server or client still drains it (security pass of 11 November 2026, docs/build-log.md).
+ */
+export function refusedForGood(status: SyncStatus): boolean {
+  const http = status.httpStatus ?? 0;
+  return (
+    status.lastResult === 'error' &&
+    http >= 400 &&
+    http < 500 &&
+    http !== 408 &&
+    http !== 429 &&
+    !REFUSALS_THAT_PASS.has(status.lastError ?? '')
+  );
 }
 
 /** The setting that holds the day of the last sync the server accepted. */
@@ -70,15 +104,16 @@ export async function sendPendingJoin(
   return res;
 }
 
-/** The status after a request that failed: offline when nothing answered, otherwise the server's code. */
-async function failed(store: Store, res: ApiResult<unknown> & { ok: false }) {
+/** The status after a request that failed: offline when nothing answered, otherwise the server's code and status. */
+async function failed(store: Store, res: ApiResult<unknown> & { ok: false }): Promise<SyncStatus> {
   const remaining = await store.pending();
   return {
     lastResult: res.status === 0 ? 'offline' : 'error',
     lastError: res.error,
     outboxSize: remaining.events.length,
     outboxSessions: remaining.sessions.length,
-  } satisfies SyncStatus;
+    ...(res.status === 0 ? {} : { httpStatus: res.status }),
+  };
 }
 
 /** Push the outbox in batches. Idempotent on the server, so a retry can never duplicate. */

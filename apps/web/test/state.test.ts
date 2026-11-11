@@ -645,6 +645,37 @@ describe('identity by the link (ADR 0018)', () => {
     expect(app.code).toBe(code);
   });
 
+  it('a reload without #p= keeps the device-made code: every request carries it, and nothing is wiped', async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const first = await opened(`/${SLUG}/join/wave-1`);
+    await first.join();
+    await first.dismissDemo();
+    first.draft = 'An answer';
+    expect(await first.save()).toBe(true);
+    const code = first.code;
+    expect(code).toMatch(/^\d{16}$/);
+    const again = await opened(`/${SLUG}/join/wave-1`);
+    expect(again.code).toBe(code);
+    expect(await again.store!.get('code')).toBe(code);
+    expect(await again.store!.get('linkCode')).toBeUndefined();
+    expect(again.screen).toBe('card');
+    expect((await db(again).events.toArray()).filter((e) => e.kind === 'answered')).toHaveLength(1);
+    for (const call of calls)
+      if (call.headers['authorization']) expect(call.headers['authorization']).toBe(`Code ${code}`);
+  });
+
+  it('a value in the query is not a link: no code is made from it, and nothing is asked before the join', async () => {
+    const calls = stubRoutes({});
+    history.replaceState(null, '', `/${SLUG}/join/wave-1?p=${LINK_VALUE}`);
+    const app = new AppState();
+    app.wait = async () => {};
+    await app.open(`/${SLUG}/join/wave-1`);
+    expect(app.linkCode).toBe('');
+    expect(await app.store!.get('linkCode')).toBeUndefined();
+    expect(calls.filter((c) => c.path.endsWith('/me'))).toHaveLength(0);
+    for (const call of calls) expect(JSON.stringify(call)).not.toContain(LINK_VALUE);
+  });
+
   it('a value that is not one (too short, or in the wrong shape) is ignored, and still leaves the address', async () => {
     stubRoutes({});
     const app = await opened(`/${SLUG}/join/wave-1`, '#p=ab');
@@ -782,6 +813,40 @@ describe('failure behaviour', () => {
     // No toast holds a wait any more (ADR 0019): the waits are the two retries.
     expect(waits).toEqual([5000, 10000]);
     expect(calls.filter((c) => c.path.endsWith('/sync'))).toHaveLength(3);
+  });
+
+  it('a sync refused for good is not retried on the timer: one try, the outbox kept, and the next saved answer tries once more', async () => {
+    const REFUSED = () => ({ status: 400, body: { error: 'SYNC_PAYLOAD_INVALID' } });
+    const calls = stubRoutes({
+      [`/api/${SLUG}/join`]: [JOINED],
+      [`/api/${SLUG}/sync`]: [REFUSED, REFUSED, SYNCED],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    const waits: number[] = [];
+    app.wait = async (ms) => {
+      waits.push(ms);
+    };
+    await app.join();
+    await app.dismissDemo();
+    await app.setAside();
+    await vi.waitFor(() => expect(app.sync.lastError).toBe('SYNC_PAYLOAD_INVALID'));
+    // Let any retry the refusal might have scheduled run: with instant waits it would be immediate.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const syncs = () => calls.filter((c) => c.path.endsWith('/sync')).length;
+    expect(waits).toEqual([]);
+    expect(syncs()).toBe(1);
+    expect(app.sync.outboxSize).toBeGreaterThan(0);
+    expect(app.lastError).toBe('SYNC_PAYLOAD_INVALID');
+    // The next action tries once, and only once, without starting the timer.
+    await app.setAside();
+    await vi.waitFor(() => expect(syncs()).toBe(2));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(syncs()).toBe(2);
+    expect(waits).toEqual([]);
+    // A server that takes the batch again (a fixed client, a fixed server) gets it on the next try.
+    await app.reconnected();
+    expect(syncs()).toBe(3);
+    expect(app.sync.lastResult).toBe('ok');
   });
 
   it('the "online" event sends the outbox at once', async () => {

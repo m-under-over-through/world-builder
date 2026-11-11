@@ -2115,3 +2115,168 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 ### How to verify
 
 `npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
+
+## 2026-11-11, Wednesday. The security pass before launch
+
+### What
+
+The design plan's week 3 opens with a security pass: ten checks over the API, the database layer, the client's addresses and the headers, each fixed where it failed, with a test for each fix. Five fixes, seven tests for checks that passed without one, eight runbook entries brought up to date. No new error code, no new dependency.
+
+1. **The database password could reach a log.** Neon's driver does not check a connection string when it is given one; it checks on the first query, and when the string does not parse as a URL its error quotes the whole string, password included. That error became the `cause:` of the `SERVER_ERROR` line on every workshop route, and the migrate step would have printed it in the build log. A password with a character that needs percent-encoding, or a stray character pasted with the string, is enough. Now `connectNeon` and `migrateNeonDatabase` do the same parse first and refuse with a message that names the variable and never the value (`packages/db/src/neon.ts`), so the function answers `SERVER_NOT_CONFIGURED` and logs that message; `tools/ops/migrate.ts` refuses such a string with its usual two lines. As a second line of defence, the server-error line cuts any `postgres://...` it meets, with the rest of its line, to `postgres://(not shown)` (`apps/api/src/log.ts`); to the end of the line rather than the next space or quote, since a password may hold either (found by the review of this change).
+2. **The API's answers carried none of the page's security headers.** Netlify applies `apps/web/public/_headers` to the static files it serves and not to what a function returns. The scan of staging found `/api/health` without the Content Security Policy, the Permissions Policy, the referrer rule, the framing rule and the three cross-origin rules. The API now sets the `/*` block of `_headers` word for word on every answer the app makes, a route's, a refusal, a 404 and a server error alike, plus `Cache-Control: no-store`, since `/me` carries a participant's sealed rows and a phone is sometimes shared (`apps/api/src/headers.ts`). A test reads `_headers` and fails if the two sets drift apart.
+3. **A guessed code left a row of its own.** The authenticated routes counted the per-code budget before looking the code up, so every well-formed guess wrote a `rate_buckets` row keyed by its hash, one row per guess until the prune. The lookup now comes first: a code nobody holds is counted only in its workshop's `unknown-code` bucket, and the buckets keyed by a hash are those of real participants. The budgets themselves are unchanged (ADR 0012).
+4. **A sync refused for good was retried every five minutes, for ever.** The client's retry loop tried the outbox again on a timer until it was empty, whatever the server had said. A refusal that sending again cannot change (an event the contract refuses, a queued join through a full or unknown wave, a batch too large: any 4xx but `WORKSHOP_CLOSED`, `AUTH_CODE_UNKNOWN` and `RATE_LIMITED`, and but 408 and 429) now ends the loop and keeps the outbox: the next open, the next saved answer or the network coming back tries once more, so a fixed server or client still drains it, and a stuck device writes the server's WARN line about once per use rather than every five minutes (`refusedForGood` in `apps/web/src/lib/sync.ts`; the loop in `state.svelte.ts`). A failed sync's status now carries the HTTP status. Added to the brief by the integrator on 11 November.
+5. **Tests for checks that passed without one:** a query value (`?p=`) makes no code; a reload without `#p=` keeps the device-made code and every request carries it; an invite token spelled differently but decoding to the same bytes is `JOIN_INVITE_INVALID`; a wave of one workshop is unknown in another; a burst of wave opens or guesses in one workshop leaves another its budgets; health answers exactly its six keys, and per workshop only slug and status; no file of the API or the database layer, and neither package's manifest, names the crypto package.
+
+The ten checks:
+
+| Check              | Result                                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Logs and errors | Fixed (item 1). No route logs a code, a hash, a body, an address, a user agent or a time; `SERVER_ERROR` carries an `errorId` only.                                                                       |
+| 2. Addresses       | Pass. The value is read from the fragment only and the fragment leaves the address before any request; the manifest and the calendar file carry the workshop's home only. Open: the invite landing below. |
+| 3. Scope           | Pass. Every lookup filters on the workshop; sessions and events reach it through their participant, as the plan's table list has it.                                                                      |
+| 4. Input           | Pass. Bytes capped before parsing on both routes with a body; strict schemas; tokens compared as strings. Open: two numbers without a ceiling, below.                                                     |
+| 5. Rate limits     | Fixed (item 3). Per workshop or per code, never per address; `Retry-After` on every 429.                                                                                                                  |
+| 6. Headers         | Fixed (item 2). `_headers` already passed.                                                                                                                                                                |
+| 7. Dependencies    | Pass. `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities; none added.                                                                                                                           |
+| 8. Sealing         | Pass, and now tested over every file, not only the function's import graph.                                                                                                                               |
+| 9. Identity flow   | Pass. The queued join still takes `JOIN_CODE_TAKEN` as done for any code, on purpose: an earlier try may have landed with its answer lost (`apps/web/src/lib/sync.ts`).                                   |
+| 10. Health         | Pass. Nothing per workshop beyond the status; nothing about secrets.                                                                                                                                      |
+
+### Why
+
+Launch is 16 November and the plan puts the security pass at the start of week 3 (design and development plan, week 3; architecture plan, section 12). Item 1 breaks the rule that secrets never leave the vault and the environment; item 2 breaks the promise of section 12 that the headers hold for the whole origin; item 3 kept rows nobody needed.
+
+### How to verify
+
+- `npm run check`. The new tests: `apps/api/test/headers.test.ts`, `packages/db/test/neon.test.ts`, and new cases in `apps/api/test/bundle.test.ts`, `log.test.ts`, `limits.test.ts`, `authorization.test.ts`, `app.test.ts`, `packages/db/test/scoping.test.ts`, `tools/ops/test/migrate.test.ts`, `apps/web/test/state.test.ts`, `sync.test.ts` and `identity.test.ts`.
+- The leak, by hand, with the bundled function and a made-up password:
+
+  ```
+  node tools/ops/bundle-api.ts
+  DATABASE_URL='postgresql://owner:hunter2@[bad/neondb' WB_PEPPER=ZGV2ZWxvcG1lbnQtcGVwcGVyLW5vdC1mb3ItcHJvZCE= node --input-type=module -e "const m = await import('./netlify/functions-build/api.mjs'); const r = await m.default(new Request('http://x/api/rural-manufacturing/me')); console.log(r.status, await r.text())"
+  ```
+
+  Before: a `SERVER_ERROR` line whose `cause:` reads `NeonDbError: ... (connection string: postgresql://owner:hunter2@[bad/neondb)`. After: `SERVER_NOT_CONFIGURED DATABASE_URL must be a postgres:// URL with a user, a host and a database (the value is not shown)`, then `503` and the contract body. The bundle test does the same.
+
+- The headers, live: in the ops repository, `bash scripts/scan-headers.sh <deploy>/ <deploy>/api/health`. On staging before this change: the page clean, `/api/health` seven findings. On this pull request's deploy preview: no findings on either (runbook, Netlify site, "Headers check").
+- `npm audit --omit=dev --audit-level=high` prints `found 0 vulnerabilities`.
+
+### Decisions made on the way
+
+- The API sends the page's own Content Security Policy rather than a stricter one for JSON (`default-src 'none'`). One set for the whole origin is what the trust page says and what the weekly scan checks; for a JSON answer the two make no difference a browser acts on.
+- `Cache-Control: no-store` on every API answer, health included. Nothing an API route says is worth keeping, and the service worker already never caches `/api`.
+
+### Open
+
+- **For Marco: the invite landing.** The client still accepts `/<slug>/join/i/<token>`, which puts a token in a path the host sees. No token can reach it today: ADR 0018 retired the in-app invites and the client never asks for one. Retiring the landing, or moving a future token after a `#`, changes the screen map and ADR 0006, so it is his call.
+- **For Marco: `rate_buckets` holds a participant's code hash next to the minute of their requests**, for about an hour, as ADR 0012 decided. A nightly backup taken in that hour keeps it. It needs the pepper and the database together to mean anything, and it is the one place a minute sits next to a participant. Options: key the per-code budget by something that dies with the function instance, or leave `rate_buckets` out of the backup.
+- **For the integrator, contracts:** `seq` (`packages/contracts/src/events.ts`) and `sessionNo` (`session.ts`) have no ceiling. A value over 2,147,483,647 passes the schema and fails the database's integer column, so a crafted batch gets `SERVER_ERROR` instead of `SYNC_PAYLOAD_INVALID`. No real client sends one. One `.max(2_147_483_647)` each.
+- **For the integrator, the function entry:** `netlify/functions/api.mts`, `notConfigured()`, answers before the app exists and so carries none of the security headers; `applySecurityHeaders(response.headers)` from `apps/api/src/headers.ts` is the one line.
+- A batch the server refuses for good holds back the batches behind it: the outbox goes out in order, so one event the contract refuses keeps every later answer on the device until a fixed client or server takes it. Nothing is lost, and the panel shows the code; dropping the refused event would lose an answer, so that is a decision, not a fix.
+- Not changed, noted: `/api/health` publishes `lastBackupAt` to the second (a system time, not a participant's); `Content-Type` is not required on the two routes with a body, which lets another site make a simple cross-site POST to join, which is rate-limited and gives that site nothing it could not do itself.
+- A learning note on what the CDN's header file covers and what a function must set itself would help; `docs/learn/` was outside this pass's files.
+- Applied by the integrator before the merge, from the independent review (approve with nits; the new order of the checks on a guessed code is safe, and costs less than before): `seq` and `sessionNo` take the ceiling of their 32-bit columns in the contracts, so a crafted value is `SYNC_PAYLOAD_INVALID` and not a `SERVER_ERROR`; the function's `SERVER_NOT_CONFIGURED` answer carries the security headers. Its log line stays as it was: both messages it can print are fixed strings, and the general redaction would cut the explanation out of them.
+
+## 2026-11-11, Wednesday. The terms and the policy in the app say the link, not the code
+
+### What
+
+Three sentences of the Terms and the Privacy policy in `workshops/rural-manufacturing/copy.md` still spoke of a 16-digit code the participant keeps and must not share. Since ADR 0018 nobody sees or types a code. They now carry the words `docs/participant-texts.md` has had since 4 November: the link is the key, the spare links are for forwarding, and neither Under Over Through nor Mechanism alone can connect an answer to a person. Found by the go or no-go page's author on 11 November.
+
+### Why
+
+What a participant agrees to must describe the app they are using. The legal review reads these words; they are still marked as drafts.
+
+### How to verify
+
+`grep -n "16-digit" workshops/rural-manufacturing/copy.md` finds the one sentence that says the phone makes the code from the link. `npm run check`.
+
+## 2026-11-11, Wednesday. The status command (pull request 55)
+
+### What
+
+`npm run workshop:status -- <slug> [--days <n>]` (`tools/workshop/status.ts`): one workshop's numbers from one database, in plain text. Status and days (opens, closes, today, which day of the window); per wave the opens, joins, participants still in and the cap; participants in all, through a wave and through an invite, and joins per day; sessions; events in all and by kind; answers per day; how many participants have answered, with the median and the largest number of answers among them; invites created and spent; the day of the newest backup of the database and of this workshop, and of a failed run if one is newer. The per-day lines cover the last 7 days, or `--days`. Thirteen tests in `tools/workshop/test/status.test.ts`. A section "Watching a workshop" at the top of the runbook; the `tools/workshop` row of the README.
+
+### Why
+
+The newsletter goes out on Monday 16 November, and Marco watches that evening and every day of the first week how many people opened the link, joined and answered (design plan, section 5, week 4; section 6, "A status command"). The health endpoint says whether the system is up; this says what participants did. The design plan named the tool and left it for hardening week.
+
+### How to verify
+
+1. `npm run check`.
+2. The tool's refusals, with no database needed: `npm run workshop:status -- rural-manufacturing` ends with `DATABASE_URL is not set` and exit 2; `DATABASE_URL=pglite://memory npm run workshop:status -- rural-manufacturing` ends with `no workshop "rural-manufacturing" in this database` (an empty database) and exit 1; `npm run workshop:status -- rural-manufacturing --verbose` ends with the usage and exit 2.
+3. Against staging, from the runbook's section: `( read -rs DATABASE_URL && export DATABASE_URL && npm run workshop:status -- rural-manufacturing )`, paste the staging address at the hidden prompt. Expected: the waves table with wave-1 and the counts from the pilot, the backup line showing staging's last good night (a staging run that failed without writing its row shows only as an older day), and nothing in the output that is not a count, a day, a slug, a wave label or the workshop's name.
+4. After the command, `echo $DATABASE_URL` prints an empty line: the address lived in the subshell only.
+
+### Decisions on the way
+
+- **Read-only, with a tripwire.** Every statement is a select. A test reads the file and fails on an insert, update, delete or execute: a tripwire for a write added to this file, not a proof about the functions it imports. On Neon the tool sends only those selects; a `pglite://` address migrates its local folder, which is why it is for development and tests only.
+- **Counts only, cut in the database.** The per-participant answer counts are grouped by participant in the query and only the numbers come back; the backup's time becomes a day inside the query (`to_char(... at time zone 'UTC', 'YYYY-MM-DD')`), so no finer time reaches the process. The tests seed real-shaped 16-digit codes and their keyed hashes and check that no 16-digit run, no hash, no id, no card text and no time of day appears in the output, and that a second workshop's rows never change the first one's numbers.
+- **"Joined" is the wave's counter, "still in" counts rows.** The two differ when someone uses "delete me": the counter counts joins, the rows count who has not left. Both are shown so the difference reads as what it is; the joins-per-day lines count rows too, and say so.
+- **The median is among participants who answered,** not among everyone who joined; early on most joiners have answered nothing and a median of 0 would say nothing. How many answered is on the same line.
+- **Backups: this database's run and this workshop's, never another workshop's.** `backup_runs` has no workshop id; its kind (`database`, `workshop:<slug>`) is the filter.
+- **The address never shows.** It comes from the environment only; an argument that is not a flag name is never echoed in an error, in case it is a pasted address. A database failure prints a fixed line naming the step (opening with the address, or the queries) and the error's class and code; the driver's message, which quotes the query and its parameters, appears only with `--debug`, with the address and its password taken out. The runbook's line reads it at a hidden prompt inside a subshell, so it stays out of shell history and is gone when the command ends: an exported production address left in a terminal could otherwise reach `sync`, which writes.
+- **Days are UTC days,** as the API counts them (`todayDay` in `apps/api/src/app.ts`). A day after today in the answers (a device whose clock runs ahead) is listed at the end, not dropped.
+- **One file, with the command at the bottom.** `readStatus` and `formatStatus` are exported so the counts are tested on the in-memory database without a process; the command runs only when the file is started as a program. The refusals and one full run are tested as a process, as Marco runs it.
+
+### After the review
+
+The independent review approved with five nits, all applied on the same branch: the fixed error line and `--debug` above, with a test for each step; "here now" became "still in", with a legend on the joins-per-day line; the runbook says the output is for the operator's eyes, since a count of 1 or 2 can single out one person, and that the `read -rs` line assumes zsh or bash and a `DATABASE_URL` not already exported; the header calls the source-reading test a tripwire, not a proof, and says a `pglite://` address migrates its folder and is never for Neon.
+
+### Open
+
+- Production's `backup` role (account-setup, hardening week) is the address to prefer here; the runbook says so. Until it exists the owner's address works.
+- A status line for the whole system (health endpoint, monitor states, rate buckets) is not in this command; it reads one workshop. `countRateBuckets` in `packages/db` was written with a status command in mind and is left for that.
+
+## 2026-11-11, Wednesday afternoon. The accessibility pass, and the script for real phones
+
+### What
+
+Two pieces of week 3 of the design plan. First, the client checked against the accessibility section of `design/DESIGN.md` and WCAG 2.1 AA, in code, with what failed fixed and a test for each fix in `apps/web/test/accessibility.test.ts`. Second, `docs/device-tests.md`: the script Marco runs next week on his iPhone (Safari, and Gmail's built-in browser), his Android, a laptop in Chrome and in Safari, then with VoiceOver, with TalkBack and on a low-end Android, each section about ten minutes. The screen map gains a short "Accessibility" section with the rules that now hold on every screen.
+
+The pass, check by check:
+
+- **Every interactive element is a real button or link with a name.** Pass. The front card is one `<button>`; the stack's back cards, the fanned cards and the card on its way out are `aria-hidden`; the scrim is a mouse shortcut beside ×, Esc and the swipe. `App.svelte`, `Stack.svelte`, `WorldSheet.svelte`, `About.svelte`, `TopBack.svelte`.
+- **The answer field is labelled by the question, the counter is its description.** Pass. Fixed on the way: when Save fails, the error line is an alert and joins the field's description. `Stack.svelte`.
+- **Icon-only controls have a name.** Pass: × on an open card is "Close without saving", × on the sheet "Close". `Stack.svelte`, `WorldSheet.svelte`.
+- **The sheet is a modal dialog: focus moved in, kept in, Esc, focus returned.** Pass. Fixed: the page behind it (top bar, card screen, foot) is now `inert` while it is open, because not every screen reader honours `aria-modal` and a swipe could leave the dialog; the focus goes back to the pill once the pill is no longer inert. `App.svelte`, `WorldSheet.svelte`.
+- **The onboarding card and the thank-you card read in order.** Pass: "Try a card", its words, "Got it", then Set aside; the cards behind say nothing. Fixed: when the last card goes, the button that sent it goes too, so the thank-you card now takes the focus and is read. `Stack.svelte`.
+- **The fold on the about page is a real disclosure.** Pass: `<details>` and `<summary>`. `About.svelte`.
+- **The welcome's one button comes after the consent paragraph.** Pass. `Welcome.svelte`.
+- **The hidden line for the screen reader is on the card screen.** Pass. `App.svelte`.
+- **A focus ring on every control.** Pass: 2 pixels of ink, 3 out, on `:focus-visible`. Fixed: the one rule that took the outline away (`input.code:focus`, for the code inputs that left with ADR 0018) is deleted with the other styles of that page. `app.css`.
+- **Targets of 44 pixels.** Fixed four: the three links in the fold (40.7 pixels, now 44), "Prefer to talk?" (43.3, now 45.3), "Got it" in the dictation hint (36, now 44 with a pad around the pill) and "Remind me" (about 40, now 45). Pass elsewhere: every button has `min-height: 44px`, the two × circles sit in 44-pixel pads. `app.css`.
+- **Contrast of every text on every ground at least 4.5:1.** Computed from the tokens on `:root` with the WCAG formula. Ink: 16.1 on the ground, 17.9 on white, 10.2 to 13.0 on the tints. Ink-soft: 9.7 on the ground, 10.8 on white, 6.2 to 7.8 on the tints. Muted: 5.7 on the ground, 6.3 on white; on the tints 4.6 (sun), 4.3 (mint), 3.8 (sky), 3.6 (lilac), so muted never goes on a card. White on ink: 17.9. Ink on the dictation hint (white at 72% over a tint): 15.4 or more. Fixed: "Prefer to talk?" turned muted on hover, on the card's tint (3.6:1 on lilac); it now turns ink-soft. Muted on a dot of the ground is 4.4:1, but a dot is 2 pixels across every 22: the ground is what the text sits on. `app.css`.
+- **Reduced motion honoured.** Pass for the stack, the card leaving, the answered card, the tiles and the sheet: the fades stay, the movement goes. Fixed: the fold's arrow still turned. A dead selector for the scrim (`.sheet.closing + .scrim`, which never matched) is replaced by the rule that was doing the work. `app.css`.
+- **No information carried by colour alone.** Pass: the set-aside tiles sit under their own heading and carry a line; links in sentences are underlined; Save off is `disabled` as well as faded.
+- **The document language.** Pass: `<html lang="en">`. `index.html`.
+- **Headings in order on every screen.** Fixed: the card screen had no h1, on a phone or on a laptop, so its first heading was the sheet's or the hint's h2. The app's name in the top bar is now the h1 of the card screen, drawn exactly as before; on every other screen it stays a plain line and the screen's title is the h1. `App.svelte`, `app.css`. Pass elsewhere.
+- **Beyond the list (WCAG 2.4.3 and 4.1.3).** Fixed three. When a screen replaced another ("I understand", "About this app", Back, the end of delete), the focus fell to the top of the document; it now goes to the new screen's h1, unless the screen put it somewhere itself (an open card puts it in its field). Delete in two steps swapped its buttons under the focus; the question now takes it, and "Keep my answers" gives it back to the first button. A refused join on the welcome and a failed delete were shown but not said; they are alerts now, and the wait before a retried join is a quiet status. `App.svelte`, `About.svelte`, `Welcome.svelte`.
+
+### Why
+
+The design plan's week 3 asks for the VoiceOver and TalkBack pass and a device matrix on real hardware. The integrator has no devices, so the code is put right first, with what a test can prove, and Marco gets a script for what only a phone can show.
+
+### How to verify
+
+1. `npm run check`. The new tests are in `apps/web/test/accessibility.test.ts`: the contrast computed from the tokens, the targets, the reduced-motion block read rule by rule, the language, the headings on every screen, the focus after each screen change, the sheet's inert page, the alerts, the reading order.
+2. By hand, `npm run dev:web`, `/rural-manufacturing/join/wave-1#p=a11y-check-01` at 390 pixels wide. "I understand": the focus is on "World Builder" in the top bar (in the browser's tools, `document.activeElement`). "Got it", then "Your world so far": in the console, `document.querySelector('main').inert` is `true`; Esc, and it is `false` with the focus on the pill. "About this app": the focus is on the page's title. "Delete everything and start over": the focus is on the question; "Keep my answers": back on the button.
+3. On real phones: `docs/device-tests.md`, section by section, with the results in its table.
+
+### Decisions made on the way
+
+- The card screen's h1 is the app's name, not a hidden title: it adds no words to `copy.md`, and a screen reader that lands on the card screen hears where it is.
+- The focus goes to the title after a screen change, not back to the control that opened the page: one rule for every screen, the pattern screen-reader users expect from a page that changes in place.
+- `inert` on the page behind the sheet, on top of `aria-modal`: both say the same, and the attribute is what Chrome on Android and older Safari obey.
+- No decision record: each fix carries out a rule already written in `design/DESIGN.md` (Accessibility) or WCAG 2.1 AA; nothing changes what is stored, sent or shown.
+
+### Open
+
+- **Found by writing the script, not fixed: "Open in Safari" from Gmail's built-in browser starts a new participant.** The page drops the `#` part from its address once read (ADR 0018), so the address Gmail hands to Safari has no value. A participant moving to Safari that way starts over; opening the email's link in Safari continues. Section 2, step 9 checks it. Keeping the value in the address bar would fix it at a cost to what ADR 0018 chose; Marco's call.
+- **Android's Back with the sheet open leaves the page** instead of closing the sheet: the sheet adds nothing to the browser's history. Section 3, step 7 checks it. A history entry for the open sheet would fix it; a small change if Marco wants it.
+- **The page's title is "World Builder" on every screen.** WCAG 2.4.2 passes (the title names the app); a title per screen would help someone switching tabs with a screen reader. Not done: it needs a word per screen in `copy.md`.
+- **A half-written answer lives in memory only**, so a phone that reloads a page left in the background loses it. Section 8, step 7 checks how often that happens on a low-end phone.
+- Only real devices can say whether VoiceOver and TalkBack speak "Saved" when the focus moves to the next card at the same moment, whether the fold is read as collapsed and expanded, whether the keyboard leaves the open card's Save visible on iOS (Safari ignores `interactive-widget`), and whether the 44-pixel pads, worked out from the fonts' measures, hold on glass.
+- A learning note on focus, `inert`, live regions and contrast would suit `docs/learn/`; it is outside this change's files.
+- Applied by the integrator before the merge, from the independent review of the accessibility pass (approve with nits): the device script says ten to fifteen minutes per device and about twenty for each screen-reader section, and names the organizer line as such. Left for the real devices, as the review says: whether focus lands on the heading after a screen change in VoiceOver and TalkBack, whether a failed save is read twice, and the "Remind me" row's height at 320 pixels.

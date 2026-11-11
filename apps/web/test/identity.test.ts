@@ -45,4 +45,9 @@ describe('the value in the fragment', () => {
     expect(valueFromHash('#q=abcd')).toBeNull();
     expect(valueFromHash('#pp=abcd')).toBeNull();
   });
+
+  it('never reads a query: ?p= is not the fragment, so a value there makes no code', () => {
+    expect(valueFromHash('?p=abcd1234')).toBeNull();
+    expect(valueFromHash('#?p=abcd1234')).toBeNull();
+  });
 });

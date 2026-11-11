@@ -47,8 +47,11 @@
   </div>
   {#if canJoin}
     <div class="go">
-      {#if app.error}<p>{app.copy.error(app.error)}</p>{/if}
-      {#if app.retrying}<p class="muted">{app.copy.item('App labels', 'retrying')}</p>{/if}
+      <!-- A refused join is said at once, and the wait for the retry quietly (WCAG 4.1.3). -->
+      {#if app.error}<p role="alert">{app.copy.error(app.error)}</p>{/if}
+      {#if app.retrying}<p class="muted" role="status">
+          {app.copy.item('App labels', 'retrying')}
+        </p>{/if}
       <button class="primary wide" onclick={() => app.join()} disabled={app.joining}
         ><span>{app.copy.item('Buttons', 'i understand')}</span></button
       >

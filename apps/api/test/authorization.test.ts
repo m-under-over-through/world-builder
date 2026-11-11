@@ -144,6 +144,35 @@ describe('invites under replay', () => {
   });
 });
 
+describe('invite tokens are compared as strings', () => {
+  it('a token spelled differently that decodes to the same bytes is JOIN_INVITE_INVALID, and the real one still joins', async () => {
+    const issuer = await joined(app);
+    const issued = await app.request(`/api/${slug}/invites`, {
+      method: 'POST',
+      headers: auth(issuer),
+    });
+    const token: string = (await issued.json()).tokens[0];
+    // 16 bytes are 22 base64url characters, and the last one carries two bits of data and four
+    // of padding: the next character in the alphabet decodes to the very same bytes in a lenient
+    // decoder. Compared as strings, it is another token (CLAUDE.md, API builder notes).
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const twin = token.slice(0, -1) + alphabet[alphabet.indexOf(token.at(-1)!) + 1]!;
+    expect(twin).not.toBe(token);
+    expect(Buffer.from(twin, 'base64url')).toEqual(Buffer.from(token, 'base64url'));
+    const refused = await app.request(
+      `/api/${slug}/join`,
+      json({ code: generateCode(), invite: twin }),
+    );
+    expect(refused.status).toBe(404);
+    expect(errorResponseSchema.parse(await refused.json()).error).toBe('JOIN_INVITE_INVALID');
+    const accepted = await app.request(
+      `/api/${slug}/join`,
+      json({ code: generateCode(), invite: token }),
+    );
+    expect(accepted.status).toBe(200);
+  });
+});
+
 describe('a code from one workshop in another', () => {
   it('is AUTH_CODE_UNKNOWN on me, sync, invites and delete, and leaves the other workshop untouched', async () => {
     const a = await participantWithData();

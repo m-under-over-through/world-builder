@@ -43,6 +43,7 @@ import {
   pendingJoin,
   queueJoin,
   reconcile,
+  refusedForGood,
   syncNow,
   syncOnOpen,
   type SyncStatus,
@@ -273,7 +274,11 @@ export class AppState {
       this.closedByServer = true;
       this.screen = 'closed';
     }
-    if (status.lastResult !== 'ok' && status.outboxSize + status.outboxSessions > 0)
+    if (
+      status.lastResult !== 'ok' &&
+      status.outboxSize + status.outboxSessions > 0 &&
+      !refusedForGood(status)
+    )
       void this.retryWhileWaiting();
     return status;
   }
@@ -281,7 +286,9 @@ export class AppState {
   /**
    * The outbox is tried again on a timer, 5 seconds then doubling up to 5 minutes, until it is
    * empty or the workshop is closed; and at once when the browser says the network is back
-   * (`online`, from App.svelte). One loop at a time.
+   * (`online`, from App.svelte). One loop at a time. A refusal that sending again cannot change
+   * (lib/sync.ts, refusedForGood) ends the loop: the outbox waits for the next open, the next
+   * saved answer or the network coming back, each of which tries once.
    */
   private async retryWhileWaiting(): Promise<void> {
     if (this.retryLoop) return;
@@ -291,7 +298,12 @@ export class AppState {
       while (this.code && this.screen !== 'closed' && this.store) {
         await this.wait(delay);
         const status = await this.requestSync();
-        if (status.lastResult === 'ok' || status.outboxSize + status.outboxSessions === 0) return;
+        if (
+          status.lastResult === 'ok' ||
+          status.outboxSize + status.outboxSessions === 0 ||
+          refusedForGood(status)
+        )
+          return;
         delay = Math.min(delay * 2, RETRY_MAX_MS);
       }
     } finally {

@@ -47,7 +47,8 @@ export const eventSchema = z
     sessionId: uuidSchema,
     cardId: slugLikeSchema,
     /** Order within the session, set by the client. Replaces a timestamp. */
-    seq: z.number().int().min(0),
+    // Bounded by the database column, a 32-bit integer, like sessionNo (lib session.ts).
+    seq: z.number().int().min(0).max(2_147_483_647),
     kind: z.enum(EVENT_KINDS),
     /** Present only for `answered`: the sealed answer. The server cannot read it. */
     body: sealedEnvelopeSchema.optional(),

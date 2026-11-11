@@ -53,3 +53,17 @@ The look is the design's, "index cards on a dotted desk" (`design/DESIGN.md`): t
 - `AUTH_CODE_UNKNOWN` on a stored code (the participant was deleted, or the workshop was reset): clear the stored code and show Welcome with one calm line that says the link this phone remembered is not in use any more, and to open the link from the email again. With a link's value, the same code is made again on that open and joins as a new participant ("Opening your link again starts you over from nothing", on the about page's delete line).
 - `WORKSHOP_CLOSED`: a closing screen, with the page about the app at its foot as on every screen; no new events are created.
 - `CLIENT_STORAGE_UNAVAILABLE`: the app still runs in memory, round after round, for as long as the tab stays open; it warns that nothing is kept, and that opening the link from the email again continues later.
+
+## Accessibility
+
+What holds on every screen (design/DESIGN.md, Accessibility; WCAG 2.1 AA; the pass of 11 November 2026 in the build log). Real phones check the rest: `docs/device-tests.md`.
+
+- One h1 per screen, and no level skipped under it. The text screens have their title; the card screen has none of its own, so the app's name in the top bar is its h1 there and a plain line elsewhere.
+- When a screen replaces another ("I understand", "About this app", Back, the end of delete), the button that was pressed goes with it, and the focus goes to the new screen's h1. An open card brought back keeps the focus in its field.
+- The card screen carries one hidden line, read by a screen reader and drawn nowhere, that says "Saved", "Set aside" or "Set aside for later"; nothing else on it is a status.
+- The sheet is a modal dialog named by its title: focus on × when it opens, kept inside, Esc closes it, focus back on the pill. The page behind it is `inert` while it is open.
+- When the last card goes, the thank-you card takes the focus, so it is read.
+- Delete in two steps: the question takes the focus; "Keep my answers" gives it back to the first button.
+- A refused join, a save that fails and a delete that fails are said at once (`role="alert"`); the failed save also describes the field. The wait before a retried join is a quiet status.
+- Every control is a real button, link or disclosure (the fold is a `<details>`), with a name; the two × have one of their own. Every target is at least 44 pixels to a finger. Every control shows a 2-pixel ink ring when it has the keyboard's focus.
+- Text is at least 4.5:1 on what it sits on; muted text is never drawn on a tint. With "reduce motion" on, nothing moves; the fades stay.

@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkshopStore } from '../src/lib/store.ts';
-import { pendingJoin, queueJoin, syncNow, syncOnOpen } from '../src/lib/sync.ts';
+import {
+  pendingJoin,
+  queueJoin,
+  refusedForGood,
+  syncNow,
+  syncOnOpen,
+  type SyncStatus,
+} from '../src/lib/sync.ts';
 
 /** The API as a stub: each call answers what the test says, and the calls are recorded in order. */
 function stubApi(answers: ((path: string) => { status: number; body: unknown } | 'offline')[]) {
@@ -74,7 +81,9 @@ describe('a join made offline is sent before the first sync', () => {
       lastError: 'JOIN_INVITE_USED',
       outboxSize: 1,
       outboxSessions: 0,
+      httpStatus: 403,
     });
+    expect(refusedForGood(status)).toBe(true);
   });
 
   it('a queued join answered JOIN_CODE_TAKEN is done: the server knows the code, so the join is forgotten and the outbox goes out', async () => {
@@ -210,5 +219,44 @@ describe('the sync on open', () => {
       '/me',
       '/sync',
     ]);
+  });
+});
+
+describe('a refusal that sending again cannot change', () => {
+  const failedWith = (httpStatus: number | undefined, lastError: string): SyncStatus => ({
+    lastResult: httpStatus === undefined ? 'offline' : 'error',
+    lastError,
+    outboxSize: 1,
+    outboxSessions: 0,
+    ...(httpStatus === undefined ? {} : { httpStatus }),
+  });
+
+  it('is a 4xx other than WORKSHOP_CLOSED, AUTH_CODE_UNKNOWN and RATE_LIMITED, contract code or not', () => {
+    for (const [status, code] of [
+      [400, 'SYNC_PAYLOAD_INVALID'],
+      [413, 'SYNC_BATCH_TOO_LARGE'],
+      [413, 'REQUEST_TOO_LARGE'],
+      [403, 'JOIN_WAVE_FULL'],
+      [404, 'JOIN_WAVE_UNKNOWN'],
+      [404, 'WORKSHOP_UNKNOWN'],
+      [401, 'AUTH_CODE_MISSING'],
+      [404, 'CLIENT_SYNC_FAILED'], // a 404 without a contract body: a proxy's page
+    ] as const)
+      expect(refusedForGood(failedWith(status, code)), code).toBe(true);
+  });
+
+  it('is never a refusal with a way out, a 5xx, a 408 or 429, or no answer at all', () => {
+    for (const [status, code] of [
+      [403, 'WORKSHOP_CLOSED'],
+      [401, 'AUTH_CODE_UNKNOWN'],
+      [429, 'RATE_LIMITED'],
+      [429, 'CLIENT_SYNC_FAILED'],
+      [408, 'CLIENT_SYNC_FAILED'],
+      [500, 'SERVER_ERROR'],
+      [503, 'SERVER_NOT_CONFIGURED'],
+      [undefined, 'CLIENT_SYNC_FAILED'],
+    ] as const)
+      expect(refusedForGood(failedWith(status, code)), `${status} ${code}`).toBe(false);
+    expect(refusedForGood({ lastResult: 'ok', outboxSize: 0, outboxSessions: 0 })).toBe(false);
   });
 });

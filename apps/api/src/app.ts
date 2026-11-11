@@ -36,6 +36,7 @@ import {
 } from '@wb/db';
 import { codeHash, newInviteToken, tokenHash } from './auth.ts';
 import { BODY_TOO_LARGE, parseJsonBytes, readBodyBytes } from './body.ts';
+import { applySecurityHeaders } from './headers.ts';
 import {
   consoleLogger,
   describeError,
@@ -56,6 +57,8 @@ import {
  * - A body that fails the contract writes one log line naming the route, the code and the field
  *   paths (log.ts); never a value, a body, a code or a hash.
  * - Rate limits without addresses: per code on authenticated routes, per workshop on the rest.
+ * - Every response carries the page's security headers and `Cache-Control: no-store` (headers.ts):
+ *   Netlify applies _headers to static files, never to a function's response.
  * - This package never imports @wb/crypto: it stores sealed bodies it cannot read.
  */
 
@@ -146,6 +149,12 @@ export function createApp(deps: AppDeps) {
   /** The route as written in ROUTES, "POST /api/:slug/join", so the line never carries a slug or a wave. */
   const routeOf = (c: Context) => `${c.req.method} ${c.req.routePath}`;
 
+  // First in the chain, so it wraps every answer: a route's, a refusal, notFound and onError.
+  app.use('*', async (c, next) => {
+    await next();
+    applySecurityHeaders(c.res.headers);
+  });
+
   app.onError((error, c) => {
     const errorId = crypto.randomUUID().slice(0, 8);
     // The stack is logged, the body never is, and a failed query's parameters are cut out
@@ -193,7 +202,13 @@ export function createApp(deps: AppDeps) {
     return w.status === 'open' && today >= w.opensDay && today <= w.closesDay;
   };
 
-  /** Authenticated routes: the code header, the hash, the lookup, the per-code limit. */
+  /**
+   * Authenticated routes: the code header, the hash, the lookup, then the limit. The lookup comes
+   * before the per-code limit so that a code nobody holds never gets a bucket of its own: it is
+   * counted in the workshop's unknown-code budget and nowhere else, so guessing writes one row
+   * per workshop and minute instead of one row per guess, and the buckets keyed by a code hash
+   * are only ever those of real participants (security pass, 11 November 2026).
+   */
   const authenticated = async (c: Context<{ Variables: Vars }>, next: () => Promise<void>) => {
     const workshop = c.get('workshop');
     const header = c.req.header('authorization') ?? '';
@@ -202,13 +217,13 @@ export function createApp(deps: AppDeps) {
     if (scheme !== AUTH_SCHEME || !codeSchema.safeParse(code).success)
       return fail(c, 'AUTH_CODE_MISSING');
     const hash = await codeHash(deps.pepper, workshop.slug, code);
-    if (await limited('auth', hash, LIMITS.authenticated)) return fail(c, 'RATE_LIMITED');
     const participant = await findParticipant(deps.db, workshop.id, hash);
     if (!participant) {
       if (await limited('unknown-code', workshop.id, LIMITS.unknownCode))
         return fail(c, 'RATE_LIMITED');
       return fail(c, 'AUTH_CODE_UNKNOWN');
     }
+    if (await limited('auth', hash, LIMITS.authenticated)) return fail(c, 'RATE_LIMITED');
     c.set('participant', participant);
     await next();
   };

@@ -3,8 +3,8 @@
 // runbook says it does when the database is unreachable or a secret is missing
 // (docs/learn/07-bundling-the-function.md).
 import { beforeAll, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,6 +80,44 @@ describe('the function import graph', () => {
   });
 });
 
+describe('the API and the database layer, every file and not only the function', () => {
+  /** Every TypeScript file under a folder of the repository, at any depth, node_modules aside. */
+  function sources(folder: string): string[] {
+    return readdirSync(join(root, folder), { recursive: true, encoding: 'utf8' })
+      .filter((f) => /\.(ts|mts)$/.test(f) && !f.includes('node_modules'))
+      .map((f) => join(root, folder, f));
+  }
+
+  it('import nothing from the crypto package and do not depend on it (CLAUDE.md: sealed envelopes only)', () => {
+    // The graph above starts at the function; the tools-only connector, the local server and
+    // anything not imported yet are read here too.
+    const files = [
+      ...sources('apps/api/src'),
+      join(root, 'apps/api/dev.ts'),
+      ...sources('packages/db/src'),
+    ];
+    expect(files.length).toBeGreaterThan(8);
+    for (const file of files) {
+      const specs = specifiersOf(file);
+      expect(
+        specs.filter(
+          (s) => s === '@wb/crypto' || s.includes('packages/crypto') || s === 'tweetnacl',
+        ),
+        file.slice(root.length),
+      ).toEqual([]);
+    }
+    for (const manifest of ['apps/api/package.json', 'packages/db/package.json']) {
+      const pkg = JSON.parse(readFileSync(join(root, manifest), 'utf8')) as Record<
+        string,
+        Record<string, string> | undefined
+      >;
+      const all = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies };
+      expect(Object.keys(all), manifest).not.toContain('@wb/crypto');
+      expect(Object.keys(all), manifest).not.toContain('tweetnacl');
+    }
+  });
+});
+
 describe('the bundled function', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wb-bundle-'));
   const runner = join(outDir, 'run.mjs');
@@ -141,6 +179,33 @@ describe('the bundled function', () => {
     const join = run('/api/rural-manufacturing/join', { WB_PEPPER: DEV_PEPPER }, 'POST');
     expect(join.status).toBe(503);
     expect(join.body.error).toBe('SERVER_NOT_CONFIGURED');
+  }, 30_000);
+
+  it('refuses a connection string that does not parse, and its log line never carries the password', () => {
+    // Neon's driver quotes such a string whole, password included, in the error of its first
+    // query (packages/db/src/neon.ts). Before the security pass of 11 November 2026 that error
+    // reached the SERVER_ERROR line on every workshop route.
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      DATABASE_URL: 'postgresql://owner:hunter2-in-the-url@[ep-bad/neondb',
+      WB_PEPPER: DEV_PEPPER,
+    };
+    for (const path of ['/api/health', '/api/rural-manufacturing/me']) {
+      const out = spawnSync(process.execPath, [runner, path], {
+        encoding: 'utf8',
+        timeout: 30_000,
+        env,
+      });
+      const { status, body } = JSON.parse(out.stdout.trim().split('\n').pop()!) as {
+        status: number;
+        body: Record<string, unknown>;
+      };
+      expect(status, path).toBe(503);
+      expect(body.error, path).toBe('SERVER_NOT_CONFIGURED');
+      expect(out.stderr).toContain('SERVER_NOT_CONFIGURED DATABASE_URL must be a postgres:// URL');
+      expect(out.stdout + out.stderr).not.toContain('hunter2');
+      expect(out.stdout + out.stderr).not.toContain('owner:');
+    }
   }, 30_000);
 
   it('answers 503 SERVER_NOT_CONFIGURED when the pepper is missing or not 32 bytes', () => {
