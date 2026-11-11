@@ -7,6 +7,7 @@
 // (docs/learn/07-bundling-the-function.md).
 import { createApp, type App } from '../../apps/api/src/app.ts';
 import { validatePepper } from '../../apps/api/src/auth.ts';
+import { applySecurityHeaders } from '../../apps/api/src/headers.ts';
 import { ERROR_CODES } from '../../packages/contracts/src/index.ts';
 import { connectNeon, type Db } from '../../packages/db/src/index.ts';
 
@@ -35,6 +36,8 @@ async function configure(): Promise<App | undefined> {
     db = connectNeon(databaseUrl);
     pepper = validatePepper(process.env.WB_PEPPER);
   } catch (error) {
+    // Both throws above carry fixed messages that name the variable and never its value
+    // (packages/db/src/neon.ts, apps/api/src/auth.ts); a test holds the line to that.
     console.error(
       `SERVER_NOT_CONFIGURED ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -45,7 +48,10 @@ async function configure(): Promise<App | undefined> {
 
 function notConfigured(): Response {
   const { status, meaning } = ERROR_CODES.SERVER_NOT_CONFIGURED;
-  return Response.json({ error: 'SERVER_NOT_CONFIGURED', message: meaning }, { status });
+  const response = Response.json({ error: 'SERVER_NOT_CONFIGURED', message: meaning }, { status });
+  // The same headers every other answer of the API carries (apps/api/src/headers.ts).
+  applySecurityHeaders(response.headers);
+  return response;
 }
 
 export default async (request: Request): Promise<Response> => {

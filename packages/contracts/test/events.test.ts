@@ -57,6 +57,9 @@ describe('sessions', () => {
     };
     expect(sessionSchema.safeParse(ok).success).toBe(true);
     expect(sessionSchema.safeParse({ ...ok, sessionNo: 0 }).success).toBe(false);
+    // A number the database's 32-bit column cannot hold is refused by the contract.
+    expect(sessionSchema.safeParse({ ...ok, sessionNo: 2_147_483_648 }).success).toBe(false);
+    expect(sessionSchema.safeParse({ ...ok, sessionNo: 2_147_483_647 }).success).toBe(true);
     expect(sessionSchema.safeParse({ ...ok, seed: 'xyz' }).success).toBe(false);
   });
 });
