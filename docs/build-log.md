@@ -2177,6 +2177,7 @@ Launch is 16 November and the plan puts the security pass at the start of week 3
 - Not changed, noted: `/api/health` publishes `lastBackupAt` to the second (a system time, not a participant's); `Content-Type` is not required on the two routes with a body, which lets another site make a simple cross-site POST to join, which is rate-limited and gives that site nothing it could not do itself.
 - A learning note on what the CDN's header file covers and what a function must set itself would help; `docs/learn/` was outside this pass's files.
 - Applied by the integrator before the merge, from the independent review (approve with nits; the new order of the checks on a guessed code is safe, and costs less than before): `seq` and `sessionNo` take the ceiling of their 32-bit columns in the contracts, so a crafted value is `SYNC_PAYLOAD_INVALID` and not a `SERVER_ERROR`; the function's `SERVER_NOT_CONFIGURED` answer carries the security headers. Its log line stays as it was: both messages it can print are fixed strings, and the general redaction would cut the explanation out of them.
+
 ## 2026-11-11, Wednesday. The terms and the policy in the app say the link, not the code
 
 ### What
@@ -2190,6 +2191,7 @@ What a participant agrees to must describe the app they are using. The legal rev
 ### How to verify
 
 `grep -n "16-digit" workshops/rural-manufacturing/copy.md` finds the one sentence that says the phone makes the code from the link. `npm run check`.
+
 ## 2026-11-11, Wednesday. The status command (pull request 55)
 
 ### What
@@ -2226,6 +2228,7 @@ The independent review approved with five nits, all applied on the same branch: 
 
 - Production's `backup` role (account-setup, hardening week) is the address to prefer here; the runbook says so. Until it exists the owner's address works.
 - A status line for the whole system (health endpoint, monitor states, rate buckets) is not in this command; it reads one workshop. `countRateBuckets` in `packages/db` was written with a status command in mind and is left for that.
+
 ## 2026-11-11, Wednesday afternoon. The accessibility pass, and the script for real phones
 
 ### What
@@ -2276,3 +2279,4 @@ The design plan's week 3 asks for the VoiceOver and TalkBack pass and a device m
 - **A half-written answer lives in memory only**, so a phone that reloads a page left in the background loses it. Section 8, step 7 checks how often that happens on a low-end phone.
 - Only real devices can say whether VoiceOver and TalkBack speak "Saved" when the focus moves to the next card at the same moment, whether the fold is read as collapsed and expanded, whether the keyboard leaves the open card's Save visible on iOS (Safari ignores `interactive-widget`), and whether the 44-pixel pads, worked out from the fonts' measures, hold on glass.
 - A learning note on focus, `inert`, live regions and contrast would suit `docs/learn/`; it is outside this change's files.
+- Applied by the integrator before the merge, from the independent review of the accessibility pass (approve with nits): the device script says ten to fifteen minutes per device and about twenty for each screen-reader section, and names the organizer line as such. Left for the real devices, as the review says: whether focus lands on the heading after a screen change in VoiceOver and TalkBack, whether a failed save is read twice, and the "Remind me" row's height at 320 pixels.

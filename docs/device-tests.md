@@ -1,6 +1,6 @@
 # Device tests
 
-The script Marco runs on real hardware in week 3 (design plan, 9 to 13 November 2026): five devices, then VoiceOver, TalkBack and a low-end Android. Each section is a numbered list of taps and what must be seen or heard, and runs in about ten minutes. The tests in `apps/web/test` cover what a test browser can see; this page covers what only a phone can show: the keyboard, the motion, the screen readers, the in-app browser. The accessibility pass these sections check is in the build log, 11 November 2026.
+The script Marco runs on real hardware in week 3 (design plan, 9 to 13 November 2026): five devices, then VoiceOver, TalkBack and a low-end Android. Each section is a numbered list of taps and what must be seen or heard. Each of the five device sections takes ten to fifteen minutes; the VoiceOver and TalkBack sections take about twenty, since they are read aloud step by step. The tests in `apps/web/test` cover what a test browser can see; this page covers what only a phone can show: the keyboard, the motion, the screen readers, the in-app browser. The accessibility pass these sections check is in the build log, 11 November 2026.
 
 ## Before you start
 
@@ -112,7 +112,7 @@ Turn VoiceOver on and off: Settings, Accessibility, Accessibility Shortcut, choo
 | Three-finger swipe up / down                               | scrolls                                       |
 | Two-finger double-tap, in a text field                     | starts and stops dictation                    |
 
-1. Open the link. Swipe right from the top. You hear: "World Builder", "Under Over Through x Mechanism", "The future of local production in America, heading level 1", the purpose line, the paragraphs, "This link is yours...", "I understand, button". The fanned cards say nothing.
+1. Open the link. Swipe right from the top. You hear: "World Builder", the organizer line ("Under Over Through x Mechanism" for this workshop), "The future of local production in America, heading level 1", the purpose line, the paragraphs, "This link is yours...", "I understand, button". The fanned cards say nothing.
 2. Double-tap "I understand". VoiceOver lands on "World Builder, heading level 1". Swipe right: the organizer, "Try a card", "Open a card to answer. Swipe it away to set it aside.", "Got it, button", "Set aside, button", "or swipe the card away", "Your world so far, 0 answered, button", "About this app, button". The cards behind say nothing.
 3. Double-tap "Got it". VoiceOver lands on the first card: its area, its question, "Write an answer, button".
 4. Double-tap. You hear the question as the field's name, then "text field". Dictate a sentence (two-finger double-tap). Swipe right to "Save, button" (before you write it says "dimmed"); double-tap. You hear "Saved", and VoiceOver is on the next card.
