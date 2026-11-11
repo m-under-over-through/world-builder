@@ -80,17 +80,27 @@
     app.draft = el.value;
   }
 
+  /** Every card answered or out (ADR 0020): the thank-you card stands where the stack was. */
+  const thanks = $derived(!app.card && !app.demoFront && Boolean(app.live?.deckDone));
+  let thanksCard: HTMLDivElement | undefined = $state();
+
   // The field takes focus when the card opens; the front card takes it when the card closes
-  // or the onboarding card goes, so the keyboard and the screen reader stay on the loop.
+  // or the onboarding card goes, so the keyboard and the screen reader stay on the loop. When
+  // the last card goes, the button that sent it goes too (Save, Set aside), so the thank-you
+  // card takes the focus, and a screen reader reads it.
   let wasOpen = false;
   let wasDemo = false;
+  let wasThanks = false;
   $effect(() => {
     const isOpen = app.cardState !== 'fresh';
     const isDemo = app.demoFront;
+    const isThanks = thanks;
     if (isOpen && !wasOpen) void tick().then(() => field?.focus());
     if ((!isOpen && wasOpen) || (!isDemo && wasDemo)) void tick().then(() => front?.focus());
+    if (isThanks && !wasThanks) void tick().then(() => thanksCard?.focus());
     wasOpen = isOpen;
     wasDemo = isDemo;
+    wasThanks = isThanks;
   });
 </script>
 
@@ -166,13 +176,14 @@
             oninput={onInput}
             disabled={busy}
             placeholder={app.copy.item('Card labels', 'placeholder')}
-            aria-describedby="answer-count"></textarea>
+            aria-describedby={app.error ? 'answer-count answer-error' : 'answer-count'}></textarea>
           <div class="meta">
             <span id="answer-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span
             >
           </div>
           {#if app.error}
-            <p class="error">
+            <!-- Said at once when Save fails, and again as the field's description (WCAG 4.1.3). -->
+            <p class="error" id="answer-error" role="alert">
               {app.copy.item('Card labels', 'could not save')}
               {app.copy.error(app.error)}
             </p>
@@ -239,10 +250,10 @@
       </div>
     </div>
   {/if}
-  {#if !app.card && !app.demoFront && app.live?.deckDone}
+  {#if thanks}
     <!-- The last card: every card answered or out (ADR 0020). Nothing to tap, nothing after it. -->
     <div class="slot slot-0" style:--tint={`var(--tint-${tintOf(1)})`}>
-      <div class="card front thanks" role="note">
+      <div class="card front thanks" role="note" tabindex="-1" bind:this={thanksCard}>
         <p class="demo-words">{app.copy.text('Thank you card')}</p>
       </div>
     </div>

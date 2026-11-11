@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { EventKind } from '@wb/contracts';
+  import { tick } from 'svelte';
   import TopBack from '../components/TopBack.svelte';
   import { fill, inline, TRUST_BLOCKS } from '../lib/copy.ts';
   import { reminderHref } from '../lib/reminder.ts';
@@ -33,6 +34,24 @@
   });
   /** The fold is open when an older address asked for a section inside it. */
   const detailsOpen = $derived(app.aboutSection === 'protected' || app.aboutSection === 'now');
+
+  /**
+   * Delete in two steps swaps one button for a question and two buttons, and back: the button
+   * that was pressed is gone each time. The focus follows, to the question, which a screen
+   * reader then reads, and back to the first button after "Keep my answers".
+   */
+  let question: HTMLParagraphElement | undefined = $state();
+  let deleteButton: HTMLButtonElement | undefined = $state();
+  async function ask() {
+    app.askDelete();
+    await tick();
+    question?.focus();
+  }
+  async function keep() {
+    app.keepAnswers();
+    await tick();
+    deleteButton?.focus();
+  }
 
   // The section an older address asked for, once the page is on the screen; the test DOM has
   // no scrolling, so the call is optional there.
@@ -196,18 +215,20 @@
 {#if app.code}
   <section id="about-delete">
     <p>{app.copy.text('About: delete')}</p>
-    {#if app.error}<p>{app.copy.error(app.error)}</p>{/if}
+    {#if app.error}<p role="alert">{app.copy.error(app.error)}</p>{/if}
     {#if app.confirmingDelete}
-      <p class="confirm">{app.copy.text('Privacy panel: delete confirm')}</p>
+      <p class="confirm" tabindex="-1" bind:this={question}>
+        {app.copy.text('Privacy panel: delete confirm')}
+      </p>
       <div class="row">
         <button class="primary" onclick={() => app.deleteMe()}
           ><span>{app.copy.item('Buttons', 'yes delete')}</span></button
         >
-        <button onclick={() => app.keepAnswers()}>{app.copy.item('Buttons', 'keep')}</button>
+        <button onclick={keep}>{app.copy.item('Buttons', 'keep')}</button>
       </div>
     {:else}
       <div class="row">
-        <button onclick={() => app.askDelete()}>{app.copy.item('Buttons', 'delete')}</button>
+        <button bind:this={deleteButton} onclick={ask}>{app.copy.item('Buttons', 'delete')}</button>
       </div>
     {/if}
   </section>
