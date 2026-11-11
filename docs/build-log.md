@@ -2115,3 +2115,17 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 ### How to verify
 
 `npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
+
+## 2026-11-11, Wednesday. The terms and the policy in the app say the link, not the code
+
+### What
+
+Three sentences of the Terms and the Privacy policy in `workshops/rural-manufacturing/copy.md` still spoke of a 16-digit code the participant keeps and must not share. Since ADR 0018 nobody sees or types a code. They now carry the words `docs/participant-texts.md` has had since 4 November: the link is the key, the spare links are for forwarding, and neither Under Over Through nor Mechanism alone can connect an answer to a person. Found by the go or no-go page's author on 11 November.
+
+### Why
+
+What a participant agrees to must describe the app they are using. The legal review reads these words; they are still marked as drafts.
+
+### How to verify
+
+`grep -n "16-digit" workshops/rural-manufacturing/copy.md` finds the one sentence that says the phone makes the code from the link. `npm run check`.
