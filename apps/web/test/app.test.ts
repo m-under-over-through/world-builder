@@ -54,8 +54,8 @@ async function open(pathname: string, wait?: AppState['wait']): Promise<AppState
   const app = new AppState();
   app.wait = wait ?? (async () => {});
   render(App, { app });
-  // The card screen on a phone has no heading (the onboarding card is part of the stack), so
-  // the open is done when the state has left "loading" and the screen has been drawn.
+  // Every screen has an h1 (on the card screen, the app's name), but the loading line has
+  // none, so the open is done when the state has left "loading" and the screen has been drawn.
   await waitFor(() => expect(app.screen).not.toBe('loading'));
   await tick();
   return app;

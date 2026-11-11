@@ -2115,3 +2115,54 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 ### How to verify
 
 `npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
+
+## 2026-11-11, Wednesday afternoon. The accessibility pass, and the script for real phones
+
+### What
+
+Two pieces of week 3 of the design plan. First, the client checked against the accessibility section of `design/DESIGN.md` and WCAG 2.1 AA, in code, with what failed fixed and a test for each fix in `apps/web/test/accessibility.test.ts`. Second, `docs/device-tests.md`: the script Marco runs next week on his iPhone (Safari, and Gmail's built-in browser), his Android, a laptop in Chrome and in Safari, then with VoiceOver, with TalkBack and on a low-end Android, each section about ten minutes. The screen map gains a short "Accessibility" section with the rules that now hold on every screen.
+
+The pass, check by check:
+
+- **Every interactive element is a real button or link with a name.** Pass. The front card is one `<button>`; the stack's back cards, the fanned cards and the card on its way out are `aria-hidden`; the scrim is a mouse shortcut beside ×, Esc and the swipe. `App.svelte`, `Stack.svelte`, `WorldSheet.svelte`, `About.svelte`, `TopBack.svelte`.
+- **The answer field is labelled by the question, the counter is its description.** Pass. Fixed on the way: when Save fails, the error line is an alert and joins the field's description. `Stack.svelte`.
+- **Icon-only controls have a name.** Pass: × on an open card is "Close without saving", × on the sheet "Close". `Stack.svelte`, `WorldSheet.svelte`.
+- **The sheet is a modal dialog: focus moved in, kept in, Esc, focus returned.** Pass. Fixed: the page behind it (top bar, card screen, foot) is now `inert` while it is open, because not every screen reader honours `aria-modal` and a swipe could leave the dialog; the focus goes back to the pill once the pill is no longer inert. `App.svelte`, `WorldSheet.svelte`.
+- **The onboarding card and the thank-you card read in order.** Pass: "Try a card", its words, "Got it", then Set aside; the cards behind say nothing. Fixed: when the last card goes, the button that sent it goes too, so the thank-you card now takes the focus and is read. `Stack.svelte`.
+- **The fold on the about page is a real disclosure.** Pass: `<details>` and `<summary>`. `About.svelte`.
+- **The welcome's one button comes after the consent paragraph.** Pass. `Welcome.svelte`.
+- **The hidden line for the screen reader is on the card screen.** Pass. `App.svelte`.
+- **A focus ring on every control.** Pass: 2 pixels of ink, 3 out, on `:focus-visible`. Fixed: the one rule that took the outline away (`input.code:focus`, for the code inputs that left with ADR 0018) is deleted with the other styles of that page. `app.css`.
+- **Targets of 44 pixels.** Fixed four: the three links in the fold (40.7 pixels, now 44), "Prefer to talk?" (43.3, now 45.3), "Got it" in the dictation hint (36, now 44 with a pad around the pill) and "Remind me" (about 40, now 45). Pass elsewhere: every button has `min-height: 44px`, the two × circles sit in 44-pixel pads. `app.css`.
+- **Contrast of every text on every ground at least 4.5:1.** Computed from the tokens on `:root` with the WCAG formula. Ink: 16.1 on the ground, 17.9 on white, 10.2 to 13.0 on the tints. Ink-soft: 9.7 on the ground, 10.8 on white, 6.2 to 7.8 on the tints. Muted: 5.7 on the ground, 6.3 on white; on the tints 4.6 (sun), 4.3 (mint), 3.8 (sky), 3.6 (lilac), so muted never goes on a card. White on ink: 17.9. Ink on the dictation hint (white at 72% over a tint): 15.4 or more. Fixed: "Prefer to talk?" turned muted on hover, on the card's tint (3.6:1 on lilac); it now turns ink-soft. Muted on a dot of the ground is 4.4:1, but a dot is 2 pixels across every 22: the ground is what the text sits on. `app.css`.
+- **Reduced motion honoured.** Pass for the stack, the card leaving, the answered card, the tiles and the sheet: the fades stay, the movement goes. Fixed: the fold's arrow still turned. A dead selector for the scrim (`.sheet.closing + .scrim`, which never matched) is replaced by the rule that was doing the work. `app.css`.
+- **No information carried by colour alone.** Pass: the set-aside tiles sit under their own heading and carry a line; links in sentences are underlined; Save off is `disabled` as well as faded.
+- **The document language.** Pass: `<html lang="en">`. `index.html`.
+- **Headings in order on every screen.** Fixed: the card screen had no h1, on a phone or on a laptop, so its first heading was the sheet's or the hint's h2. The app's name in the top bar is now the h1 of the card screen, drawn exactly as before; on every other screen it stays a plain line and the screen's title is the h1. `App.svelte`, `app.css`. Pass elsewhere.
+- **Beyond the list (WCAG 2.4.3 and 4.1.3).** Fixed three. When a screen replaced another ("I understand", "About this app", Back, the end of delete), the focus fell to the top of the document; it now goes to the new screen's h1, unless the screen put it somewhere itself (an open card puts it in its field). Delete in two steps swapped its buttons under the focus; the question now takes it, and "Keep my answers" gives it back to the first button. A refused join on the welcome and a failed delete were shown but not said; they are alerts now, and the wait before a retried join is a quiet status. `App.svelte`, `About.svelte`, `Welcome.svelte`.
+
+### Why
+
+The design plan's week 3 asks for the VoiceOver and TalkBack pass and a device matrix on real hardware. The integrator has no devices, so the code is put right first, with what a test can prove, and Marco gets a script for what only a phone can show.
+
+### How to verify
+
+1. `npm run check`. The new tests are in `apps/web/test/accessibility.test.ts`: the contrast computed from the tokens, the targets, the reduced-motion block read rule by rule, the language, the headings on every screen, the focus after each screen change, the sheet's inert page, the alerts, the reading order.
+2. By hand, `npm run dev:web`, `/rural-manufacturing/join/wave-1#p=a11y-check-01` at 390 pixels wide. "I understand": the focus is on "World Builder" in the top bar (in the browser's tools, `document.activeElement`). "Got it", then "Your world so far": in the console, `document.querySelector('main').inert` is `true`; Esc, and it is `false` with the focus on the pill. "About this app": the focus is on the page's title. "Delete everything and start over": the focus is on the question; "Keep my answers": back on the button.
+3. On real phones: `docs/device-tests.md`, section by section, with the results in its table.
+
+### Decisions made on the way
+
+- The card screen's h1 is the app's name, not a hidden title: it adds no words to `copy.md`, and a screen reader that lands on the card screen hears where it is.
+- The focus goes to the title after a screen change, not back to the control that opened the page: one rule for every screen, the pattern screen-reader users expect from a page that changes in place.
+- `inert` on the page behind the sheet, on top of `aria-modal`: both say the same, and the attribute is what Chrome on Android and older Safari obey.
+- No decision record: each fix carries out a rule already written in `design/DESIGN.md` (Accessibility) or WCAG 2.1 AA; nothing changes what is stored, sent or shown.
+
+### Open
+
+- **Found by writing the script, not fixed: "Open in Safari" from Gmail's built-in browser starts a new participant.** The page drops the `#` part from its address once read (ADR 0018), so the address Gmail hands to Safari has no value. A participant moving to Safari that way starts over; opening the email's link in Safari continues. Section 2, step 9 checks it. Keeping the value in the address bar would fix it at a cost to what ADR 0018 chose; Marco's call.
+- **Android's Back with the sheet open leaves the page** instead of closing the sheet: the sheet adds nothing to the browser's history. Section 3, step 7 checks it. A history entry for the open sheet would fix it; a small change if Marco wants it.
+- **The page's title is "World Builder" on every screen.** WCAG 2.4.2 passes (the title names the app); a title per screen would help someone switching tabs with a screen reader. Not done: it needs a word per screen in `copy.md`.
+- **A half-written answer lives in memory only**, so a phone that reloads a page left in the background loses it. Section 8, step 7 checks how often that happens on a low-end phone.
+- Only real devices can say whether VoiceOver and TalkBack speak "Saved" when the focus moves to the next card at the same moment, whether the fold is read as collapsed and expanded, whether the keyboard leaves the open card's Save visible on iOS (Safari ignores `interactive-widget`), and whether the 44-pixel pads, worked out from the fonts' measures, hold on glass.
+- A learning note on focus, `inert`, live regions and contrast would suit `docs/learn/`; it is outside this change's files.
