@@ -2120,7 +2120,7 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 
 ### What
 
-`npm run workshop:status -- <slug> [--days <n>]` (`tools/workshop/status.ts`): one workshop's numbers from one database, in plain text. Status and days (opens, closes, today, which day of the window); per wave the opens, joins, who is here now and the cap; participants in all, through a wave and through an invite, and joins per day; sessions; events in all and by kind; answers per day; how many participants have answered, with the median and the largest number of answers among them; invites created and spent; the day of the newest backup of the database and of this workshop, and of a failed run if one is newer. The per-day lines cover the last 7 days, or `--days`. Eleven tests in `tools/workshop/test/status.test.ts`. A section "Watching a workshop" at the top of the runbook; the `tools/workshop` row of the README.
+`npm run workshop:status -- <slug> [--days <n>]` (`tools/workshop/status.ts`): one workshop's numbers from one database, in plain text. Status and days (opens, closes, today, which day of the window); per wave the opens, joins, participants still in and the cap; participants in all, through a wave and through an invite, and joins per day; sessions; events in all and by kind; answers per day; how many participants have answered, with the median and the largest number of answers among them; invites created and spent; the day of the newest backup of the database and of this workshop, and of a failed run if one is newer. The per-day lines cover the last 7 days, or `--days`. Thirteen tests in `tools/workshop/test/status.test.ts`. A section "Watching a workshop" at the top of the runbook; the `tools/workshop` row of the README.
 
 ### Why
 
@@ -2135,14 +2135,18 @@ The newsletter goes out on Monday 16 November, and Marco watches that evening an
 
 ### Decisions on the way
 
-- **Read-only, and the test holds it to that.** Every statement is a select. A test reads the file and fails on an insert, update, delete or execute. On Neon the tool sends only those selects; `connect()` migrates a local PGlite folder only.
+- **Read-only, with a tripwire.** Every statement is a select. A test reads the file and fails on an insert, update, delete or execute: a tripwire for a write added to this file, not a proof about the functions it imports. On Neon the tool sends only those selects; a `pglite://` address migrates its local folder, which is why it is for development and tests only.
 - **Counts only, cut in the database.** The per-participant answer counts are grouped by participant in the query and only the numbers come back; the backup's time becomes a day inside the query (`to_char(... at time zone 'UTC', 'YYYY-MM-DD')`), so no finer time reaches the process. The tests seed real-shaped 16-digit codes and their keyed hashes and check that no 16-digit run, no hash, no id, no card text and no time of day appears in the output, and that a second workshop's rows never change the first one's numbers.
-- **"Joined" is the wave's counter, "here now" counts rows.** The two differ when someone uses "delete me": the counter counts joins, the rows count who is still here. Both are shown so the difference reads as what it is.
+- **"Joined" is the wave's counter, "still in" counts rows.** The two differ when someone uses "delete me": the counter counts joins, the rows count who has not left. Both are shown so the difference reads as what it is; the joins-per-day lines count rows too, and say so.
 - **The median is among participants who answered,** not among everyone who joined; early on most joiners have answered nothing and a median of 0 would say nothing. How many answered is on the same line.
 - **Backups: this database's run and this workshop's, never another workshop's.** `backup_runs` has no workshop id; its kind (`database`, `workshop:<slug>`) is the filter.
-- **The address never shows.** It comes from the environment only; an argument that is not a flag name is never echoed in an error, in case it is a pasted address; an error from the driver has the address and its password taken out before it is printed. The runbook's line reads it at a hidden prompt inside a subshell, so it stays out of shell history and is gone when the command ends: an exported production address left in a terminal could otherwise reach `sync`, which writes.
+- **The address never shows.** It comes from the environment only; an argument that is not a flag name is never echoed in an error, in case it is a pasted address. A database failure prints a fixed line naming the step (opening with the address, or the queries) and the error's class and code; the driver's message, which quotes the query and its parameters, appears only with `--debug`, with the address and its password taken out. The runbook's line reads it at a hidden prompt inside a subshell, so it stays out of shell history and is gone when the command ends: an exported production address left in a terminal could otherwise reach `sync`, which writes.
 - **Days are UTC days,** as the API counts them (`todayDay` in `apps/api/src/app.ts`). A day after today in the answers (a device whose clock runs ahead) is listed at the end, not dropped.
 - **One file, with the command at the bottom.** `readStatus` and `formatStatus` are exported so the counts are tested on the in-memory database without a process; the command runs only when the file is started as a program. The refusals and one full run are tested as a process, as Marco runs it.
+
+### After the review
+
+The independent review approved with five nits, all applied on the same branch: the fixed error line and `--debug` above, with a test for each step; "here now" became "still in", with a legend on the joins-per-day line; the runbook says the output is for the operator's eyes, since a count of 1 or 2 can single out one person, and that the `read -rs` line assumes zsh or bash and a `DATABASE_URL` not already exported; the header calls the source-reading test a tripwire, not a proof, and says a `pglite://` address migrates its folder and is never for Neon.
 
 ### Open
 

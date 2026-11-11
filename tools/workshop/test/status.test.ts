@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { connect } from '../../../packages/db/src/connect.ts';
 import {
@@ -76,7 +77,7 @@ async function session(
 /**
  * Workshop A, with every count different from the next so a swapped number shows:
  * - wave-1 opened 5 times, 4 joins (16, 16, 17 and 18 November); the one on the 18th then used
- *   "delete me", so wave-1 has joined 4 and 3 here now. wave-2 opened twice, 1 join on the 18th.
+ *   "delete me", so wave-1 has joined 4 and 3 still in. wave-2 opened twice, 1 join on the 18th.
  * - P1 created 2 invites; one was spent by P5, who joined on the 17th.
  * - Sessions: P1 two (16th: 3 answered and a dismiss; 17th: an answer and a defer), P2 one (16th:
  *   an answer and a shown), P3 one (17th: a shown and a dismiss), P5 one (18th: an answer and a
@@ -202,8 +203,8 @@ describe('workshop status', () => {
       closesDay: '2026-12-06',
     });
     expect(r.waves).toEqual([
-      { wave: 'wave-1', label: 'first newsletter', opened: 5, joined: 4, here: 3, cap: 150 },
-      { wave: 'wave-2', label: 'second newsletter', opened: 2, joined: 1, here: 1, cap: 150 },
+      { wave: 'wave-1', label: 'first newsletter', opened: 5, joined: 4, stillIn: 3, cap: 150 },
+      { wave: 'wave-2', label: 'second newsletter', opened: 2, joined: 1, stillIn: 1, cap: 150 },
     ]);
     expect(r.participants).toEqual({ all: 5, throughWave: 4, throughInvite: 1 });
     expect(r.joinedPerDay).toEqual(window7({ '2026-11-16': 2, '2026-11-17': 2, '2026-11-18': 1 }));
@@ -301,7 +302,7 @@ describe('workshop status', () => {
     expect(await readStatus(db, B, { today: TODAY, days: 7 })).toBeUndefined();
   });
 
-  it('is read-only: no insert, update or delete in its source', () => {
+  it('has no insert, update or delete in its source (a tripwire for a write added here, not a proof)', () => {
     const source = readFileSync(script, 'utf8');
     expect(source).not.toMatch(/\.(insert|update|delete|execute)\s*\(/);
     expect(source).not.toMatch(
@@ -353,6 +354,7 @@ describe('workshop status, the command', () => {
       [A, '--days', 'seven'],
       [A, '--days', '400'],
       [A, '--days=3'],
+      [A, '--debug=1'],
       ['Rural-Manufacturing'],
       ['--days', '3'],
       [],
@@ -374,7 +376,46 @@ describe('workshop status, the command', () => {
     }
     const wrong = run([A], { DATABASE_URL: `psql '${secret}'` });
     expect(wrong.status).toBe(1);
-    expect(wrong.stderr).toContain('could not read the database');
+    expect(wrong.stderr).toContain('could not open the database with this address');
     expect(wrong.stdout + wrong.stderr).not.toContain('not-really-secret');
+  });
+
+  it("prints one fixed line with the error's class when the address is refused, and the message only with --debug", () => {
+    const secret = 'postgresql://nobody:not-really-secret@db.invalid/neondb';
+    const plain = run([A], { DATABASE_URL: `psql '${secret}'` });
+    expect(plain.status).toBe(1);
+    expect(plain.stderr.trim().split('\n')).toHaveLength(1);
+    expect(plain.stderr).toContain('could not open the database with this address');
+    expect(plain.stderr).toContain('(Error)');
+    expect(plain.stderr).toContain('--debug');
+    // The driver's own words stay out by default.
+    expect(plain.stderr).not.toContain('must start with');
+
+    const debug = run([A, '--debug'], { DATABASE_URL: `psql '${secret}'` });
+    expect(debug.status).toBe(1);
+    expect(debug.stderr).toContain('debug: DATABASE_URL must start with');
+    expect(debug.stdout + debug.stderr).not.toContain('not-really-secret');
+  });
+
+  it("names the read step and the database's error code when a query fails, and the message only with --debug", async () => {
+    const url = 'pglite://' + join(mkdtempSync(join(tmpdir(), 'wb-status-broken-')), 'db');
+    const db = await connect(url);
+    await seedWorkshop(db, A);
+    // A table the status queries read, gone: the first select on it fails inside the database.
+    await db.execute(sql`drop table backup_runs`);
+    await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
+
+    const plain = run([A], { DATABASE_URL: url });
+    expect(plain.status).toBe(1);
+    expect(plain.stdout).toBe('');
+    expect(plain.stderr).toContain('the database did not answer the status queries');
+    expect(plain.stderr).toContain('(DrizzleQueryError, 42P01)'); // Postgres: undefined table
+    expect(plain.stderr.trim().split('\n')).toHaveLength(1);
+    expect(plain.stderr).not.toContain('backup_runs');
+
+    const debug = run([A, '--debug'], { DATABASE_URL: url });
+    expect(debug.status).toBe(1);
+    expect(debug.stderr).toContain('debug: ');
+    expect(debug.stderr).toContain('backup_runs');
   });
 });

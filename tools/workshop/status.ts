@@ -2,18 +2,26 @@
 // (design plan, section 6, "A status command"). The first thing to run when something feels off,
 // and the thing to read the evening the newsletter goes out.
 //
-//   npm run workshop:status -- <slug> [--days <n>]
-//   node tools/workshop/status.ts <slug> [--days <n>]      DATABASE_URL from the environment
+//   npm run workshop:status -- <slug> [--days <n>] [--debug]
+//   node tools/workshop/status.ts <slug> [--days <n>] [--debug]      DATABASE_URL from the environment
 //
 // The database address comes from the DATABASE_URL environment variable and nowhere else. It is
 // never a flag, so it cannot reach shell history through the command line, and it is never
 // printed, not even inside an error. docs/runbook.md, "Watching a workshop", says how to set it
 // from the vault for staging and for production.
 //
-// Read-only. Every statement here is a select: no insert, no update, no delete. Against Neon the
-// tool sends those selects and nothing else; connect() applies migrations only to a local PGlite
-// folder, the development database. tools/workshop/test/status.test.ts reads this file and fails
-// if a write appears in it.
+// Read-only. Every statement here is a select: no insert, no update, no delete. Against Neon
+// (a postgres:// address) the tool sends those selects and nothing else. A pglite:// address is
+// different: connect() applies the migrations to that local folder before the first select, which
+// is a write. pglite:// is for the development database and the tests, never for Neon.
+// tools/workshop/test/status.test.ts reads this file and fails if a write statement appears in
+// it. That test is a tripwire, not a proof: it catches a write added here, not one hidden behind
+// a function this file imports. What keeps the tool read-only is that it calls only selects and
+// findWorkshop, and, for production, the read-only role the runbook recommends.
+//
+// When the database fails, the tool prints one fixed line saying which step failed, with the
+// error's class and code, and never the driver's message, which can quote the query or the
+// address. --debug adds the message, with the address and its password taken out.
 //
 // What it prints is counts and days. No code, no code hash, no participant id, no session id, no
 // card text, and no time finer than a day: the backup's time is cut to its day inside the query,
@@ -40,7 +48,7 @@ import {
 export const DEFAULT_DAYS = 7;
 const MAX_DAYS = 366;
 const USAGE =
-  'usage: npm run workshop:status -- <slug> [--days <n>]   (DATABASE_URL from the environment)';
+  'usage: npm run workshop:status -- <slug> [--days <n>] [--debug]   (DATABASE_URL from the environment)';
 
 type DayCount = { day: string; n: number };
 type BackupDays = { newestOk: string | null; newestFailed: string | null };
@@ -58,7 +66,7 @@ export type WorkshopStatusReport = {
     label: string;
     opened: number;
     joined: number;
-    here: number;
+    stillIn: number;
     cap: number;
   }[];
   participants: { all: number; throughWave: number; throughInvite: number };
@@ -138,8 +146,9 @@ export async function readStatus(
     .where(eq(waves.workshopId, wid))
     .orderBy(waves.wave);
 
-  // Who is here now, by the wave they came through (null: an invite). Lower than a wave's joined
-  // counter when someone has used "delete me": the counter counts joins, the rows count people.
+  // Participants still in, by the wave they came through (null: an invite): rows still present,
+  // not recent activity. Lower than a wave's joined counter when someone has used "delete me": the
+  // counter counts joins, the rows count who has not left.
   const hereRows = await db
     .select({ wave: participants.wave, n: count() })
     .from(participants)
@@ -231,7 +240,7 @@ export async function readStatus(
     closesDay: workshop.closesDay,
     today,
     days,
-    waves: waveRows.map((w) => ({ ...w, here: here.get(w.wave) ?? 0, cap: workshop.cap })),
+    waves: waveRows.map((w) => ({ ...w, stillIn: here.get(w.wave) ?? 0, cap: workshop.cap })),
     participants: { all, throughWave: all - throughInvite, throughInvite },
     joinedPerDay: perDay(joinedRows, today, days),
     sessions: sessionRow?.n ?? 0,
@@ -288,16 +297,16 @@ export function formatStatus(r: WorkshopStatusReport): string {
     `workshop      ${r.slug} (${r.name}), status ${r.status}`,
     `days          opens ${r.opensDay}, closes ${r.closesDay}; today ${r.today} (UTC), ${windowLine(r)}`,
     '',
-    `waves         ${'wave'.padEnd(waveWidth)}  opened  joined  here now    cap`,
+    `waves         ${'wave'.padEnd(waveWidth)}  opened  joined  still in    cap`,
     ...(r.waves.length === 0
       ? ['              none']
       : r.waves.map(
           (w) =>
-            `              ${w.wave.padEnd(waveWidth)}  ${num(w.opened, 6)}  ${num(w.joined, 6)}  ${num(w.here, 8)}  ${num(w.cap, 5)}   ${w.label}`,
+            `              ${w.wave.padEnd(waveWidth)}  ${num(w.opened, 6)}  ${num(w.joined, 6)}  ${num(w.stillIn, 8)}  ${num(w.cap, 5)}   ${w.label}`,
         )),
     '',
     `participants  ${r.participants.all}: ${r.participants.throughWave} through a wave, ${r.participants.throughInvite} through an invite`,
-    `joined per day, last ${r.days} days`,
+    `joined per day, last ${r.days} days, participants still in (delete-me removes a row; the wave's joined counter keeps it)`,
     ...days(r.joinedPerDay),
     '',
     `sessions      ${r.sessions}`,
@@ -324,7 +333,31 @@ function shown(arg: string): string {
   return /^--?[a-z][a-z-]{0,30}$/.test(arg) ? `"${arg}"` : '(not shown: it could be a secret)';
 }
 
-/** The message of an error with the address and its password taken out. */
+/**
+ * The error's classes and code, when they are plain names; never a message. Drizzle wraps the
+ * driver's error (DrizzleQueryError, whose message quotes the query and its parameters) and puts
+ * the driver's own in `cause`, where the Postgres code is, so the chain is followed a few steps.
+ */
+function errorKind(error: unknown): string {
+  const names: string[] = [];
+  let code: string | undefined;
+  let e: unknown = error;
+  for (let depth = 0; depth < 4 && e !== undefined && e !== null; depth++) {
+    // A class name, capitalised and at least three letters: a bundled driver's minified class
+    // ("O") or a generic name ("error") says nothing and is left out.
+    const name = [e?.constructor?.name ?? '', e instanceof Error ? e.name : ''].find((n) =>
+      /^[A-Z][A-Za-z0-9]{2,40}$/.test(n),
+    );
+    if (name && !names.includes(name)) names.push(name);
+    const c = (e as { code?: unknown }).code;
+    if (!code && typeof c === 'string' && /^[A-Z0-9_]{1,40}$/.test(c)) code = c;
+    e = e instanceof Error ? e.cause : undefined;
+  }
+  const parts = [...names, ...(code ? [code] : [])];
+  return parts.length > 0 ? parts.join(', ') : 'unknown error';
+}
+
+/** The message of an error with the address and its password taken out. For --debug only. */
 function redacted(message: string, url: string): string {
   let out = message.replaceAll(url, '[DATABASE_URL]');
   try {
@@ -344,9 +377,11 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, now: Date): P
   const args = [...argv];
   const slug = args.shift();
   let days = DEFAULT_DAYS;
+  let debug = false;
   while (args.length > 0) {
     const flag = args.shift()!;
-    if (flag === '--days' && args.length > 0) {
+    if (flag === '--debug') debug = true;
+    else if (flag === '--days' && args.length > 0) {
       const value = args.shift()!;
       if (!/^\d{1,3}$/.test(value) || Number(value) < 1 || Number(value) > MAX_DAYS) {
         return usage(`--days takes a whole number from 1 to ${MAX_DAYS}`);
@@ -366,8 +401,12 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, now: Date): P
     return 2;
   }
 
+  // Which step failed decides the plain words. For a postgres:// address, opening only checks the
+  // address's shape; the first query is where the network, the password and the database answer.
+  let step: 'open' | 'read' = 'open';
   try {
     const db = await connect(url);
+    step = 'read';
     const report = await readStatus(db, slug, { today: now.toISOString().slice(0, 10), days });
     if (!report) {
       console.error(`no workshop "${slug}" in this database`);
@@ -376,8 +415,20 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, now: Date): P
     console.log(formatStatus(report));
     return 0;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`could not read the database: ${redacted(message, url)}`);
+    const what =
+      step === 'open'
+        ? 'could not open the database with this address: check its shape (postgresql://..., no quotes, nothing in front)'
+        : 'the database did not answer the status queries: check the address is current and Neon is up';
+    console.error(`${what} (${errorKind(error)}). --debug shows the driver's message.`);
+    if (debug) {
+      // The message of each error in the chain, outermost first: the driver's own is the last.
+      let e: unknown = error;
+      for (let depth = 0; depth < 4 && e !== undefined && e !== null; depth++) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error(`debug: ${redacted(message, url)}`);
+        e = e instanceof Error ? e.cause : undefined;
+      }
+    }
     return 1;
   }
 }
