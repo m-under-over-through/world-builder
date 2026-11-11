@@ -82,10 +82,11 @@ export function describeError(error: unknown): string {
  * A connection string carries the database password, and Neon's driver quotes the whole string in
  * the error it throws for one that does not parse. connectNeon refuses such a string before the
  * driver sees it (packages/db/src/neon.ts); this is the second line of defence, for any error
- * that quotes one anyway: everything from the scheme to the next space or quote is cut.
+ * that quotes one anyway: everything from the scheme to the end of its line is cut. Not to the
+ * next space or quote: a password may hold either, and its tail would stay.
  */
 function withoutConnectionStrings(message: string): string {
-  return message.replace(/postgres(?:ql)?:\/\/[^\s'"`)]*/gi, 'postgres://(not shown)');
+  return message.replace(/postgres(?:ql)?:\/\/[^\n]*/gi, 'postgres://(not shown)');
 }
 
 /** Only the "    at ..." lines. The header line repeats the message, parameters included. */

@@ -815,6 +815,40 @@ describe('failure behaviour', () => {
     expect(calls.filter((c) => c.path.endsWith('/sync'))).toHaveLength(3);
   });
 
+  it('a sync refused for good is not retried on the timer: one try, the outbox kept, and the next saved answer tries once more', async () => {
+    const REFUSED = () => ({ status: 400, body: { error: 'SYNC_PAYLOAD_INVALID' } });
+    const calls = stubRoutes({
+      [`/api/${SLUG}/join`]: [JOINED],
+      [`/api/${SLUG}/sync`]: [REFUSED, REFUSED, SYNCED],
+    });
+    const app = await opened(`/${SLUG}/join/wave-1`);
+    const waits: number[] = [];
+    app.wait = async (ms) => {
+      waits.push(ms);
+    };
+    await app.join();
+    await app.dismissDemo();
+    await app.setAside();
+    await vi.waitFor(() => expect(app.sync.lastError).toBe('SYNC_PAYLOAD_INVALID'));
+    // Let any retry the refusal might have scheduled run: with instant waits it would be immediate.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const syncs = () => calls.filter((c) => c.path.endsWith('/sync')).length;
+    expect(waits).toEqual([]);
+    expect(syncs()).toBe(1);
+    expect(app.sync.outboxSize).toBeGreaterThan(0);
+    expect(app.lastError).toBe('SYNC_PAYLOAD_INVALID');
+    // The next action tries once, and only once, without starting the timer.
+    await app.setAside();
+    await vi.waitFor(() => expect(syncs()).toBe(2));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(syncs()).toBe(2);
+    expect(waits).toEqual([]);
+    // A server that takes the batch again (a fixed client, a fixed server) gets it on the next try.
+    await app.reconnected();
+    expect(syncs()).toBe(3);
+    expect(app.sync.lastResult).toBe('ok');
+  });
+
   it('the "online" event sends the outbox at once', async () => {
     stubRoutes({
       [`/api/${SLUG}/join`]: [JOINED],

@@ -98,12 +98,25 @@ describe('the server error line', () => {
     const error = new Error('Failed query: select 1 from "workshops"', { cause });
     error.name = 'DrizzleQueryError';
     const line = serverErrorLine('0a1b2c3d', error);
-    expect(line).toContain('(connection string: postgres://(not shown))');
+    expect(line).toContain('(connection string: postgres://(not shown)');
     expect(line).not.toContain('hunter2');
     expect(line).not.toContain('owner');
-    expect(
-      serverErrorLine('0a1b2c3d', new Error("at 'postgres://a:b@c/d' and POSTGRESQL://e:f@g/h")),
-    ).toContain("at 'postgres://(not shown)' and postgres://(not shown)");
+    // A password may hold a space, a quote or a bracket: the cut runs to the end of the line, so
+    // no tail of it stays. Upper case is caught too.
+    for (const password of ['pa ss', 'pa)ss', 'pa"ss', "pa'ss", 'pa`ss']) {
+      const quoted = serverErrorLine(
+        '0a1b2c3d',
+        new Error(`bad (connection string: POSTGRESQL://u:${password}@host.tld/db)\nnext line`),
+      );
+      expect(
+        quoted.startsWith(
+          'SERVER_ERROR 0a1b2c3d Error: bad (connection string: postgres://(not shown)\nnext line',
+        ),
+        password,
+      ).toBe(true);
+      expect(quoted, password).not.toContain('ss@');
+      expect(quoted, password).not.toContain('host.tld');
+    }
   });
 
   it('describes a thrown value that is not an Error by its type only', () => {
