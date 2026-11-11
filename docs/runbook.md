@@ -10,6 +10,41 @@ Every entry describes the code as it is: each was checked against `apps/api/src/
 2. Find its heading below.
 3. Do the "check" step before the "fix" step. A code that pattern-matches a known failure can have a different cause.
 
+## Watching a workshop
+
+`npm run workshop:status -- <slug> [--days <n>] [--debug]` prints one workshop's numbers from one database: its status and days; per wave the opens, the joins, the participants still in and the cap; participants and joins per day; sessions; events by kind; answers per day; how many participants answered, with the median and the largest number of answers among them; invites created and spent; and the day of the newest backup. Counts and days only: no code, no hash, no id, no card text, no time of day. It only reads; the tool's header says so, and a test that reads the source is a tripwire for a write added to it. The per-day lines cover the last 7 days; `--days 21` covers the whole collection window.
+
+**For the operator's eyes only.** Counts can still point at one person when they are small. A day with 1 join or 1 answer, "answering" at 1 or 2, or a "largest" far above the median can single out someone you know joined that day or wrote a lot. So the output stays on your machine: not pasted into a chat, an email, an issue or a screenshot for the partner. A summary for anyone else gives totals over the whole window, never a day, a wave or a largest that rests on one or two people.
+
+The database address comes from `DATABASE_URL` in the environment and nowhere else. Typing it on the command line would put it in shell history, so paste it at a hidden prompt instead, inside parentheses: the parentheses make a subshell, and the variable is gone when the command ends, so no later command in that terminal (`sync`, the local API) can act on the same database by accident.
+
+The line below is for zsh (the Mac's default) or bash; `read -rs` hides what is pasted in both, and a plain `sh` or fish reads it differently. It also assumes `DATABASE_URL` is not already exported in that terminal: if it is, the old value outlives the subshell and the promise above does not hold. `echo ${DATABASE_URL:+set}` prints `set` or an empty line, never the address; if it prints `set`, run `unset DATABASE_URL` first.
+
+Staging, with the staging address from the vault (Neon, the `staging` branch):
+
+```
+( read -rs DATABASE_URL && export DATABASE_URL && npm run workshop:status -- rural-manufacturing )
+```
+
+Press Return, paste the address (nothing shows), press Return again. Production is the same line with the production address. Prefer the `backup` role's address once it exists (ops repository, `runbook/neon.md`): that role reads every table and can change no participant data, so even a fault in this tool could not touch an answer. The first run with it is the check that it reads everything the tool asks for. Until then the owner's address works the same way; the tool only reads either way. The address is the plain string starting `postgresql://`, with no quotes and nothing in front, as for `DATABASE_URL` on Netlify.
+
+What to read on the evening of a send:
+
+- **opened against joined, per wave.** Opens count devices that reached the wave link (approximate by design, ADR 0006); joins count codes made. Many opens and few joins means people reach the link and stop: look at `/api/health` and the `JOIN_*` entries below. Joined near the cap means the wave will soon answer `JOIN_WAVE_FULL`.
+- **still in below joined.** "Still in" counts rows still present, not recent activity. Someone used "delete me": their rows are gone, the wave's joined counter keeps them. Normal. The joins-per-day lines count participants still in, so they leave out anyone who used delete-me; their sum can be lower than the waves' joined counters.
+- **answers per day.** Joins without answers for a whole evening point at sync: `CLIENT_SYNC_FAILED` on a phone, `SYNC_*` on the server.
+- **the backup line.** The database's newest backup should be today or the day before (the job runs at 07:17 UTC). Older, or "a failed run" newer than it, sends you to "Backups: Backblaze bucket and GitHub artifact" below. "none recorded" on a database that has run a night is the same finding.
+
+Days: today is the UTC day, as the server counts it. A join's day is the server's day; an answer's day is the participant's own, so an evening answer in California can land a day before the joins of the same hour.
+
+The command's own failures, each one line on stderr and a non-zero exit, and none of them prints the address. A failure of the database prints which step failed and the error's class and code (a Postgres code such as `42P01` or `28P01`), never the driver's message, which can quote the query; `--debug` adds the messages, with the address and its password taken out:
+
+- `DATABASE_URL is not set` (exit 2): the prompt was skipped, or the line ran outside the parentheses.
+- `unknown argument`, `--days takes a whole number`, `not a workshop slug` (exit 2): the line printed under it is the usage. An argument that is not a flag name is not echoed, in case it was the address.
+- `no workshop "<slug>" in this database` (exit 1): the slug is wrong, or the address is the other database's.
+- `could not open the database with this address` (exit 1): the address has the wrong shape (see "Netlify build fails with `migrate: expected a postgres:// URL in this context`" below for the right one).
+- `the database did not answer the status queries` (exit 1): the password was rotated (`28P01`), the address names a database without the tables (`42P01`: a `pglite://` folder or the wrong branch), or Neon is down (its entry below). Never point a `pglite://` address at anything but a local folder: opening one applies the migrations, which is a write.
+
 ## Server error codes
 
 ### REQUEST_INVALID
