@@ -645,6 +645,37 @@ describe('identity by the link (ADR 0018)', () => {
     expect(app.code).toBe(code);
   });
 
+  it('a reload without #p= keeps the device-made code: every request carries it, and nothing is wiped', async () => {
+    const calls = stubRoutes({ [`/api/${SLUG}/join`]: [JOINED] });
+    const first = await opened(`/${SLUG}/join/wave-1`);
+    await first.join();
+    await first.dismissDemo();
+    first.draft = 'An answer';
+    expect(await first.save()).toBe(true);
+    const code = first.code;
+    expect(code).toMatch(/^\d{16}$/);
+    const again = await opened(`/${SLUG}/join/wave-1`);
+    expect(again.code).toBe(code);
+    expect(await again.store!.get('code')).toBe(code);
+    expect(await again.store!.get('linkCode')).toBeUndefined();
+    expect(again.screen).toBe('card');
+    expect((await db(again).events.toArray()).filter((e) => e.kind === 'answered')).toHaveLength(1);
+    for (const call of calls)
+      if (call.headers['authorization']) expect(call.headers['authorization']).toBe(`Code ${code}`);
+  });
+
+  it('a value in the query is not a link: no code is made from it, and nothing is asked before the join', async () => {
+    const calls = stubRoutes({});
+    history.replaceState(null, '', `/${SLUG}/join/wave-1?p=${LINK_VALUE}`);
+    const app = new AppState();
+    app.wait = async () => {};
+    await app.open(`/${SLUG}/join/wave-1`);
+    expect(app.linkCode).toBe('');
+    expect(await app.store!.get('linkCode')).toBeUndefined();
+    expect(calls.filter((c) => c.path.endsWith('/me'))).toHaveLength(0);
+    for (const call of calls) expect(JSON.stringify(call)).not.toContain(LINK_VALUE);
+  });
+
   it('a value that is not one (too short, or in the wrong shape) is ignored, and still leaves the address', async () => {
     stubRoutes({});
     const app = await opened(`/${SLUG}/join/wave-1`, '#p=ab');

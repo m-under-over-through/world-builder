@@ -72,10 +72,20 @@ export function serverErrorLine(errorId: string, error: unknown): string {
 /** An error as "Name: message", with a failed query's parameters cut; the value of a thrown non-Error is never shown. */
 export function describeError(error: unknown): string {
   if (!(error instanceof Error)) return `a thrown value of type ${typeof error}`;
-  const message = error.message.split('\nparams:')[0] ?? '';
+  const message = withoutConnectionStrings(error.message.split('\nparams:')[0] ?? '');
   // Drizzle's query error does not set a name; the class name says what it is.
   const name = error.name === 'Error' ? error.constructor.name : error.name;
   return `${name}: ${message}`;
+}
+
+/**
+ * A connection string carries the database password, and Neon's driver quotes the whole string in
+ * the error it throws for one that does not parse. connectNeon refuses such a string before the
+ * driver sees it (packages/db/src/neon.ts); this is the second line of defence, for any error
+ * that quotes one anyway: everything from the scheme to the next space or quote is cut.
+ */
+function withoutConnectionStrings(message: string): string {
+  return message.replace(/postgres(?:ql)?:\/\/[^\s'"`)]*/gi, 'postgres://(not shown)');
 }
 
 /** Only the "    at ..." lines. The header line repeats the message, parameters included. */

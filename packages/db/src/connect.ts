@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 import { migrate as migrateNeon } from 'drizzle-orm/neon-http/migrator';
 import { fileURLToPath } from 'node:url';
-import { connectNeon } from './neon.ts';
+import { assertNeonUrl, connectNeon } from './neon.ts';
 import * as schema from './schema.ts';
 import type { Db } from './types.ts';
 
@@ -40,6 +40,8 @@ export async function connect(databaseUrl: string): Promise<Db> {
 
 /** Apply pending migrations to a Neon database. Run by the deploy or the operator, never by a request. */
 export async function migrateNeonDatabase(databaseUrl: string): Promise<void> {
+  // Checked before the driver sees it: the driver's own error quotes the whole string (neon.ts).
+  assertNeonUrl(databaseUrl);
   const db = drizzleNeon(neon(databaseUrl), { schema });
   await migrateNeon(db, { migrationsFolder });
 }

@@ -8,10 +8,13 @@
 // Neon's Connect dialog also hands the string out as a `psql '...'` command and as a
 // `DATABASE_URL='...'` line; pasted in one of those shapes, or wrapped in quotes, it is refused
 // here, before anything is touched, and never printed (docs/runbook.md, the Netlify entry for this
-// message). Anything on the command line is refused too: a flag this tool does not know could
-// only mean the build command changed by mistake.
+// message). A string that starts right but does not parse as a URL is refused the same way: Neon's
+// driver would otherwise quote it whole, password included, in the build log (packages/db/src/neon.ts).
+// Anything on the command line is refused too: a flag this tool does not know could only mean the
+// build command changed by mistake.
 
 import { migrateNeonDatabase } from '../../packages/db/src/connect.ts';
+import { assertNeonUrl } from '../../packages/db/src/neon.ts';
 
 if (process.argv.length > 2) {
   console.error(
@@ -24,7 +27,9 @@ if (!url) {
   console.log('migrate: DATABASE_URL not set, nothing to do');
   process.exit(0);
 }
-if (!url.startsWith('postgres://') && !url.startsWith('postgresql://')) {
+try {
+  assertNeonUrl(url);
+} catch {
   console.error('migrate: expected a postgres:// URL in this context');
   console.error(
     'migrate: DATABASE_URL must be the plain connection string: nothing in front of postgresql://, no quotes around it',

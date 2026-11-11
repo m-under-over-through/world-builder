@@ -78,6 +78,12 @@ describe('health', () => {
       { slug: 'tiny-cap', status: 'open' },
     ]);
     expect(JSON.stringify(body)).not.toContain('participants');
+    // Exactly these keys, and per workshop exactly its slug and status: nothing names a secret,
+    // a variable, the database's host, or a count of anyone in a workshop (security pass).
+    expect(Object.keys(body).sort()).toEqual(
+      ['dbReachable', 'eventsToday', 'lastBackupAt', 'ok', 'version', 'workshops'].sort(),
+    );
+    for (const w of body.workshops) expect(Object.keys(w).sort()).toEqual(['slug', 'status']);
   });
 });
 

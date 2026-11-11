@@ -2115,3 +2115,62 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 ### How to verify
 
 `npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
+
+## 2026-11-11, Wednesday. The security pass before launch
+
+### What
+
+The design plan's week 3 opens with a security pass: ten checks over the API, the database layer, the client's addresses and the headers, each fixed where it failed, with a test for each fix. Four fixes, seven tests for checks that passed without one, four runbook entries brought up to date. No new error code, no new dependency.
+
+1. **The database password could reach a log.** Neon's driver does not check a connection string when it is given one; it checks on the first query, and when the string does not parse as a URL its error quotes the whole string, password included. That error became the `cause:` of the `SERVER_ERROR` line on every workshop route, and the migrate step would have printed it in the build log. A password with a character that needs percent-encoding, or a stray character pasted with the string, is enough. Now `connectNeon` and `migrateNeonDatabase` do the same parse first and refuse with a message that names the variable and never the value (`packages/db/src/neon.ts`), so the function answers `SERVER_NOT_CONFIGURED` and logs that message; `tools/ops/migrate.ts` refuses such a string with its usual two lines. As a second line of defence, the server-error line cuts any `postgres://...` it meets to `postgres://(not shown)` (`apps/api/src/log.ts`).
+2. **The API's answers carried none of the page's security headers.** Netlify applies `apps/web/public/_headers` to the static files it serves and not to what a function returns. The scan of staging found `/api/health` without the Content Security Policy, the Permissions Policy, the referrer rule, the framing rule and the three cross-origin rules. The API now sets the `/*` block of `_headers` word for word on every answer, a route's, a refusal, a 404 and a server error alike, plus `Cache-Control: no-store`, since `/me` carries a participant's sealed rows and a phone is sometimes shared (`apps/api/src/headers.ts`). A test reads `_headers` and fails if the two sets drift apart.
+3. **A guessed code left a row of its own.** The authenticated routes counted the per-code budget before looking the code up, so every well-formed guess wrote a `rate_buckets` row keyed by its hash, one row per guess until the prune. The lookup now comes first: a code nobody holds is counted only in its workshop's `unknown-code` bucket, and the buckets keyed by a hash are those of real participants. The budgets themselves are unchanged (ADR 0012).
+4. **Tests for checks that passed without one:** a query value (`?p=`) makes no code; a reload without `#p=` keeps the device-made code and every request carries it; an invite token spelled differently but decoding to the same bytes is `JOIN_INVITE_INVALID`; a wave of one workshop is unknown in another; a burst of wave opens or guesses in one workshop leaves another its budgets; health answers exactly its six keys, and per workshop only slug and status; no file of the API or the database layer, and neither package's manifest, names the crypto package.
+
+The ten checks:
+
+| Check              | Result                                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Logs and errors | Fixed (item 1). No route logs a code, a hash, a body, an address, a user agent or a time; `SERVER_ERROR` carries an `errorId` only.                                                                       |
+| 2. Addresses       | Pass. The value is read from the fragment only and the fragment leaves the address before any request; the manifest and the calendar file carry the workshop's home only. Open: the invite landing below. |
+| 3. Scope           | Pass. Every lookup filters on the workshop; sessions and events reach it through their participant, as the plan's table list has it.                                                                      |
+| 4. Input           | Pass. Bytes capped before parsing on both routes with a body; strict schemas; tokens compared as strings. Open: two numbers without a ceiling, below.                                                     |
+| 5. Rate limits     | Fixed (item 3). Per workshop or per code, never per address; `Retry-After` on every 429.                                                                                                                  |
+| 6. Headers         | Fixed (item 2). `_headers` already passed.                                                                                                                                                                |
+| 7. Dependencies    | Pass. `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities; none added.                                                                                                                           |
+| 8. Sealing         | Pass, and now tested over every file, not only the function's import graph.                                                                                                                               |
+| 9. Identity flow   | Pass. The queued join still takes `JOIN_CODE_TAKEN` as done for any code, on purpose: an earlier try may have landed with its answer lost (`apps/web/src/lib/sync.ts`).                                   |
+| 10. Health         | Pass. Nothing per workshop beyond the status; nothing about secrets.                                                                                                                                      |
+
+### Why
+
+Launch is 16 November and the plan puts the security pass at the start of week 3 (design and development plan, week 3; architecture plan, section 12). Item 1 breaks the rule that secrets never leave the vault and the environment; item 2 breaks the promise of section 12 that the headers hold for the whole origin; item 3 kept rows nobody needed.
+
+### How to verify
+
+- `npm run check`. The new tests: `apps/api/test/headers.test.ts`, `packages/db/test/neon.test.ts`, and new cases in `apps/api/test/bundle.test.ts`, `log.test.ts`, `limits.test.ts`, `authorization.test.ts`, `app.test.ts`, `packages/db/test/scoping.test.ts`, `tools/ops/test/migrate.test.ts`, `apps/web/test/state.test.ts` and `identity.test.ts`.
+- The leak, by hand, with the bundled function and a made-up password:
+
+  ```
+  node tools/ops/bundle-api.ts
+  DATABASE_URL='postgresql://owner:hunter2@[bad/neondb' WB_PEPPER=ZGV2ZWxvcG1lbnQtcGVwcGVyLW5vdC1mb3ItcHJvZCE= node --input-type=module -e "const m = await import('./netlify/functions-build/api.mjs'); const r = await m.default(new Request('http://x/api/rural-manufacturing/me')); console.log(r.status, await r.text())"
+  ```
+
+  Before: a `SERVER_ERROR` line whose `cause:` reads `NeonDbError: ... (connection string: postgresql://owner:hunter2@[bad/neondb)`. After: `SERVER_NOT_CONFIGURED DATABASE_URL must be a postgres:// URL with a user, a host and a database (the value is not shown)`, then `503` and the contract body. The bundle test does the same.
+
+- The headers, live: in the ops repository, `bash scripts/scan-headers.sh <deploy>/ <deploy>/api/health`. On staging before this change: the page clean, `/api/health` seven findings. On this pull request's deploy preview: no findings on either (runbook, Netlify site, "Headers check").
+- `npm audit --omit=dev --audit-level=high` prints `found 0 vulnerabilities`.
+
+### Decisions made on the way
+
+- The API sends the page's own Content Security Policy rather than a stricter one for JSON (`default-src 'none'`). One set for the whole origin is what the trust page says and what the weekly scan checks; for a JSON answer the two make no difference a browser acts on.
+- `Cache-Control: no-store` on every API answer, health included. Nothing an API route says is worth keeping, and the service worker already never caches `/api`.
+
+### Open
+
+- **For Marco: the invite landing.** The client still accepts `/<slug>/join/i/<token>`, which puts a token in a path the host sees. No token can reach it today: ADR 0018 retired the in-app invites and the client never asks for one. Retiring the landing, or moving a future token after a `#`, changes the screen map and ADR 0006, so it is his call.
+- **For Marco: `rate_buckets` holds a participant's code hash next to the minute of their requests**, for about an hour, as ADR 0012 decided. A nightly backup taken in that hour keeps it. It needs the pepper and the database together to mean anything, and it is the one place a minute sits next to a participant. Options: key the per-code budget by something that dies with the function instance, or leave `rate_buckets` out of the backup.
+- **For the integrator, contracts:** `seq` (`packages/contracts/src/events.ts`) and `sessionNo` (`session.ts`) have no ceiling. A value over 2,147,483,647 passes the schema and fails the database's integer column, so a crafted batch gets `SERVER_ERROR` instead of `SYNC_PAYLOAD_INVALID`. No real client sends one. One `.max(2_147_483_647)` each.
+- **For the integrator, the function entry:** `netlify/functions/api.mts`, `notConfigured()`, answers before the app exists and so carries none of the security headers; `applySecurityHeaders(response.headers)` from `apps/api/src/headers.ts` is the one line.
+- Not changed, noted: `/api/health` publishes `lastBackupAt` to the second (a system time, not a participant's); `Content-Type` is not required on the two routes with a body, which lets another site make a simple cross-site POST to join, which is rate-limited and gives that site nothing it could not do itself.
+- A learning note on what the CDN's header file covers and what a function must set itself would help; `docs/learn/` was outside this pass's files.

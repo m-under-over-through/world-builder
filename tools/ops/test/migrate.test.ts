@@ -33,6 +33,10 @@ describe('migrate', () => {
       'pglite://memory',
       'mysql://nobody@db.invalid/neondb',
       'neondb',
+      // Starts right, but is not a URL, or lacks a part: Neon's driver would quote these whole.
+      'postgresql://neondb_owner:not-really-secret@[ep-example/neondb',
+      'postgresql://neondb_owner:not-really-secret@ep-example-pooler.us-east-2.aws.neon.tech/',
+      'postgresql://:not-really-secret@ep-example-pooler.us-east-2.aws.neon.tech/neondb',
     ]) {
       const run = migrate({ DATABASE_URL: shape });
       expect(run.status, shape.slice(0, 20)).toBe(1);

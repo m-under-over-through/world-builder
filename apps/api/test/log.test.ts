@@ -89,6 +89,23 @@ describe('the server error line', () => {
     expect(line).not.toContain('abc123hash');
   });
 
+  it('cuts a connection string out of the message and the cause, so a database password never reaches the log', () => {
+    // The message Neon's driver (1.2.0) throws for a string that does not parse as a URL.
+    const cause = new Error(
+      'Database connection string provided to neon() is not a valid URL (connection string: postgresql://owner:hunter2-secret@[ep-x/neondb)',
+    );
+    cause.name = 'NeonDbError';
+    const error = new Error('Failed query: select 1 from "workshops"', { cause });
+    error.name = 'DrizzleQueryError';
+    const line = serverErrorLine('0a1b2c3d', error);
+    expect(line).toContain('(connection string: postgres://(not shown))');
+    expect(line).not.toContain('hunter2');
+    expect(line).not.toContain('owner');
+    expect(
+      serverErrorLine('0a1b2c3d', new Error("at 'postgres://a:b@c/d' and POSTGRESQL://e:f@g/h")),
+    ).toContain("at 'postgres://(not shown)' and postgres://(not shown)");
+  });
+
   it('describes a thrown value that is not an Error by its type only', () => {
     expect(serverErrorLine('deadbeef', 'the secret 1234567890123456')).toBe(
       'SERVER_ERROR deadbeef a thrown value of type string',
