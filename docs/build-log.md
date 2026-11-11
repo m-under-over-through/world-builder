@@ -2115,3 +2115,36 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 ### How to verify
 
 `npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
+
+## 2026-11-11, Wednesday. The status command
+
+### What
+
+`npm run workshop:status -- <slug> [--days <n>]` (`tools/workshop/status.ts`): one workshop's numbers from one database, in plain text. Status and days (opens, closes, today, which day of the window); per wave the opens, joins, who is here now and the cap; participants in all, through a wave and through an invite, and joins per day; sessions; events in all and by kind; answers per day; how many participants have answered, with the median and the largest number of answers among them; invites created and spent; the day of the newest backup of the database and of this workshop, and of a failed run if one is newer. The per-day lines cover the last 7 days, or `--days`. Eleven tests in `tools/workshop/test/status.test.ts`. A section "Watching a workshop" at the top of the runbook; the `tools/workshop` row of the README.
+
+### Why
+
+The newsletter goes out on Monday 16 November, and Marco watches that evening and every day of the first week how many people opened the link, joined and answered (design plan, section 5, week 4; section 6, "A status command"). The health endpoint says whether the system is up; this says what participants did. The design plan named the tool and left it for hardening week.
+
+### How to verify
+
+1. `npm run check`.
+2. The tool's refusals, with no database needed: `npm run workshop:status -- rural-manufacturing` ends with `DATABASE_URL is not set` and exit 2; `DATABASE_URL=pglite://memory npm run workshop:status -- rural-manufacturing` ends with `no workshop "rural-manufacturing" in this database` (an empty database) and exit 1; `npm run workshop:status -- rural-manufacturing --verbose` ends with the usage and exit 2.
+3. Against staging, from the runbook's section: `( read -rs DATABASE_URL && export DATABASE_URL && npm run workshop:status -- rural-manufacturing )`, paste the staging address at the hidden prompt. Expected: the waves table with wave-1 and the counts from the pilot, the backup line showing staging's last good night (a staging run that failed without writing its row shows only as an older day), and nothing in the output that is not a count, a day, a slug, a wave label or the workshop's name.
+4. After the command, `echo $DATABASE_URL` prints an empty line: the address lived in the subshell only.
+
+### Decisions on the way
+
+- **Read-only, and the test holds it to that.** Every statement is a select. A test reads the file and fails on an insert, update, delete or execute. On Neon the tool sends only those selects; `connect()` migrates a local PGlite folder only.
+- **Counts only, cut in the database.** The per-participant answer counts are grouped by participant in the query and only the numbers come back; the backup's time becomes a day inside the query (`to_char(... at time zone 'UTC', 'YYYY-MM-DD')`), so no finer time reaches the process. The tests seed real-shaped 16-digit codes and their keyed hashes and check that no 16-digit run, no hash, no id, no card text and no time of day appears in the output, and that a second workshop's rows never change the first one's numbers.
+- **"Joined" is the wave's counter, "here now" counts rows.** The two differ when someone uses "delete me": the counter counts joins, the rows count who is still here. Both are shown so the difference reads as what it is.
+- **The median is among participants who answered,** not among everyone who joined; early on most joiners have answered nothing and a median of 0 would say nothing. How many answered is on the same line.
+- **Backups: this database's run and this workshop's, never another workshop's.** `backup_runs` has no workshop id; its kind (`database`, `workshop:<slug>`) is the filter.
+- **The address never shows.** It comes from the environment only; an argument that is not a flag name is never echoed in an error, in case it is a pasted address; an error from the driver has the address and its password taken out before it is printed. The runbook's line reads it at a hidden prompt inside a subshell, so it stays out of shell history and is gone when the command ends: an exported production address left in a terminal could otherwise reach `sync`, which writes.
+- **Days are UTC days,** as the API counts them (`todayDay` in `apps/api/src/app.ts`). A day after today in the answers (a device whose clock runs ahead) is listed at the end, not dropped.
+- **One file, with the command at the bottom.** `readStatus` and `formatStatus` are exported so the counts are tested on the in-memory database without a process; the command runs only when the file is started as a program. The refusals and one full run are tested as a process, as Marco runs it.
+
+### Open
+
+- Production's `backup` role (account-setup, hardening week) is the address to prefer here; the runbook says so. Until it exists the owner's address works.
+- A status line for the whole system (health endpoint, monitor states, rate buckets) is not in this command; it reads one workshop. `countRateBuckets` in `packages/db` was written with a status command in mind and is left for that.

@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "workshop:keygen": "node tools/workshop/keygen.ts",
+    "workshop:status": "node tools/workshop/status.ts",
     "dev:api": "node apps/api/dev.ts",
     "dev:web": "npm run dev --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web"
