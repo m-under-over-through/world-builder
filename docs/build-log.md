@@ -2116,7 +2116,7 @@ Marco filled the area, stakes and priority of the twelve cards he had added by h
 
 `npm run check`; `python3 -c "import json;d=json.load(open('workshops/rural-manufacturing/deck.json'));print(d['version'],len(d['cards']),sum('area' not in c for c in d['cards']))"` prints `0.4 54 0`.
 
-## 2026-11-11, Wednesday. The status command
+## 2026-11-11, Wednesday. The status command (pull request 55)
 
 ### What
 
