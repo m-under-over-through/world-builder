@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { tick } from 'svelte';
 import App from '../src/App.svelte';
 import { fill } from '../src/lib/copy.ts';
-import { AppState, RETRY_FIRST_MS } from '../src/lib/state.svelte.ts';
+import { AppState, LAST_WORKSHOP, RETRY_FIRST_MS } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import {
@@ -143,6 +143,135 @@ describe('outside the workshop days', () => {
     stubApi(() => ({ status: 200, body: {} }));
     await open(`/${SLUG}/`);
     expect(screen.getByText(copy.text('Closed'))).toBeTruthy();
+  });
+});
+
+describe('the invitation page (ADR 0021)', () => {
+  const PAGE = `/${SLUG}/join/wave-1/invitations`;
+  const button = (key: 'new' | 'copy') =>
+    screen.queryByRole('button', { name: copy.item('Invitation page: buttons', key) });
+  const field = () => screen.queryByRole<HTMLTextAreaElement>('textbox');
+  /** The three links in the text on the page. */
+  const links = () => field()!.value.match(/https?:\/\/\S+#p=[a-z0-9]+/g) ?? [];
+
+  it('opening the invitation page asks the server nothing and opens no store', async () => {
+    // Before the opening day too: the invitations are written before the send.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-01T12:00:00'));
+    localStorage.clear();
+    const calls = stubRoutes({});
+    const app = await open(`${PAGE}#p=someone-elses-value`);
+    expect(app.screen).toBe('invitations');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+      copy.text('Invitation page: title'),
+    );
+    await userEvent.setup().click(button('new')!);
+    expect(field()).not.toBeNull();
+    expect(calls).toEqual([]);
+    expect(app.store).toBeUndefined();
+    expect(await indexedDB.databases()).toEqual([]);
+    expect(localStorage.getItem(LAST_WORKSHOP)).toBeNull();
+    expect(app.code).toBe('');
+    expect(location.pathname + location.hash).toBe(PAGE);
+    // A page for the person sending, not the loop: no "About this app", no world pill.
+    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'about') })).toBeNull();
+    expect(document.querySelector('footer.foot')).toBeNull();
+  });
+
+  it('an unknown workshop at the invitation address is still "not a workshop"', async () => {
+    stubRoutes({});
+    await open('/nowhere/join/wave-1/invitations');
+    expect(screen.getByText(copy.text('Not a workshop'))).toBeTruthy();
+    expect(button('new')).toBeNull();
+  });
+
+  it('New set shows the text; a second New set shows three other links', async () => {
+    stubRoutes({});
+    await open(PAGE);
+    const user = userEvent.setup();
+    expect(field()).toBeNull();
+    expect(button('copy')).toBeNull();
+    await user.click(button('new')!);
+    const first = links();
+    expect(first).toHaveLength(3);
+    for (const link of first)
+      expect(link.startsWith(`${location.origin}/${SLUG}/join/wave-1#p=`)).toBe(true);
+    expect(field()!.readOnly).toBe(true);
+    // The text has a name of its own and the focus, so a screen reader says it is there.
+    expect(screen.getByRole('textbox', { name: copy.text('Invitation page: field') })).toBe(
+      field(),
+    );
+    expect(document.activeElement).toBe(field());
+    expect(button('copy')).not.toBeNull();
+    await user.click(button('new')!);
+    const second = links();
+    expect(second).toHaveLength(3);
+    for (const link of second) expect(first).not.toContain(link);
+  });
+
+  it('Copy the text puts the text on the clipboard, takes it off the page and says it was copied', async () => {
+    stubRoutes({});
+    await open(PAGE);
+    const user = userEvent.setup();
+    await user.click(button('new')!);
+    const text = field()!.value;
+    await user.click(button('copy')!);
+    expect(await navigator.clipboard.readText()).toBe(text);
+    expect(field()).toBeNull();
+    expect(button('copy')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe(copy.text('Invitation page: copied'));
+    expect(document.body.textContent).not.toContain('#p=');
+    // The next thing to do has the focus.
+    expect(document.activeElement).toBe(button('new'));
+    await user.click(button('new')!);
+    expect(screen.getByRole('status').textContent).toBe('');
+    expect(field()!.value).not.toBe(text);
+  });
+
+  it('while a copy is on its way, New set and a second Copy do nothing: the text copied is the text that leaves', async () => {
+    stubRoutes({});
+    await open(PAGE);
+    const user = userEvent.setup();
+    let land: () => void = () => {};
+    const write = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockImplementation(() => new Promise<void>((resolve) => (land = resolve)));
+    await user.click(button('new')!);
+    const text = field()!.value;
+    await user.click(button('copy')!);
+    // The clipboard has not answered yet.
+    await user.click(button('new')!);
+    await user.click(button('copy')!);
+    expect(field()!.value).toBe(text);
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith(text);
+    land();
+    await waitFor(() => expect(field()).toBeNull());
+    expect(screen.getByRole('status').textContent).toBe(copy.text('Invitation page: copied'));
+    // And the page works again afterwards.
+    await user.click(button('new')!);
+    expect(field()!.value).not.toBe(text);
+  });
+
+  it('when the clipboard refuses, the page shows CLIENT_COPY_FAILED and keeps the text', async () => {
+    stubRoutes({});
+    await open(PAGE);
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('NotAllowedError'));
+    await user.click(button('new')!);
+    const text = field()!.value;
+    await user.click(button('copy')!);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('CLIENT_COPY_FAILED');
+    expect(alert.textContent).toContain(copy.error('CLIENT_COPY_FAILED'));
+    expect(field()!.value).toBe(text);
+    // Selected, so Cmd or Ctrl and C copies it by hand.
+    expect(document.activeElement).toBe(field());
+    expect([field()!.selectionStart, field()!.selectionEnd]).toEqual([0, text.length]);
+    expect(screen.getByRole('status').textContent).toBe('');
+    // The next New set replaces it, and the failure with it.
+    await user.click(button('new')!);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
 

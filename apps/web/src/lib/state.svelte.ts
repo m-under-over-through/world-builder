@@ -61,7 +61,15 @@ import { defaultCopy, findWorkshop, VERSION, type Workshop } from './workshops.t
  * (the workshop, the server's answer) are kept raw, so nothing wraps the copy or the deck.
  */
 export type Screen =
-  'loading' | 'no-workshop' | 'welcome' | 'card' | 'about' | 'terms' | 'privacy' | 'closed';
+  | 'loading'
+  | 'no-workshop'
+  | 'welcome'
+  | 'card'
+  | 'about'
+  | 'terms'
+  | 'privacy'
+  | 'closed'
+  | 'invitations';
 
 /** The two pages of text a participant can open directly (docs/screen-map.md, Always reachable). */
 export type TextPage = Extract<Page, 'terms' | 'privacy'>;
@@ -175,6 +183,8 @@ export class AppState {
   arrival = $state<Arrival>({});
   /** The error code of the last failure on this screen, shown through its copy.md wording. */
   error = $state('');
+  /** The wave whose links the invitation page makes (ADR 0021); empty on every other screen. */
+  invitationWave = $state('');
   /** The platform whose dictation hint applies, or null when there is none (Linux, unknown). */
   platform = $state<Platform | null>(null);
 
@@ -443,6 +453,13 @@ export class AppState {
       return;
     }
     this.copy = this.workshop.copy;
+    if (route.invitations && route.wave) {
+      // The invitation page is for the person sending the invitations, not a participant: no
+      // store, no code, no sync, no wave open counted, nothing remembered (ADR 0021).
+      this.invitationWave = route.wave;
+      this.screen = 'invitations';
+      return;
+    }
     this.rememberWorkshop(route.slug);
     this.platform = detectPlatform(navigator.userAgent, navigator.maxTouchPoints);
     this.store = await this.openStore(route.slug);

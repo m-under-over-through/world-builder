@@ -524,6 +524,33 @@ footer.page-foot button.link:hover {
   }
 }
 
+/* the invitation page (ADR 0021): a plain working page, the text to copy in a white field */
+.invitations .rules li {
+  max-width: 65ch;
+}
+.invitations .said:empty {
+  margin: 0;
+}
+/* the copied line and the failure, set off from the buttons above them */
+.invitations .said:not(:empty),
+.invitations [role='alert'] {
+  margin-top: 16px;
+}
+.invitations textarea {
+  display: block;
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1.5px solid var(--color-line-dashed);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 /* The code display and the code inputs went with the code's page (ADR 0018); their styles with
    them, among them the one rule that took a focus ring away. */
 input::placeholder,

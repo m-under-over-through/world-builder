@@ -129,6 +129,10 @@ Meaning: sealing an answer threw without a crypto code; nothing was stored or se
 
 Meaning: the last sync call did not reach the API or came back with no recognisable error code; events wait in the outbox. The privacy panel says `offline` when the request itself failed (no network, a blocked host) and `error` when the server answered something the contract does not name (Netlify's own 502 page when the function cannot start, a 404 page). A server code from this runbook is shown as that code instead. Cause: offline; or the function down, see "Netlify function answers 502". Check: the panel's last sync result, then `/api/health`. Fix: per the code shown, or wait for the network. The client retries on the next card, on the next open, when the network comes back, and on a timer (5 seconds, doubling to 5 minutes) while the outbox is not empty. An answer with a 4xx status the contract does not name (a proxy's 404 page) stops the timer like any refusal that will not change: the next card, open or reconnect tries again. Confirm: the outbox size drops to zero.
 
+### CLIENT_COPY_FAILED
+
+Meaning: on the invitation page (`/<slug>/join/<wave>/invitations`, ADR 0021) the browser refused to put the invitation's text on the clipboard. Nothing is lost and nothing was sent: the page talks to no server. The text stays on the screen. Cause: a browser that blocks the clipboard for the page (a permission set to Block, an embedded view inside another app, a very old browser). Fix, for the person at Mechanism: select the text on the page and copy it by hand, or open the page in Chrome or Safari itself. The next "New set" replaces the text as usual. Check: the address starts with `https://`; a page opened over plain `http` has no clipboard.
+
 ## Crypto error codes
 
 ### CRYPTO_BAD_PUBLIC_KEY

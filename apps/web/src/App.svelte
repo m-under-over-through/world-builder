@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import Invitations from './components/Invitations.svelte';
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
   import { AppState } from './lib/state.svelte.ts';
@@ -21,12 +22,16 @@
    * no strip, no toast: ADR 0019); the screen; and at the foot one small link, "About this
    * app", the one place that explains the app, shows the facts, and deletes everything (ADR
    * 0013), with, on a phone's card screen, the pill that opens "Your world so far" (ADR 0015).
-   * The page itself and the two texts have their own foot.
+   * The page itself and the two texts have their own foot. The invitation page (ADR 0021) is
+   * for the person sending the invitations, not a participant, so it has no foot at all.
    */
   // A test may hand in its own state (with an instant `wait`); the app makes one.
   let { app = new AppState() }: { app?: AppState } = $props();
   const onAPage = $derived(
-    app.screen === 'about' || app.screen === 'terms' || app.screen === 'privacy',
+    app.screen === 'about' ||
+      app.screen === 'terms' ||
+      app.screen === 'privacy' ||
+      app.screen === 'invitations',
   );
   /** The core loop: the card screen, where rounds follow one another without a screen between them (ADR 0017). */
   const loop = $derived(app.screen === 'card');
@@ -157,6 +162,8 @@
         <About {app} />
       {:else if app.screen === 'terms' || app.screen === 'privacy'}
         <TextPage {app} />
+      {:else if app.screen === 'invitations'}
+        <Invitations {app} />
       {/if}
     </main>
   {/if}

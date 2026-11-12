@@ -7,6 +7,9 @@
  * /continue, the old "enter code" page, is gone with the code's visibility (ADR 0018): an old
  * address of it lands home like any other unknown page.
  *
+ * /join/<wave>/invitations is the invitation page (ADR 0021): the join address with one more
+ * word, so it knows the workshop and the wave without a setting. No screen links to it.
+ *
  * /about is the one page about the app (ADR 0013). /panel and /trust are older addresses for
  * what is now two sections of it, kept because a newsletter may carry them: they open the same
  * page at that section.
@@ -20,6 +23,8 @@ export interface Route {
   invite?: string;
   /** /about, /panel and /trust the one page; /terms and /privacy the two texts. */
   page?: Page;
+  /** /join/<wave>/invitations: the invitation page of that wave, not the wave landing (ADR 0021). */
+  invitations?: true;
 }
 
 export function parseRoute(pathname: string): Route | null {
@@ -28,8 +33,10 @@ export function parseRoute(pathname: string): Route | null {
   if (!slug) return null;
   const route: Route = { slug };
   if (parts[1] === 'join' && parts[2] === 'i' && parts[3]) route.invite = parts[3];
-  else if (parts[1] === 'join' && parts[2]) route.wave = parts[2];
-  else if (parts[1] && (PAGES as readonly string[]).includes(parts[1]))
+  else if (parts[1] === 'join' && parts[2]) {
+    route.wave = parts[2];
+    if (parts[3] === 'invitations') route.invitations = true;
+  } else if (parts[1] && (PAGES as readonly string[]).includes(parts[1]))
     route.page = parts[1] as Page;
   return route;
 }

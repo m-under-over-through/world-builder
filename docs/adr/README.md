@@ -24,3 +24,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0018   | Identity by the link: the newsletter link's value makes the code; no code typed or shown         |
 | 0019   | One page before the cards: the welcome is the intro and the consent; no numbers, no toasts       |
 | 0020   | The deck rules of 5 November: set-aside cards return later, never first; the deck ends           |
+| 0021   | The invitation page: a link set per invitation, made in the browser, kept nowhere                |
