@@ -2280,3 +2280,41 @@ The design plan's week 3 asks for the VoiceOver and TalkBack pass and a device m
 - Only real devices can say whether VoiceOver and TalkBack speak "Saved" when the focus moves to the next card at the same moment, whether the fold is read as collapsed and expanded, whether the keyboard leaves the open card's Save visible on iOS (Safari ignores `interactive-widget`), and whether the 44-pixel pads, worked out from the fonts' measures, hold on glass.
 - A learning note on focus, `inert`, live regions and contrast would suit `docs/learn/`; it is outside this change's files.
 - Applied by the integrator before the merge, from the independent review of the accessibility pass (approve with nits): the device script says ten to fifteen minutes per device and about twenty for each screen-reader section, and names the organizer line as such. Left for the real devices, as the review says: whether focus lands on the heading after a screen change in VoiceOver and TalkBack, whether a failed save is read twice, and the "Remind me" row's height at 320 pixels.
+
+## 2026-11-12, Thursday. The invitation page (pull request 60)
+
+### What
+
+A page at `/<slug>/join/<wave>/invitations` for the person at Mechanism who sends the invitations by hand (ADR 0021). "New set" makes one link set, one own link and two spare links, and shows the text of one invitation in a read-only field. "Copy the text" puts it on the clipboard; the text then leaves the page, and one line says it was copied. If the browser refuses the clipboard, the page shows `CLIENT_COPY_FAILED` with its line, and the text stays, selected, to copy by hand.
+
+- `apps/web/src/lib/invitations.ts`: the alphabet (32 characters), the length (20), `newValue`, `newLinkSet`, `invitationText`. A value takes one random byte per character, modulo 32, from `crypto.getRandomValues`.
+- `apps/web/src/lib/route.ts`: the address is read as the wave plus the flag `invitations`.
+- `apps/web/src/lib/state.svelte.ts`: in `open`, the invitation page is decided right after the workshop is found. No store, no code, no sync, no `POST .../opened`, no remembered workshop.
+- `apps/web/src/components/Invitations.svelte`, and `App.svelte`: the page counts as a page, with no foot.
+- `workshops/rural-manufacturing/copy.md`: the screen "Invitation page" with its six blocks, and their names in `lib/copy.ts`.
+- `docs/screen-map.md`: one row in Entry.
+
+### Why
+
+Mechanism writes each invitation in Gmail, with a personal note, so no tool puts a value in each link. Made by hand, a value can be guessed or used twice. A list of links would be a file that exists and that the operator has seen. The page makes one set at a time and forgets it once copied. Learning note 12, [unique without a list](learn/12-unique-without-a-list.md), says why no list is needed, with the sums.
+
+### How to verify
+
+1. `npm run check`. The new tests: `apps/web/test/invitations.test.ts` (the alphabet, a value from fixed bytes, a value through `valueFromHash`, a link set, the text and the copy file's slots), the route test, five tests under "the invitation page" in `apps/web/test/app.test.ts` (no request, no store, no remembered workshop; New set; Copy; a refused clipboard; an unknown workshop), and the invitation page in the heading and 44-pixel tests of `apps/web/test/accessibility.test.ts`.
+2. By hand: `npm run dev --workspace=apps/web`, then `/rural-manufacturing/join/wave-1/invitations`. Press "New set": three links on the page's own origin. Press it again: three other links. Press "Copy the text" and paste it in a note: the text is gone from the page. In the browser's tools, Network shows no request to `/api`, and Application shows no IndexedDB and no local storage for the page.
+3. Open the own link from the pasted text in a private window: the welcome says "This link is yours".
+
+### Decisions made on the way
+
+- The field takes its name from the page's title (`aria-labelledby`), so no new words were needed for a label.
+- After a good copy the focus goes to "New set", the next thing to do, since the button pressed is gone.
+- The text lives in the component only, not in `AppState`. "Gone from memory" means no reference is kept; the browser frees the string when it likes, which no page can force.
+- The copied line sits in a `role="status"` paragraph that is on the page from the start, so a screen reader says it when it fills. The failure is an alert, written as on the about page's diagnostics: the code, then its line.
+- A fragment on the invitation address (`#p=...`) is removed as on every other address, and never read as a link value.
+- The page works before the opening day and after the close day: it returns before any day check.
+- The copy blocks follow the file's conventions: a note in parentheses for the length, a comment above each block saying who sees it and where. The title and the buttons carry no `[placeholder]`, as in the brief.
+
+### Open questions
+
+- The welcome's line "Welcome: your link" says to use "the links at the foot of the email". In the invitation text the spare links follow the own link at the end of the block; whether they are at the foot depends on where Mechanism puts the personal note. Marco's words to align, in `copy.md`.
+- The in-app browser used for the look refused the clipboard, so the good copy was seen in the tests and, in the browser, only with the clipboard replaced from the console. A real copy and paste on a Mac and on a phone is still to do.
