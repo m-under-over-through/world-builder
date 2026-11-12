@@ -15,3 +15,4 @@ Explainers for the ideas in this codebase, written for the operator: someone who
 | `09-seeded-shuffle.md`           | Pseudo-random generators, seeds, Fisher-Yates; why a stored seed replays a session; the three functions of the deck engine                       |
 | `10-the-installed-app.md`        | The manifest and its three addresses; why an iPhone's home-screen app starts empty; what the service worker keeps and never keeps                |
 | `11-the-calendar-file.md`        | The iCalendar format, a repeating event with an alarm in floating time; why a file for everyone and not a service; how the build writes it       |
+| `12-unique-without-a-list.md`    | Drawing values at random instead of keeping a list; why 32 characters and not 36; the birthday sum for values and for codes                      |

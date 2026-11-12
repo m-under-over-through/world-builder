@@ -9,7 +9,9 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 - **round**: the word code and docs use for a session as it follows the last one without a pause.
 - **participant**: one anonymous code. Not a person: a person with two codes is two participants.
 - **code**: the anonymous code, 16 digits. The only identifier. Sent in the `Authorization` header, stored as a **keyed hash**, never in a URL. Since 4 November 2026 (ADR 0018) the device makes it from the **link value**, or at random when the link has none; it is never typed or shown.
-- **link value**: the value after `#p=` in a newsletter link, one per recipient, put there by the newsletter tool. It stays in the browser, is never sent to any server, and makes the code.
+- **link value**: the value after `#p=` in an invitation's link, one per link, made at random by the **invitation page**. It stays in the browser, is never sent to any server, and makes the code.
+- **invitation page**: the page at `/<slug>/join/<wave>/invitations` where Mechanism makes one **link set** at a time and copies the text of an invitation. It talks to no server and keeps nothing (ADR 0021).
+- **link set**: the links of one invitation: one own link and two spare links, each with a link value of its own.
 - **keyed hash**: a hash computed with a server-side secret (the **pepper**), so a database copy alone cannot be used to look codes up. See `docs/learn/02-codes-hashes-and-peppers.md`.
 - **event**: one thing a participant did: `shown`, `answered`, `dismissed`, `deferred`, `revisited`. Append-only, client-generated id, ordered by **seq** within a session.
 - **sealed answer** (or **envelope**): an answer encrypted on the device to the workshop's public key, as the string `v1.<base64>`. Only the private key opens it.
@@ -17,7 +19,7 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 - **fingerprint**: a short name for a public key, printed on the trust page so a reader can compare it with the repository.
 - **outbox**: the queue of events on the device waiting to be synced.
 - **sync**: posting the outbox to the API. Safe to repeat.
-- **wave**: one newsletter send. A **wave link** (`/<slug>/join/<wave>`) accepts joins for a window, up to a **cap**.
+- **wave**: one send of invitations (first planned as a newsletter send, and named so in older pages). A **wave link** (`/<slug>/join/<wave>`) accepts joins for a window, up to a **cap**.
 - **invite**: a single-use link a participant creates for someone else. The server records that an invite was spent, never who used it.
 - **join**: the request that creates a participant for a new code through a wave or an invite.
 - **trust page**: the page inside the app that states what is and is not collected and how to check it.

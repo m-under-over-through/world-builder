@@ -569,6 +569,13 @@ Your answer could not be encrypted, so nothing was saved or sent. Try again.
 [placeholder]
 Could not reach the server. Your answers are saved on this device and will sync when you are online.
 
+## Error: CLIENT_COPY_FAILED (one line)
+
+<!-- Shown on the invitation page only, to the person at Mechanism, when the browser refuses the clipboard (ADR 0021). -->
+
+[placeholder]
+The text could not be copied. Select it and copy it by hand.
+
 # Everywhere
 
 ## App labels

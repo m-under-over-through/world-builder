@@ -119,6 +119,8 @@ export const CLIENT_ERROR_CODES = {
   CLIENT_SEAL_FAILED: 'Encrypting an answer failed; nothing was stored or sent.',
   CLIENT_SYNC_FAILED:
     'The last sync attempt failed; events wait in the outbox and the app retries.',
+  CLIENT_COPY_FAILED:
+    'The browser refused the clipboard on the invitation page; the text stays on the screen to be copied by hand.',
 } as const;
 export type ClientErrorCode = keyof typeof CLIENT_ERROR_CODES;
 
