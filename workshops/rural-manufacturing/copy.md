@@ -609,6 +609,12 @@ Never send or copy an invitation to Under Over Through.
 - new: New set
 - copy: Copy the text
 
+## Invitation page: field (a few words)
+
+<!-- Not shown: the name a screen reader says for the box that holds the invitation's text. -->
+
+Text of the invitation
+
 ## Invitation page: copied (one line)
 
 <!-- Shown in place of the text once it is copied; the text is then gone from the page. -->

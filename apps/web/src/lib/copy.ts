@@ -184,6 +184,7 @@ export const COPY_TEXT = [
   'Invitation page: intro',
   'Invitation page: rules',
   'Invitation page: copied',
+  'Invitation page: field',
   'Invitation: text',
 ] as const;
 

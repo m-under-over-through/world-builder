@@ -197,6 +197,11 @@ describe('the invitation page (ADR 0021)', () => {
     for (const link of first)
       expect(link.startsWith(`${location.origin}/${SLUG}/join/wave-1#p=`)).toBe(true);
     expect(field()!.readOnly).toBe(true);
+    // The text has a name of its own and the focus, so a screen reader says it is there.
+    expect(screen.getByRole('textbox', { name: copy.text('Invitation page: field') })).toBe(
+      field(),
+    );
+    expect(document.activeElement).toBe(field());
     expect(button('copy')).not.toBeNull();
     await user.click(button('new')!);
     const second = links();
@@ -220,6 +225,31 @@ describe('the invitation page (ADR 0021)', () => {
     expect(document.activeElement).toBe(button('new'));
     await user.click(button('new')!);
     expect(screen.getByRole('status').textContent).toBe('');
+    expect(field()!.value).not.toBe(text);
+  });
+
+  it('while a copy is on its way, New set and a second Copy do nothing: the text copied is the text that leaves', async () => {
+    stubRoutes({});
+    await open(PAGE);
+    const user = userEvent.setup();
+    let land: () => void = () => {};
+    const write = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockImplementation(() => new Promise<void>((resolve) => (land = resolve)));
+    await user.click(button('new')!);
+    const text = field()!.value;
+    await user.click(button('copy')!);
+    // The clipboard has not answered yet.
+    await user.click(button('new')!);
+    await user.click(button('copy')!);
+    expect(field()!.value).toBe(text);
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith(text);
+    land();
+    await waitFor(() => expect(field()).toBeNull());
+    expect(screen.getByRole('status').textContent).toBe(copy.text('Invitation page: copied'));
+    // And the page works again afterwards.
+    await user.click(button('new')!);
     expect(field()!.value).not.toBe(text);
   });
 
