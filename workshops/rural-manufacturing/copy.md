@@ -576,6 +576,61 @@ Could not reach the server. Your answers are saved on this device and will sync 
 [placeholder]
 The text could not be copied. Select it and copy it by hand.
 
+# Invitation page
+
+<!-- The page at /rural-manufacturing/join/<wave>/invitations, for the person at Mechanism who sends the invitations by hand (ADR 0021). Participants never see it; no screen links to it. -->
+
+## Invitation page: title (one line)
+
+<!-- The heading of the page. -->
+
+Invitation links
+
+## Invitation page: intro (under 60 words)
+
+<!-- The line under the title. -->
+
+[placeholder]
+This page makes the links for one invitation. Press "New set", copy the text, and paste it into the email for one person. Then press "New set" again for the next person.
+
+## Invitation page: rules
+
+<!-- The three rules of ADR 0021, shown as a list under the intro, one paragraph each. -->
+
+[placeholder]
+One set for one person. Never send the same set twice.
+
+Keep no list of who got which link. Nothing here is saved: a set is gone once you copy it or make a new one.
+
+Never send or copy an invitation to Under Over Through.
+
+## Invitation page: buttons (one or two words each)
+
+- new: New set
+- copy: Copy the text
+
+## Invitation page: copied (one line)
+
+<!-- Shown in place of the text once it is copied; the text is then gone from the page. -->
+
+[placeholder]
+Copied. Paste it into the email, then press "New set" for the next person.
+
+## Invitation: text
+
+<!-- The text the person at Mechanism copies and pastes into the email, with a personal note around it. Plain text: no bold. The app fills [your link] with the recipient's own link and [spare link 1] and [spare link 2] with the two links to forward; keep each slot on a line of its own, and keep all three. -->
+
+[placeholder]
+This link is yours. It opens your cards on any phone or computer. It is the key to what you write, so keep it to yourself:
+
+[your link]
+
+To bring someone in, give them one of these two links instead. Each one starts cards of its own:
+
+[spare link 1]
+
+[spare link 2]
+
 # Everywhere
 
 ## App labels

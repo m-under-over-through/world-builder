@@ -28,6 +28,23 @@ describe('routes', () => {
     expect(parseRoute('/rural-manufacturing/elsewhere')).toEqual({ slug: 'rural-manufacturing' });
   });
 
+  it('the invitation address is read as its wave and the invitations page; the join address is unchanged', () => {
+    expect(parseRoute('/rural-manufacturing/join/wave-1/invitations')).toEqual({
+      slug: 'rural-manufacturing',
+      wave: 'wave-1',
+      invitations: true,
+    });
+    expect(parseRoute('/rural-manufacturing/join/wave-1')).toEqual({
+      slug: 'rural-manufacturing',
+      wave: 'wave-1',
+    });
+    expect(parseRoute('/rural-manufacturing/join/wave-1/elsewhere')).toEqual({
+      slug: 'rural-manufacturing',
+      wave: 'wave-1',
+    });
+    expect(parseRoute('/rural-manufacturing/invitations')).toEqual({ slug: 'rural-manufacturing' });
+  });
+
   it('writes the address of a page, and never anything else', () => {
     expect(pageHref('rural-manufacturing', 'about')).toBe('/rural-manufacturing/about');
     expect(pageHref('rural-manufacturing')).toBe('/rural-manufacturing/');

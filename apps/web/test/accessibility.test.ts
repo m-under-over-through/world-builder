@@ -202,6 +202,29 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(box(14) + 2 * px(rule('.remind a')['padding-block'])).toBeGreaterThanOrEqual(44);
   });
 
+  it("the invitation page's two buttons are at least 44 pixels: plain buttons and ink pills, and no rule of the page makes one smaller", async () => {
+    stubRoutes({});
+    const app = onAScreen({ screen: 'invitations', invitationWave: 'wave-1' });
+    renderApp(app);
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: copy.item('Invitation page: buttons', 'new') }));
+    const buttons = [
+      screen.getByRole('button', { name: copy.item('Invitation page: buttons', 'new') }),
+      screen.getByRole('button', { name: copy.item('Invitation page: buttons', 'copy') }),
+    ];
+    for (const button of buttons) expect(['', 'primary']).toContain(button.className.trim());
+    expect(rule('button')['min-height']).toBe('var(--tap)');
+    // "button.primary" is in two rules (with ".pill", and on its own); only the second sets a height.
+    const primary = topLevel.filter((r) => r.selectors.includes('button.primary'));
+    for (const r of primary)
+      if (r.body['min-height']) expect(px(r.body['min-height'])).toBeGreaterThanOrEqual(44);
+    const ofThePage = (s: string) => s.includes('.invitations') && s.includes('button');
+    for (const r of rules.filter((r) => r.selectors.some(ofThePage)))
+      for (const property of ['height', 'min-height', 'max-height', 'padding', 'padding-block'])
+        expect(r.body[property], `${r.selectors.join(', ')} ${property}`).toBeUndefined();
+  });
+
   it('with reduced motion asked for, nothing moves: every transition of a place or a size, and every animation that moves, is overridden; the fades stay', () => {
     expect(css).toContain(REDUCE);
     const moving = new Set(
@@ -303,7 +326,7 @@ const ME = () => ({
 });
 
 describe('headings', () => {
-  it('every text screen has one h1 and no level skipped: the welcome, the page about the app with its fold, the terms, the policy, closed, not a workshop', () => {
+  it('every text screen has one h1 and no level skipped: the welcome, the page about the app with its fold, the terms, the policy, closed, not a workshop, the invitation page', () => {
     const screens: Partial<AppState>[] = [
       { screen: 'welcome' },
       { screen: 'about', aboutSection: 'now' },
@@ -311,6 +334,7 @@ describe('headings', () => {
       { screen: 'privacy' },
       { screen: 'closed' },
       { screen: 'no-workshop' },
+      { screen: 'invitations' },
     ];
     for (const patch of screens) {
       const { unmount } = renderApp(onAScreen(patch));

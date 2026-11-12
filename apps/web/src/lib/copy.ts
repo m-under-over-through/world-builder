@@ -180,6 +180,11 @@ export const COPY_TEXT = [
   'Trust page: check it yourself',
   'Trust page: who, where, until when',
   'Trust page: the honest limit',
+  'Invitation page: title',
+  'Invitation page: intro',
+  'Invitation page: rules',
+  'Invitation page: copied',
+  'Invitation: text',
 ] as const;
 
 /** The paragraphs under "How your answers are protected", in the order they are shown. */
@@ -291,6 +296,7 @@ export const COPY_LISTS = {
   'Event kinds': ['shown', 'answered', 'dismissed', 'deferred', 'revisited'],
   Diagnostics: ['last sync', 'outbox', 'last error', 'never', 'ok', 'offline', 'error'],
   Reminder: ['summary', 'description'],
+  'Invitation page: buttons': ['new', 'copy'],
 } as const;
 
 /** One line per error code, server and client, under "Error: <CODE>". */
