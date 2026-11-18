@@ -16,14 +16,15 @@ export type EventKind = (typeof EVENT_KINDS)[number];
  */
 export const EVENT_RETENTION_DAYS = 14;
 
-/** Plain-text answers are capped before encryption. */
+/** Plain-text answers are capped before encryption, in code points: what a person calls characters. */
 export const MAX_ANSWER_CHARS = 4000;
 
 /**
  * The sealed answer, as stored and transmitted: "v1." followed by standard base64.
  *
- * Size: 4000 UTF-16 units of text is at most 12,000 bytes of UTF-8; sealed it grows by 48 bytes
- * (32 of ephemeral key, 16 of tag); base64 grows it by a third. 24,000 characters leaves room.
+ * Size: 4000 code points of text are at most 16,000 bytes of UTF-8 (four bytes each, an emoji);
+ * sealed it grows by 48 bytes (32 of ephemeral key, 16 of tag); base64 grows it by a third, to
+ * 21,400 characters, 21,403 with the prefix. 24,000 characters leaves room.
  * The smallest possible sealed box is 48 bytes, which is 64 base64 characters, so 67 with the prefix.
  * The regex enforces whole base64 groups, so the server never stores an envelope the export tool
  * cannot decode.
