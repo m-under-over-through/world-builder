@@ -2551,3 +2551,54 @@ The second column counts the bounding boxes of the back slots, which are turned 
 - With the dictation hint open on the first card, the open card is taller than the space above the keyboard: the field shows, and Save is reached by scrolling.
 - The visual viewport is a new idea in this project. A note in `docs/learn/` would explain it better than this entry; that folder was not in this brief.
 - Only a real iPhone and a real Android phone can show whether the frame follows the keyboard without a jump, and whether Safari's address bar stays inside the strip.
+
+## 2026-11-18, Wednesday night. Tiles open: a card set aside can be answered, an answer changed (pull request 67)
+
+### What
+
+- `apps/web/src/lib/session.ts`: `latestAnswers` and `firstAnswers`, the latest and the first `answered` event for each card id, by the round's number and then `seq`; and `setAsideCards`, every card set aside in any round and never answered, oldest first.
+- `apps/web/src/lib/state.svelte.ts`: the world has one tile per card, where its first answer put it, with the words of its latest answer where this device holds them, and a flag `opens`. The set-aside tiles come from the whole history. The place to write has one piece of state, `writing`: null when closed, `NEW_OWN_CARD` for a new blank card, else the card id of a tile. `openTile` opens it; `saveOwnCard` saves for whichever card it is open for, sealed first, then replays the round from its events.
+- `apps/web/src/components/World.svelte`: a tile that opens is a button with a small pen in its top right corner, inside its padding. A tile written on another device stays a plain list item.
+- `apps/web/src/components/OwnCard.svelte`: for a card of the deck, its area and its question on top, the question naming the field. The blank card keeps its title and hint. The focus goes back to the tile on a laptop and to the world pill on a phone. The visual-viewport code is untouched.
+- `apps/web/src/components/WorldSheet.svelte`: when a tile closes the sheet, the sheet does not take the focus back to the pill; the place to write has it.
+- `apps/web/src/App.svelte`, `Stack.svelte`: the world pill has an id, `world-pill`, so focus can come back to it.
+- `tools/workshop/export.ts`: one row per participant and card for the answers, the latest; a "versions:" line in the summary; `--all-versions` with a last column `latest`.
+- `workshops/rural-manufacturing/copy.md`, `apps/web/src/lib/copy.ts`: "open answer: Change your answer" and "open aside: Answer this card".
+- Tests: `apps/web/test/tiles.test.ts` (new, 14 behaviours), two in `session.test.ts`, one in `accessibility.test.ts`, two in the export's tests. Two older tests changed with the rule: the set-aside tiles of every round (`state.test.ts`) and the set-aside tile being a button (`card.test.ts`). 586 tests in all.
+- `docs/screen-map.md`, `docs/device-tests.md` (parts 1b and 4b, and lines in part 6).
+
+### Why
+
+Marco, on 18 November: "we need to have set asides and saved cards clickable and editable. There is no point in showing something if you cannot open it or edit." ADR 0024 decided how, without a change on the server: a change is one more event, and the latest one is the answer.
+
+How "the latest" works. Every event has the id of its round and its place in the round, `seq`. Rounds are numbered 1, 2, 3 on every device. So for each card the device looks at all its `answered` events, keeps the one with the highest round number, and among those the highest `seq`. A reload, a second phone and the export all get the same answer from the same rows, whatever order the rows arrive in.
+
+How the round stays the same after a reload. A round is never stored: it is replayed from its seed and its events (learning note 09). Before this change, saving a blank card updated the live round by hand, in a way meant to match the replay. Now, after a save in the place to write, the live round is replayed from the history itself. So the round on the screen is by construction the one a reload would find.
+
+### How to verify
+
+1. `npm run check`: 586 tests, exit 0.
+2. Local API and dev server, `/rural-manufacturing/join/wave-1`. Answer one card, set one aside, write a blank card. Open the pill, then each tile in turn: the set-aside card empty, the answer with its words, the blank card with its title, hint and words. Change, answer, save. Reload: the same front card and tiles.
+3. What was seen, each after waiting for the layout to settle:
+   - 390 × 844: the sheet with three tiles, each with the pen in its corner; "2 answered · 1 set aside", then "3 answered · 0 set aside" after answering the set-aside card. The place to write for a card: area, question, field, "Not now" and "Save". After Save the focus is on the world pill and the front card has not moved.
+   - 375 × 553: the card screen is unchanged (no new row). The place to write for an answer fills the screen from 8 pixels under the top to the bottom, "Save" ending 16 pixels above the bottom edge.
+   - 1280 × 800: the right column's grid with the pen in each tile; a click opens the card over the desk with the words in the field; Esc returns the focus to the same tile.
+   - Each button tile measured against a plain list item with the same content, at 390 and at 1280 wide: the same height to the pixel.
+4. On real phones: `docs/device-tests.md`, parts 1b and 4b.
+
+### Decisions made on the way
+
+- **The pen sits inside the tile's padding**, 12 pixels at 8 from the top right corner. A first version kept the label clear of the pen with 20 pixels of padding; on the laptop grid that wrapped "Physical AI and automation" onto a second line and made the tile 13 pixels taller.
+- **A tile's spoken name is what it shows, then the pen's words**: "Making, What happens when something breaks?, the words, Change your answer". The brief named both; this is one name with both in it.
+- **One draft per card id, shared with the stack.** A card set aside with words half written opens from its tile with those words; if the card is the front card, its draft is the stack's own. A tile's "Not now" puts the words where the stack would find them when the card comes round. The brief says a card set aside opens with the field empty; it does when nothing was written.
+- **An answer's words left unchanged are not a draft.** "Not now" with the field emptied, or as it was, opens with the answer the next time.
+- **A tap on a tile while the front card is open on a laptop** closes the front card, keeping its draft, and opens the tile.
+- **No leaving animation** when the front card is answered from its tile: the stack is behind the place to write, and the next card is simply in front when it closes. A screen reader hears "Saved".
+- **In the export, the other events stay.** "One row per participant and card" applies to the answers; the rows for shown and set aside are kept as before. With `--all-versions`, `latest` is empty on a row that is not an answer.
+- **After a save in the place to write the round is replayed**, rather than updated by hand. It costs one replay of one round per save.
+
+### Open questions
+
+- The readable copy is keyed by round and card (ADR 0014). If two phones of one participant change the same card in the same round, the phone that wrote first would show its own words although the latest answer is the other phone's. Telling them apart needs the event's id next to the copy, a change to `lib/store.ts`, which was not in this brief.
+- The ADR's sentence for the privacy policy ("a changed answer adds to what is kept") is still Marco's to write.
+- Whether the pen in the corner reads as "tap me" on a phone is for Marco's eye. It is small on purpose: the tiles must not grow.
