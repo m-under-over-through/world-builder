@@ -1,5 +1,5 @@
 {
-  "version": "0.6",
+  "version": "0.7",
   "cards": [
     {
       "id": "tuesday-night",
@@ -130,7 +130,7 @@
     {
       "id": "plant-sound",
       "set": "warmup",
-      "text": "What can you hear from the street when you walk around in during the day? What about the night?",
+      "text": "What can you hear from the street when you walk around during the day? What about the night?",
       "area": "Making"
     },
     {
