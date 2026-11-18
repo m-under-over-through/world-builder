@@ -18,10 +18,11 @@ Why the blank card pushes the cards: its sheet slides up from the bottom of the 
 
 ## Decision
 
-- **While a card is open on a phone, the page behind does not move.** This holds for the open card and for the place to write (a blank card, or a card opened from its tile). A finger dragged anywhere on the screen does nothing, unless it is on text that has more to show in that direction. Two fingers still zoom.
+- **While a card is open on a phone, the page behind does not move.** This holds for the open card and for the place to write (a blank card, or a card opened from its tile). A finger dragged anywhere on the screen does nothing, unless it is on text that has more to show in that direction. Two fingers are left to the browser, as before.
 - **The open card is a fixed box**: the part of the screen above the keyboard, as in ADR 0023. The close button at its top and the row with "Save" at its bottom never move.
 - **The text scrolls inside the field.** The field takes the space between the question and the last row. It is never lower than three lines. It no longer grows with the text.
-- **When the question and three lines do not fit**, the question and the field scroll together, inside the card, between the close button and the row with "Save". This is for a long question on a small phone, or a phone on its side.
+- **When the question and three lines do not fit**, the question and the field scroll together, inside the card, between the close button and the row with "Save". This is for a long question on a small phone.
+- **When the box is too low even for that**, under 280 pixels, the whole card scrolls, as it did under ADR 0023. This is for a phone on its side with the keyboard up, where the close button and the row with "Save" alone would fill the box.
 - **The place to write follows the same rule.** Its title and hint, or the card's area and question, sit above the field. "Not now" and "Save" never move.
 - **The place to write appears where it will stand.** On a phone it fades in and out. It does not slide up from the bottom.
 - **A field takes the focus only once its box is in place**, so the browser has no reason to scroll the page for it.
@@ -32,7 +33,9 @@ Why the blank card pushes the cards: its sheet slides up from the bottom of the 
 - The code that measured the text and grew the field goes (`growField`, `keepEndInView`, `--field-text`).
 - A small guard listens to touches while a card is open and stops the ones that would drag the page. It is the one place in the client that cancels a touch.
 - A desktop browser has no keyboard that covers the page. Tests pin the guard's arithmetic with made-up touches. The proof is Marco's iPhone on staging, and the device script gains the steps.
-- The dictation hint, when shown, sits under the field in the part that scrolls. "Save" stays in sight while it is open.
+- The dictation hint, when shown, sits under the field in the part that scrolls, its words beside its button. While it is open the field may be two lines, so that the question, the field and the hint fit on the first card. "Save" stays in sight.
+- The page is held only where the card has its box. A browser that reports no visible part lays the card out as before ADR 0023, and there the page is the one thing that can scroll.
+- A pinch works where it did before: on the ground around the card. The card itself never took a pinch, since its swipe allows a finger only up and down.
 - On a laptop nothing changes.
 - "Your world so far" on a phone is not touched: it has no field, so no keyboard, and the page under it cannot be dragged.
 

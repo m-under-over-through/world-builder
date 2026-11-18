@@ -967,12 +967,18 @@ textarea::placeholder {
    is never lower than three lines; its text scrolls inside it. Only when the question and three
    lines do not fit does the part around them scroll. The card itself does not scroll.
 
-   A finger on the parts that never move may only pinch (touch-action: pinch-zoom). Not on the
-   card, nor on anything that holds the field: a browser takes touch-action from every box
-   around an element, so the field could not be scrolled with a finger. The guard in
-   lib/page-lock.ts stops the rest. The part that scrolls keeps a drag to itself at its ends
-   (overscroll-behavior: contain); the field does not, so it hands a drag on to that part once
-   its own text is at its end. Learning note 13 explains the page and the keyboard.
+   A finger on the parts that never move cannot drag (touch-action: pinch-zoom leaves a pinch and
+   nothing else; the card around them is pan-y for the swipe, so in effect nothing is left).
+   This is not put on the card, nor on anything that holds the field: a browser takes
+   touch-action from every box around an element, so the field could not be scrolled with a
+   finger. The guard in lib/page-lock.ts stops the rest. The part that scrolls keeps a drag to
+   itself at its ends (overscroll-behavior: contain); the field does not, so it hands a drag on
+   to that part once its own text is at its end. Learning note 13 explains the page and the
+   keyboard.
+
+   Under 280 pixels of frame (`low` on the app; LOW_FRAME in lib/viewport.ts) the parts that
+   never move would fill the box by themselves. There the whole card scrolls, as it did under
+   ADR 0023, and every part of it lets a finger drag.
 
    Without a visual viewport none of this applies and the open card is as before. On a laptop
    .scrolls is not a box of its own. */
@@ -1033,6 +1039,46 @@ textarea::placeholder {
   flex: 1 1 0;
   min-height: 3lh;
   overflow-y: auto;
+}
+/* The dictation hint in the framed card: its words on the left and "Got it" on the right, so
+   that on the first card the question, the field and the hint fit above the keyboard of most
+   phones. */
+.app.framed .card.open .hint {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 10px 12px 10px 14px;
+}
+.app.framed .card.open .hint h2 {
+  grid-column: 1;
+  margin: 0 0 2px;
+}
+.app.framed .card.open .hint p {
+  grid-column: 1;
+  margin: 0;
+}
+.app.framed .card.open .hint button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+/* while the hint is open the field may be two lines: with a question of two lines, both and the
+   hint are then in sight on the first card */
+.app.framed .card.open .scrolls:has(.hint) textarea {
+  min-height: 2lh;
+}
+/* a frame too low for a head and a foot that stay: the whole card scrolls (see above) */
+.app.framed.low .card.open {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.app.framed.low .card.open > .scrolls {
+  display: contents;
+}
+.app.framed.low .card.open .head,
+.app.framed.low .card.open .meta,
+.app.framed.low .card.open .actions {
+  touch-action: pan-y;
 }
 
 /* the answered card on its way out: drawn with its words, then gone */
@@ -1494,6 +1540,18 @@ button.tile .pen {
   flex: 1 1 0;
   min-height: calc(3lh + 27px);
   overflow-y: auto;
+}
+/* a frame too low for a foot that stays: the whole sheet scrolls, as the open card does */
+.app.framed.low .own-card.sheet {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.app.framed.low .own-card.sheet > .scrolls {
+  display: contents;
+}
+.app.framed.low .own-card.sheet .own-meta,
+.app.framed.low .own-card.sheet .own-actions {
+  touch-action: pan-y;
 }
 .own-desk {
   position: fixed;

@@ -34,9 +34,9 @@ afterEach(() => vi.unstubAllGlobals());
 type Point = { x: number; y: number };
 
 /** A touch event as a browser sends it: one entry in `touches` per finger on the screen. */
-function touch(type: string, fingers: Point[], cancelable = true): Event {
+function touch(type: string, fingers: Point[], cancelable = true, firstId = 0): Event {
   const event = new Event(type, { bubbles: true, cancelable });
-  const touches = fingers.map((p) => ({ clientX: p.x, clientY: p.y }));
+  const touches = fingers.map((p, i) => ({ identifier: firstId + i, clientX: p.x, clientY: p.y }));
   Object.defineProperty(event, 'touches', { value: touches });
   return event;
 }
@@ -150,14 +150,62 @@ describe('the guard', () => {
     expect(drag(card.question, UP.from, UP.to)).toBe(false);
   });
 
-  it('a drag more sideways than up or down moves nothing', () => {
+  it('a drag down a long text goes through however far sideways it also went', () => {
+    // The first move a phone reports is a pixel or two, often more sideways than not, and an
+    // iPhone decides on that move whether the whole drag may scroll.
     const card = anOpenCard();
     unlock = lockPage(card.page);
     scrolled(card.field, 100, 400, 100);
-    expect(drag(card.field, { x: 100, y: 200 }, { x: 160, y: 230 })).toBe(true);
-    expect(drag(card.field, { x: 100, y: 200 }, { x: 40, y: 170 })).toBe(true);
-    // The same field, the same distance up and down: it scrolls.
-    expect(drag(card.field, { x: 100, y: 200 }, { x: 130, y: 260 })).toBe(false);
+    expect(drag(card.field, { x: 100, y: 200 }, { x: 102, y: 201 })).toBe(false);
+    expect(drag(card.field, { x: 100, y: 200 }, { x: 160, y: 170 })).toBe(false);
+    // At the top of its text a finger going down has nothing to show, sideways or not.
+    scrolled(card.field, 0, 400, 100);
+    expect(drag(card.field, { x: 100, y: 200 }, { x: 102, y: 201 })).toBe(true);
+    expect(drag(card.field, { x: 100, y: 200 }, { x: 102, y: 199 })).toBe(false);
+  });
+
+  it('a move sideways only goes through when the text under it has more to show both ways', () => {
+    const card = anOpenCard();
+    unlock = lockPage(card.page);
+    // In the middle of its text: whichever way the finger turns, the field moves.
+    scrolled(card.field, 100, 400, 100);
+    expect(drag(card.field, { x: 100, y: 200 }, { x: 103, y: 200 })).toBe(false);
+    // At its top: a turn down would have nothing to move but the page.
+    scrolled(card.field, 0, 400, 100);
+    expect(drag(card.field, { x: 100, y: 200 }, { x: 103, y: 200 })).toBe(true);
+    // On the head nothing scrolls at all.
+    expect(drag(card.close, { x: 100, y: 200 }, { x: 103, y: 200 })).toBe(true);
+  });
+
+  it('a finger the guard did not see go down is stopped at its first move, and judged from there on', () => {
+    // The finger left on the screen after a pinch, or one that was down before the card opened.
+    const card = anOpenCard();
+    unlock = lockPage(card.page);
+    scrolled(card.field, 100, 400, 100);
+    const moveTo = (y: number) => {
+      const move = touch('touchmove', [{ x: 100, y }], true, 7);
+      const prevent = vi.spyOn(move, 'preventDefault');
+      card.field.dispatchEvent(move);
+      return prevent.mock.calls.length > 0;
+    };
+    // No touchstart for finger 7: its first move has no start to be judged from.
+    expect(moveTo(300)).toBe(true);
+    // From there on it is judged like any other: up a long text goes through.
+    expect(moveTo(280)).toBe(false);
+    // And on the head it moves nothing.
+    const onHead = touch('touchmove', [{ x: 100, y: 250 }], true, 7);
+    const prevent = vi.spyOn(onHead, 'preventDefault');
+    card.close.dispatchEvent(onHead);
+    expect(prevent.mock.calls.length).toBe(1);
+  });
+
+  it('a handler that stops a touch from travelling up the page does not hide it from the guard', () => {
+    const card = anOpenCard();
+    unlock = lockPage(card.page);
+    const swallow = (event: Event) => event.stopPropagation();
+    card.close.addEventListener('touchstart', swallow);
+    card.close.addEventListener('touchmove', swallow);
+    expect(drag(card.close, UP.from, UP.to)).toBe(true);
   });
 
   it('two fingers are left alone', () => {
@@ -203,7 +251,14 @@ describe('the guard', () => {
     expect(stopsMove(0, -10, [at(300), at(100)])).toBe(false);
     expect(stopsMove(0, -10, [at(300), at(300)])).toBe(true);
     expect(stopsMove(0, -10, [])).toBe(true);
-    expect(stopsMove(11, 10, [at(100)])).toBe(true);
+    // How far sideways a move also went does not count.
+    expect(stopsMove(11, 10, [at(100)])).toBe(false);
+    expect(stopsMove(11, 10, [at(0)])).toBe(true);
+    // Sideways only: through when one element has more both ways.
+    expect(stopsMove(11, 0, [at(100)])).toBe(false);
+    expect(stopsMove(11, 0, [at(0)])).toBe(true);
+    expect(stopsMove(11, 0, [at(300)])).toBe(true);
+    expect(stopsMove(11, 0, [])).toBe(true);
     expect(stopsMove(0, 0, [])).toBe(false);
   });
 });
@@ -238,9 +293,15 @@ function held(): boolean[] {
   return targets.map((t) => drag(t, UP.from, UP.to));
 }
 
+/** What a phone's browser reports of the visible part; enough for the app to frame the card. */
+class StandIn extends EventTarget {
+  height = 768;
+  offsetTop = 0;
+}
+
 describe('the app holds the page', () => {
   it('the page is held while a card is open on a phone and let go when it closes', async () => {
-    // No visual viewport in a test DOM: the guard does not depend on one.
+    vi.stubGlobal('visualViewport', new StandIn());
     const app = await onACard();
     renderApp(app);
     expect(held()).toEqual([false, false]);
@@ -253,6 +314,7 @@ describe('the app holds the page', () => {
   });
 
   it('the page is held while the place to write is open on a phone and let go when it closes', async () => {
+    vi.stubGlobal('visualViewport', new StandIn());
     const app = await onACard();
     const user = userEvent.setup();
     renderApp(app);
@@ -265,7 +327,22 @@ describe('the app holds the page', () => {
     expect(held()).toEqual([false, false]);
   });
 
+  it('where the browser reports no visual viewport the page is not held: there the page is what scrolls', async () => {
+    // The card is laid out as before ADR 0023 there, with no box of its own to scroll in.
+    vi.stubGlobal('visualViewport', undefined);
+    const app = await onACard();
+    renderApp(app);
+    app.openCard();
+    await tick();
+    expect(held()).toEqual([false, false]);
+    app.closeCard();
+    app.openOwnCard();
+    await screen.findByRole('dialog');
+    expect(held()).toEqual([false, false]);
+  });
+
   it('on a laptop the page is never held', async () => {
+    vi.stubGlobal('visualViewport', new StandIn());
     const app = await onACard({ wide: true });
     renderApp(app);
     app.openCard();

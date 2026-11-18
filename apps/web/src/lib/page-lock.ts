@@ -10,7 +10,8 @@
  * the page. A drag is let through only when it lands on something that scrolls up and down and
  * has more to show in the direction the finger goes: the text in the field, or the part of the
  * card around it. Every other drag is cancelled, and nothing moves. Two fingers are never
- * touched, so a pinch still zooms. This is the one place in the client that cancels a touch.
+ * touched: a pinch is left to the browser. This is the one place in the client that cancels a
+ * touch.
  */
 
 /** What the guard reads of an element that scrolls; a test hands in plain numbers. */
@@ -34,14 +35,22 @@ export function hasMore(scroller: Scroller, dy: number): boolean {
 
 /**
  * Whether a one-finger move of (`dx`, `dy`) from where the finger went down is stopped, given
- * the elements that scroll up and down under it, innermost first. A move more sideways than up
- * or down is stopped: nothing in an open card scrolls sideways. A move that has not gone
- * anywhere yet is left alone. Otherwise the move goes through only when one of those elements
- * has more to show in its direction.
+ * the elements that scroll up and down under it, innermost first.
+ *
+ * - A move that has not gone anywhere yet is left alone.
+ * - A move with any up or down in it goes through only when one of those elements has more to
+ *   show that way. How far sideways it also went does not count: the first move a phone reports
+ *   is a pixel or two, often more sideways than not, and an iPhone decides on that first move
+ *   whether the whole drag may scroll. A drag down a long text must not be refused for it.
+ * - A move that is sideways only goes through when one of those elements has more to show both
+ *   ways: whichever way the finger turns next, it is that element that moves, not the page.
+ *
+ * The direction is taken from where the finger went down, not from its last step: one pixel
+ * back against the drag would otherwise let a drag through that the page then follows.
  */
 export function stopsMove(dx: number, dy: number, scrollers: readonly Scroller[]): boolean {
   if (dx === 0 && dy === 0) return false;
-  if (Math.abs(dx) > Math.abs(dy)) return true;
+  if (dy === 0) return !scrollers.some((s) => hasMore(s, 1) && hasMore(s, -1));
   return !scrollers.some((s) => hasMore(s, dy));
 }
 
@@ -87,30 +96,43 @@ function browserScale(): number {
  */
 export function lockPage(root: HTMLElement, options: LockOptions = {}): () => void {
   const scale = options.scale ?? browserScale;
+  // The finger being followed, and where it went down.
+  let finger: number | null = null;
   let startX = 0;
   let startY = 0;
+  const follow = (touch: Touch) => {
+    finger = touch.identifier;
+    startX = touch.clientX;
+    startY = touch.clientY;
+  };
   const onStart = (event: TouchEvent) => {
     const touch = event.touches[0];
     if (event.touches.length !== 1 || !touch) return;
-    startX = touch.clientX;
-    startY = touch.clientY;
+    follow(touch);
   };
   const onMove = (event: TouchEvent) => {
     const touch = event.touches[0];
     // Two fingers or more: a pinch, left to the browser.
     if (event.touches.length !== 1 || !touch) return;
+    // A finger this guard did not see go down: the one left on the screen after a pinch, or one
+    // that was down before the card opened. It is followed from here on.
+    const seen = touch.identifier === finger;
+    if (!seen) follow(touch);
     // A move the browser has already started to scroll can no longer be cancelled.
     if (!event.cancelable) return;
     // Pinched in: one finger moves the zoomed view, which a person needs to read.
     if (scale() > 1.01) return;
+    // No start to judge this move from, so it is stopped: holding the page comes first.
+    if (!seen) return event.preventDefault();
     const dx = touch.clientX - startX;
     const dy = touch.clientY - startY;
     if (stopsMove(dx, dy, scrollersFrom(event.target, root))) event.preventDefault();
   };
-  document.addEventListener('touchstart', onStart, { passive: true });
-  document.addEventListener('touchmove', onMove, { passive: false });
+  // In the capture phase: no handler further down can keep a touch from the guard.
+  document.addEventListener('touchstart', onStart, { passive: true, capture: true });
+  document.addEventListener('touchmove', onMove, { passive: false, capture: true });
   return () => {
-    document.removeEventListener('touchstart', onStart);
-    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchstart', onStart, { capture: true });
+    document.removeEventListener('touchmove', onMove, { capture: true });
   };
 }

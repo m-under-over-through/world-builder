@@ -30,6 +30,14 @@ export const VV_TOP = '--vv-top';
  */
 export const KEYBOARD_MIN = 150;
 
+/**
+ * Under this height the frame is too low for a head and a foot that stay in place (ADR 0025):
+ * the close button, the counter, the row with "Save", the strip under it and the card's own
+ * edges take about 195 pixels, and three lines of the field 78. A phone on its side with the
+ * keyboard up leaves less than 200. There the whole card scrolls, as it did under ADR 0023.
+ */
+export const LOW_FRAME = 280;
+
 /** What the module reads of `window.visualViewport`; a test hands in a stand-in. */
 export interface ViewportLike {
   readonly height: number;

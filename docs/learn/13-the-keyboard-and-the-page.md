@@ -31,12 +31,21 @@ While a card is open on a phone, `apps/web/src/lib/viewport.ts` copies the two n
 `apps/web/src/lib/page-lock.ts` listens to every finger on the page while a card is open on a phone.
 
 1. When a finger goes down, it notes where.
-2. When it moves, the guard looks at which way it went from there. Mostly sideways: stop it, since nothing in an open card scrolls sideways.
-3. Up or down: it walks from the element under the finger up through the elements around it, and asks each one that scrolls up and down whether it has more to show that way. A finger moving up shows what is below: is the element short of its end? A finger moving down shows what is above: is it past its top?
+2. When it moves, the guard looks at which way it went from there: up or down. How far sideways it also went does not count.
+3. It walks from the element under the finger up through the elements around it, and asks each one that scrolls up and down whether it has more to show that way. A finger moving up shows what is below: is the element short of its end? A finger moving down shows what is above: is it past its top?
 4. If one of them has more to show, the move goes through and the browser scrolls it. If none has, the guard cancels the move (`preventDefault`), and nothing moves at all.
-5. Two fingers are never stopped: a pinch still zooms. A page already pinched in keeps one finger for moving around it.
+5. A move that is sideways only goes through when one of them has more to show both ways. Whichever way the finger turns next, it is then that element that moves, not the page.
+6. Two fingers are never stopped: a pinch is left to the browser. A page already pinched in keeps one finger for moving around it.
 
-Two details make this work on an iPhone. The guard listens with `passive: false`: Safari treats a page's touch listeners as passive otherwise, and ignores a cancel from them. And the parts of the card that never scroll (the head, the counter, the buttons, the grey around the place to write) carry `touch-action: pinch-zoom` in the stylesheet, so the browser knows ahead of time that a drag there moves nothing. That is not put on the card itself: a browser takes `touch-action` from every box around an element, and the field inside could then not be scrolled with a finger.
+Three details make this work on an iPhone.
+
+- The guard listens with `passive: false`: Safari treats a page's touch listeners as passive otherwise, and ignores a cancel from them.
+- An iPhone decides on the first move of a drag whether the drag may scroll. That first move is a pixel or two, often more sideways than not. So the guard never waits for a clearer direction, and never refuses a drag down a long text because it began a pixel to the side.
+- The parts of the card that never scroll (the head, the counter, the buttons, the grey around the place to write) carry `touch-action: pinch-zoom` in the stylesheet, so the browser knows ahead of time that a drag there moves nothing. That is not put on the card itself: a browser takes `touch-action` from every box around an element, and the field inside could then not be scrolled with a finger.
+
+## When the box is very low
+
+A phone on its side with the keyboard up leaves less than 200 pixels. The close button and the row with "Save" would fill that by themselves, and the field would have no height. Under 280 pixels (`LOW_FRAME` in `viewport.ts`) the app marks the root `low`, and the stylesheet lets the whole card scroll instead, as it did before ADR 0025. The page is still held.
 
 ## Why the field takes the focus only once its box is in place
 

@@ -346,7 +346,7 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(rule('.sheet')['animation']).toMatch(/^sheet-in /);
   });
 
-  it('a finger on the parts of an open card that never move may only pinch; nothing that holds a field refuses a drag (ADR 0025)', () => {
+  it('a finger on the parts of an open card that never move cannot drag it; nothing that holds a field refuses a drag (ADR 0025)', () => {
     for (const selector of [
       '.app.framed .card.open .head',
       '.app.framed .card.open .meta',
@@ -367,6 +367,28 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     for (const r of rules)
       if (r.body['touch-action'] && r.body['touch-action'] !== 'pan-y')
         for (const s of r.selectors) expect(holdsAField(s), s).toBe(false);
+  });
+
+  it('in a frame too low for a head and a foot that stay, the whole card scrolls and every part of it lets a finger drag (ADR 0025)', () => {
+    for (const [box, fixed] of [
+      ['.app.framed.low .card.open', ['.head', '.meta', '.actions']],
+      ['.app.framed.low .own-card.sheet', ['.own-meta', '.own-actions']],
+    ] as const) {
+      expect(rule(box)['overflow-y'], box).toBe('auto');
+      expect(rule(box)['overscroll-behavior'], box).toBe('contain');
+      // The part that scrolls is no box of its own there: the card is the one thing that scrolls.
+      expect(rule(`${box} > .scrolls`)['display'], box).toBe('contents');
+      for (const part of fixed)
+        expect(rule(`${box} ${part}`)['touch-action'], `${box} ${part}`).toBe('pan-y');
+    }
+  });
+
+  it('the dictation hint in the framed card is one row, and the field may be two lines beside it (ADR 0025)', () => {
+    const hint = rule('.app.framed .card.open .hint');
+    expect(hint['display']).toBe('grid');
+    expect(hint['grid-template-columns']).toBe('1fr auto');
+    expect(rule('.app.framed .card.open .hint button')['grid-column']).toBe('2');
+    expect(rule('.app.framed .card.open .scrolls:has(.hint) textarea')['min-height']).toBe('2lh');
   });
 
   it('the document says its language', () => {

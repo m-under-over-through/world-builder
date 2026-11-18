@@ -16,6 +16,7 @@ import {
   KEYBOARD_MIN,
   KEYBOARD_WAIT_MS,
   keyboardUp,
+  LOW_FRAME,
   VV_HEIGHT,
   VV_TOP,
 } from '../src/lib/viewport.ts';
@@ -262,6 +263,29 @@ describe('the open card on a phone', () => {
     expect(property(VV_HEIGHT)).toBe('');
     expect(root().classList.contains('framed')).toBe(false);
     expect(root().classList.contains('keyboard-up')).toBe(false);
+  });
+
+  it('a frame too low for a head and a foot that stay is marked, and unmarked when it is tall again or the card closes', async () => {
+    // A phone on its side with the keyboard up: the whole card scrolls there (ADR 0025).
+    const viewport = new StandIn();
+    vi.stubGlobal('visualViewport', viewport);
+    const app = await onACard();
+    renderApp(app);
+    app.openCard();
+    await tick();
+    expect(root().classList.contains('low')).toBe(false);
+    viewport.resize(LOW_FRAME - 1);
+    await tick();
+    expect(root().classList.contains('low')).toBe(true);
+    viewport.resize(LOW_FRAME);
+    await tick();
+    expect(root().classList.contains('low')).toBe(false);
+    viewport.resize(200);
+    await tick();
+    expect(root().classList.contains('low')).toBe(true);
+    app.closeCard();
+    await tick();
+    expect(root().classList.contains('low')).toBe(false);
   });
 
   it('without visualViewport the open card is laid out as before', async () => {

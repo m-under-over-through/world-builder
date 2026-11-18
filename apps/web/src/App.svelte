@@ -7,7 +7,7 @@
   import { fill } from './lib/copy.ts';
   import { AppState } from './lib/state.svelte.ts';
   import { lockPage } from './lib/page-lock.ts';
-  import { followViewport, hasVisualViewport, touchScreen } from './lib/viewport.ts';
+  import { followViewport, hasVisualViewport, LOW_FRAME, touchScreen } from './lib/viewport.ts';
   import About from './screens/About.svelte';
   import Card from './screens/Card.svelte';
   import Closed from './screens/Closed.svelte';
@@ -60,27 +60,33 @@
 
   /**
    * The open card above the keyboard (ADR 0023 and ADR 0025; lib/viewport.ts, lib/page-lock.ts).
-   * While a card or the place to write is open on a phone (`writing`):
+   * While a card or the place to write is open on a phone (`writing`), and the browser reports a
+   * visual viewport (`framed`):
    *
+   * - The app's root carries the visual viewport's height and top, and the stylesheet makes the
+   *   open card, or the place to write, that box: a fixed box whose text scrolls inside the
+   *   field. A strip stays free under it while the keyboard is up (`keyboard-up`), where Safari
+   *   floats its address bar. `framed` is derived, so it is on the root in the same render that
+   *   shows the card; the two properties follow in the effect, before the field takes the focus
+   *   after `tick()`.
    * - The page is held (`lockPage`): a finger dragged anywhere moves nothing, unless it is on
-   *   text that has more to show that way. Two fingers still zoom.
-   * - Where the browser reports a visual viewport, the app's root carries its height and top,
-   *   and the stylesheet makes the open card, or the place to write, that box (`framed`): a
-   *   fixed box whose text scrolls inside the field. A strip stays free under it while the
-   *   keyboard is up (`keyboard-up`), where Safari floats its address bar. `framed` is derived,
-   *   so it is on the root in the same render that shows the card; the two properties follow in
-   *   the effect, before the field takes the focus after `tick()`. Where the browser has no
-   *   visual viewport nothing is set and the card is laid out as before.
+   *   text that has more to show that way.
+   * - When the box is too low for a head and a foot that stay (`low`: a phone on its side, a
+   *   very small phone), the whole card scrolls instead, as it did under ADR 0023.
+   *
+   * Where the browser has no visual viewport nothing is set, the card is laid out as before,
+   * and the page is not held: there the page is the only thing that can scroll.
    *
    * When the card closes the page goes back to where it was, in case the browser scrolled it.
    */
   let root: HTMLDivElement | undefined = $state();
   let keyboardIsUp = $state(false);
+  let low = $state(false);
   const writing = $derived(!app.wide && ((loop && app.cardState !== 'fresh') || ownCardShown));
   // Read when `writing` turns true: a test that takes the visual viewport away is read then.
   const framed = $derived(writing && hasVisualViewport());
   $effect(() => {
-    if (!writing || !root) return;
+    if (!framed || !root) return;
     return lockPage(root);
   });
   $effect(() => {
@@ -90,11 +96,15 @@
     // height the keyboard is expected to leave, so the card does not open tall and then jump.
     const stop = followViewport(root, {
       expectKeyboard: touchScreen(),
-      onChange: (frame) => (keyboardIsUp = frame.keyboard),
+      onChange: (frame) => {
+        keyboardIsUp = frame.keyboard;
+        low = frame.height < LOW_FRAME;
+      },
     });
     return () => {
       stop?.();
       keyboardIsUp = false;
+      low = false;
       if (window.scrollY !== scrolled) window.scrollTo(0, scrolled);
     };
   });
@@ -157,6 +167,7 @@
   class:phone-loop={phoneLoop}
   class:framed
   class:keyboard-up={keyboardIsUp}
+  class:low
   bind:this={root}
 >
   <header class="topbar" inert={behindSheet || framed}>
