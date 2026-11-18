@@ -2656,3 +2656,28 @@ The page cannot ask where the keyboard will stop. It can guess, and it can remem
 
 - The first card opened after a page load still moves once, by the difference between the guess and the real height. Marco's phone will say whether that is small enough.
 - Android Chrome reports the visible part while the keyboard moves. The guess is replaced earlier there; not seen on a device.
+
+## 2026-11-18, Wednesday night. Deck 0.7: one card loses an extra word (pull request 69)
+
+### What
+
+- `workshops/rural-manufacturing/deck.json`: version 0.7. One text changes against 0.6, after Marco corrected the sheet: `plant-sound` reads "when you walk around during the day", without the "in" that stood after "walk around".
+
+### Why
+
+The extra "in" was the last of the three slips reported with deck 0.5. Marco fixed it in the sheet on 18 November, before the production link goes to Mechanism.
+
+### How to verify
+
+1. `npm run check`: 596 tests.
+2. `git diff 4fede27 -- workshops/rural-manufacturing/deck.json` shows two lines: the version and the one text.
+3. On staging, the card that asks what you can hear from the street reads without the "in".
+
+### Decisions made on the way
+
+- The whole sheet was read and compared again, not only the one row. Nothing else differs: 120 cards, 84 warm-ups and 36 checkpoints, the same ids in the same order.
+- No separate reviewer: the change is one word of one card, taken from the sheet.
+
+### Open questions
+
+- None. The open question of pull request 64 about this card is closed.
