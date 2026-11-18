@@ -2348,3 +2348,44 @@ The cards are Marco's and Mechanism's to write, in the sheet; the app takes a co
 - Three rows look like slips and were reported to Marco, not changed: the card `failed` now asks about the busiest local government office, almost the words of `busiest-office`, and "What failed?" is gone; `tuesday-night` reads "on typical Tuesday night"; `plant-sound` reads "walk around in during the day".
 - The new line says "until the end of November". The welcome, the about page, the terms and the policy say 6 December 2026, and `closesDay` is `2026-12-06`. One of the two has to change before the invitations go out.
 - With warm-ups three to a round and checkpoints one, the 84 warm-ups last 28 rounds and use 28 of the 36 checkpoints; the last rounds are checkpoints only.
+
+## 2026-11-18, Wednesday. The blank card: write your own card (pull request 62, draft)
+
+### What
+
+- `apps/web/src/lib/own-card.ts`: `newOwnCardId`, `own-` and the first eight characters of a link value (lib/invitations.ts), so one generator makes both.
+- `apps/web/src/lib/state.svelte.ts`: `ownCardOffered`, `openOwnCard`, `closeOwnCard`, `saveOwnCard`, and the draft in memory. `record` takes a card id. `world` adds a tile for each blank card, after the round's card tiles, in seq order.
+- `apps/web/src/components/OwnCard.svelte`: the place to write. A sheet on a phone (the `.sheet` style), a wide card over the desk on a laptop. A modal dialog: focus into the field, kept inside, back to the button on closing; Esc, "Not now" and the scrim close it.
+- `Stack.svelte`: "Write your own card", a quiet text button under Set aside; under the thank-you card once the deck is done. The counter constants moved to its module script so the blank card shares them.
+- `World.svelte`: a blank card's tile, white with an ink line, labelled "Your own card", with no question.
+- `App.svelte`: the page behind is `inert` while the blank card is open, on a laptop too.
+- `workshops/rural-manufacturing/copy.md`: the screen "Your own card", seven blocks; their names in `lib/copy.ts`.
+- `docs/screen-map.md`: one row under "Always reachable".
+
+### Why
+
+Marco asked for a place for a story that no card asks for. ADR 0022 (proposed) says what it is: a card with no question, saved as an `answered` event like any other, with an id that no deck may use. The server already stores any card id, so nothing changes there.
+
+### How to verify
+
+1. `npm run check`: 541 tests. The new ones are in `apps/web/test/own-card.test.ts` (the id, the place to write, what saving records and leaves alone, the deck done, the tile on another device) and in `apps/web/test/accessibility.test.ts` (focus, Esc, inert, headings, 44 pixels, the alert).
+2. On the preview, open the join link with a new value after `#p=`, press "I understand", then "Got it". Press "Write your own card", write, press "Not now", press it again: the words are there. Press "Save": the same card is in front, and "Your world so far" has a white tile "Your own card".
+3. The same at laptop width: a wide card over the desk, and the tile in the right column.
+
+### Decisions made on the way
+
+- The id reuses `newValue` and keeps its first eight characters, rather than a second loop over random bytes.
+- The blank card's tile and its writing card are white, not tinted: it has no number in the round, and white reads as an empty index card. The tile has an ink line so it is not taken for a card set aside, which has a light line.
+- Saving a blank card adds its id to the round's answered ids, as a replay of the round would do; the deck engine ignores ids it does not hold. A reload lands on the same card.
+- The screen reader hears "Saved", the word a card's save already uses; no new copy.
+- The button is not shown while a card is open, as Set aside is not.
+- The scrim closes the blank card, as on the world sheet. The words stay, so nothing is lost.
+- No swipe down and no grabber on the phone sheet: a swipe in a large text field is a scroll.
+- The line about names stands above the field, under the hint, as the brief orders them.
+- The count of answers on the laptop's top bar and on the pill includes blank cards, since they are tiles.
+
+### Open questions
+
+- `sealAnswer` (packages/crypto) checks the length in UTF-16 units; the client cuts by code points. A text of 4,000 code points with an emoji in it is refused with `CLIENT_SEAL_FAILED`. This is already so for a card; a long free text makes it likelier. The fix is in `packages/crypto`, which this change does not touch.
+- Everything in ADR 0022's "Open, for Marco on the preview": the name, the button's place and how quiet it is, one or several, the limit, the words of the hint.
+- The privacy policy's "What we store" should gain a few words for a card the participant writes (ADR 0022). Marco's file.
