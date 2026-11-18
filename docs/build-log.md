@@ -2318,3 +2318,33 @@ Mechanism writes each invitation in Gmail, with a personal note, so no tool puts
 
 - The welcome's line "Welcome: your link" says to use "the links at the foot of the email". In the invitation text the spare links follow the own link at the end of the block; whether they are at the foot depends on where Mechanism puts the personal note. Marco's words to align, in `copy.md`.
 - The in-app browser used for the look refused the clipboard, so the good copy was seen in the tests and, in the browser, only with the clipboard replaced from the console. A real copy and paste on a Mac and on a phone is still to do.
+
+## 18 November 2026: deck 0.5, every card of the sheet; the invitation's opening line (pull request 61)
+
+### What
+
+- `workshops/rural-manufacturing/deck.json`: version 0.5, 120 cards, from the one tab ("Cards") of Marco's sheet, read on 18 November. Every row is in: Marco and Mechanism dropped the shortlist. 84 warm-ups, 36 checkpoints, twelve areas.
+- Against deck 0.4 (54 cards): 74 cards are new; 8 are gone (`grows-for-factory`, `town-known-for`, `what-town-makes`, `through-the-plant`, `how-goods-leave`, `lunch-break`, `town-meeting`, `town-celebrates`); 9 have new words; `trash-now-valuable` moved from the warm-ups to the checkpoints.
+- `workshops/rural-manufacturing/copy.md`, block "Invitation: text": the first line is now Marco's, "This is your link, you can reopen it until the end of November:".
+
+### Why
+
+The cards are Marco's and Mechanism's to write, in the sheet; the app takes a copy with a version when Marco says so. This is the copy they want to launch with.
+
+### How to verify
+
+1. `npm run check`: 525 tests. "the real workshop deck plays to its end under the rules" runs on this file.
+2. On staging, open the join link with a new value after `#p=` and go through a round: three warm-ups, then a checkpoint.
+3. On staging, the invitation page: "New set" gives a text that starts with the new line.
+
+### Decisions made on the way
+
+- The rows are taken as they are. Nothing was reworded, and the ids are the sheet's, also where an id no longer says what its card asks.
+- The import script reads the rows, trims the cells, checks each card against the schema (the id's shape, the set, the lengths), refuses a repeated id, and prints what changed against the deck in the repository before it writes. It stays in the session's scratch folder, as before.
+- A phone that answered one of the eight removed cards on staging keeps working: "Your world so far" leaves out a tile whose card is no longer in the deck. A round in progress is planned again from the new deck.
+
+### Open questions
+
+- Three rows look like slips and were reported to Marco, not changed: the card `failed` now asks about the busiest local government office, almost the words of `busiest-office`, and "What failed?" is gone; `tuesday-night` reads "on typical Tuesday night"; `plant-sound` reads "walk around in during the day".
+- The new line says "until the end of November". The welcome, the about page, the terms and the policy say 6 December 2026, and `closesDay` is `2026-12-06`. One of the two has to change before the invitations go out.
+- With warm-ups three to a round and checkpoints one, the 84 warm-ups last 28 rounds and use 28 of the 36 checkpoints; the last rounds are checkpoints only.
