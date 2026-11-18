@@ -115,6 +115,10 @@ Meaning: an unexpected exception inside a route. The response carries an `errorI
 
 Meaning: the deploy context has no `DATABASE_URL`, or one that is not a `postgres://` URL with a user, a host and a database, or no `WB_PEPPER`, or a pepper that is not 32 bytes in base64. The function answers every `/api/*` path with 503 and this code, before the app exists; the client shows the code. The monitor on `/api/health` alerts, since `"ok":true` is absent. Cause: a context whose variables were never set (Production before hardening week; a deploy preview of a pull request from a fork, which Netlify keeps secret variables away from), a variable set after the deploy (a change reaches only later deploys), or a pepper pasted with a character missing. Check: the function log (Netlify, the deploy's Functions tab) for the line `SERVER_NOT_CONFIGURED <reason>`, which names the variable and never its value (for a connection string that does not parse: `DATABASE_URL must be a postgres:// URL with a user, a host and a database (the value is not shown)`, usually a password with a character that needs percent-encoding, or a stray character pasted with it); then Netlify, Project configuration, Environment variables, which contexts hold a value. Fix: set the value for that context (`docs/account-setup.md`, section 5), then Deploys, Trigger deploy. Confirm: `/api/health` answers 200 with `"ok":true`.
 
+## Reading the export: blank cards
+
+A row of the export whose `card` starts with `own-` is a blank card: a text the participant wrote under no question (ADR 0022). The rest of the id is random and means nothing. Every other `card` value is an id from the deck of the row's `deck` version.
+
 ## Client error codes
 
 ### CLIENT_STORAGE_UNAVAILABLE
