@@ -26,6 +26,12 @@ export interface ReadableAnswer {
   sessionId: string;
   cardId: string;
   text: string;
+  /**
+   * The `answered` event these words are the text of (ADR 0024). A card can be answered again in
+   * the same round on another phone; this phone's copy under the same key is then of an earlier
+   * answer, and must not be shown as the latest. Absent on a copy written before 18 November 2026.
+   */
+  eventId?: string;
 }
 
 export function answerKey(sessionId: string, cardId: string): string {

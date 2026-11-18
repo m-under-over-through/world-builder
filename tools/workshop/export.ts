@@ -87,6 +87,7 @@ try {
 const rows = await db
   .select({
     participantId: participants.id,
+    eventId: events.id,
     createdDay: participants.createdDay,
     wave: participants.wave,
     sessionNo: sessions.sessionNo,
@@ -118,7 +119,10 @@ rows.sort(
   (a, b) =>
     pseudonym(a.participantId).localeCompare(pseudonym(b.participantId)) ||
     a.sessionNo - b.sessionNo ||
-    a.seq - b.seq,
+    a.seq - b.seq ||
+    // Two phones on one round can give two events the same place. The id settles it, the same
+    // way the client does (apps/web/src/lib/session.ts), so the file and the phone agree.
+    (a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0),
 );
 
 // ---- the latest answer per participant and card (ADR 0024) ----

@@ -91,26 +91,27 @@ function eventsBefore(history: History, session: Session): Event[] {
  * `eventsBefore` treats it.
  */
 export function latestAnswers(history: History): Map<string, Event> {
-  return pickAnswers(history, (a, b) => a > b);
+  return pickAnswers(history, 1);
 }
 
 /** The first answer to each card, by the same order: where its tile stands (ADR 0024). */
 export function firstAnswers(history: History): Map<string, Event> {
-  return pickAnswers(history, (a, b) => a < b);
+  return pickAnswers(history, -1);
 }
 
-function pickAnswers(
-  history: History,
-  wins: (a: number, b: number) => boolean,
-): Map<string, Event> {
+function pickAnswers(history: History, side: 1 | -1): Map<string, Event> {
   const numberOf = new Map(history.sessions.map((s) => [s.id, s.sessionNo]));
   const no = (e: Event) => numberOf.get(e.sessionId) ?? 0;
+  // By the round's number, then the place in the round, then the event's id. The id decides
+  // nothing a person could see; it is there because two phones on one round can give two events
+  // the same place, and the device and the export must then pick the same one (ADR 0024).
+  const order = (a: Event, b: Event) =>
+    no(a) - no(b) || a.seq - b.seq || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const picked = new Map<string, Event>();
   for (const e of history.events) {
     if (e.kind !== 'answered') continue;
     const held = picked.get(e.cardId);
-    if (!held || wins(no(e), no(held)) || (no(e) === no(held) && wins(e.seq, held.seq)))
-      picked.set(e.cardId, e);
+    if (!held || order(e, held) * side > 0) picked.set(e.cardId, e);
   }
   return picked;
 }

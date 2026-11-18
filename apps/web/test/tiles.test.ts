@@ -447,4 +447,48 @@ describe('on another device', () => {
       'Written here first',
     );
   });
+
+  it('an answer changed on another device in the same round shows no words here and is not a button, though this device holds a copy under the same key', async () => {
+    // Two phones on one link share the round. The copy is kept by round and card, so this
+    // phone's earlier words sit under the very key the later answer has. Shown as the latest,
+    // a Save here would replace words this phone has never seen (the review of pull request 67).
+    const app = await started();
+    const cardId = await answerFront(app, 'Written here first');
+    const round = app.live!.session;
+    const key = answerKey(round.id, cardId);
+    expect(app.world.tiles.find((t) => t.cardId === cardId)).toEqual(
+      expect.objectContaining({ answer: 'Written here first', opens: true }),
+    );
+    // The other phone changes the answer in the same round; its event comes back with a sync.
+    const theirs = answered(round, cardId, app.live!.nextSeq + 5);
+    app.history = { ...app.history, events: [...app.history.events, theirs] };
+    expect(app.copies.get(key)).toBe('Written here first');
+    const tile = app.world.tiles.find((t) => t.cardId === cardId)!;
+    expect(tile.answer).toBeNull();
+    expect(tile.opens).toBe(false);
+    app.openTile(cardId);
+    expect(app.ownCardOpen).toBe(false);
+    // Still so after a reload: the stored copy names the answer it is the words of.
+    const stored = (await app.store!.answers()).find((a) => a.key === key)!;
+    expect(stored.eventId).toBeDefined();
+    expect(stored.eventId).not.toBe(theirs.id);
+  });
+
+  it('a copy from before copies named their answer counts only when the round holds one answer to the card', async () => {
+    const app = await started();
+    const cardId = await answerFront(app, 'Written before the change');
+    const round = app.live!.session;
+    const key = answerKey(round.id, cardId);
+    // As an older version of the app left it: the words, and no event named.
+    app.copyEvents = new Map();
+    expect(app.world.tiles.find((t) => t.cardId === cardId)!.answer).toBe(
+      'Written before the change',
+    );
+    app.history = {
+      ...app.history,
+      events: [...app.history.events, answered(round, cardId, app.live!.nextSeq + 5)],
+    };
+    expect(app.copies.get(key)).toBe('Written before the change');
+    expect(app.world.tiles.find((t) => t.cardId === cardId)!.answer).toBeNull();
+  });
 });

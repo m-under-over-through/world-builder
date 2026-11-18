@@ -2614,6 +2614,15 @@ The reviewer's verdict was to fix one thing first, and it is fixed in this pull 
 
 Three tests pin the first three with stand-ins. No test DOM lays anything out, so the real proof of all four is a phone.
 
+### After the review
+
+The reviewer's verdict was to fix one thing first. Both of its findings are fixed in this pull request.
+
+- **A tile could open with words that were not the latest.** The readable copy is kept by round and card. Two phones on one link share the round, so when the second phone changed an answer, the first phone still found its own earlier words under the very same key, showed them as the answer, and offered to change them. A Save there would have replaced words that phone had never shown. A copy now names the `answered` event it is the words of (`eventId` in `lib/store.ts`), and a tile shows words and opens only when that event is the latest one. A copy written before this change has no event named: it counts only when the round holds a single answer to the card.
+- **The phone and the export could pick different answers on a tie.** Two phones on one round each count places from their own next one, so two answers can share a round and a place. The phone took the first it held, the export the last the database returned. Both now order by the round, the place, then the event's id.
+- Not changed: a card set aside opens with the words left in it when it was set aside, if there were any. The record says "opens empty"; one draft per card is what "Not now keeps the words" needs, and the log says so here.
+- Not changed: after saving a set-aside card from its tile on a laptop, the focus is not put on the new tile.
+
 ## 2026-11-18, Wednesday evening. The open card starts at the size the keyboard will leave (pull request 68)
 
 ### What

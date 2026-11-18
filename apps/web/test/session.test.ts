@@ -312,6 +312,21 @@ describe('the latest answer (ADR 0024)', () => {
     expect(latestAnswers(withOrphan).get('w-02')).toBe(other);
   });
 
+  it('two answers at the same place in the same round: the event id decides, whatever order they are held in, so the phone and the export agree', () => {
+    // Two phones on one round each count from their own next place.
+    const one = session(1);
+    const a = { ...event(one, 4, 'answered', 'w-01'), id: '00000000-0000-4000-8000-0000000000aa' };
+    const b = { ...event(one, 4, 'answered', 'w-01'), id: '00000000-0000-4000-8000-0000000000bb' };
+    for (const events of [
+      [a, b],
+      [b, a],
+    ]) {
+      const history = { sessions: [one], events };
+      expect(latestAnswers(history).get('w-01')).toBe(b);
+      expect(firstAnswers(history).get('w-01')).toBe(a);
+    }
+  });
+
   it('the cards set aside are those of every round, oldest first, once each, and never one answered since', () => {
     const one = session(1);
     const two = session(2);

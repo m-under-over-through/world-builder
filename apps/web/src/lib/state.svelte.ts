@@ -288,6 +288,8 @@ export class AppState {
   history = $state.raw<History>({ sessions: [], events: [] });
   /** The readable copies of the answers written on this device, by `answerKey` (ADR 0014). */
   copies = $state.raw<ReadonlyMap<string, string>>(new Map());
+  /** Which `answered` event each copy is the words of, by the same key (ADR 0024; lib/store.ts). */
+  copyEvents = $state.raw<ReadonlyMap<string, string>>(new Map());
   /** True on a screen 600 pixels or wider: the world is a column beside the stack, not a sheet. */
   wide = $state(false);
   /** The sheet "Your world so far" is open (phone). */
@@ -439,9 +441,22 @@ export class AppState {
           : planAsStarted(deck, config, session, this.history).queue;
       // The first answers of this round: one per card, so a card answered twice is one tile.
       const ofSession = [...first.values()].filter((e) => e.sessionId === session.id);
+      // The words of the latest answer, if this device wrote that very answer (ADR 0024). The
+      // copy is keyed by round and card, and a second phone can answer the card again in the
+      // same round: this phone's copy would then be of the earlier answer. So the copy must be
+      // of the latest event. A copy from before copies named their event counts only when the
+      // round holds one answer to the card.
       const words = (cardId: string) => {
         const last = latest.get(cardId)!;
-        return this.copies.get(answerKey(last.sessionId, cardId)) ?? null;
+        const key = answerKey(last.sessionId, cardId);
+        const text = this.copies.get(key);
+        if (text === undefined) return null;
+        const of = this.copyEvents.get(key);
+        if (of !== undefined) return of === last.id ? text : null;
+        const inRound = this.history.events.filter(
+          (e) => e.kind === 'answered' && e.sessionId === last.sessionId && e.cardId === cardId,
+        ).length;
+        return inRound === 1 ? text : null;
       };
       const answered = ofSession
         .filter((e) => cards.has(e.cardId))
@@ -766,7 +781,11 @@ export class AppState {
     const { deck, config } = this.workshop;
     const history = mergeHistory(await this.store.history(), this.me);
     this.history = history;
-    this.copies = new Map((await this.store.answers()).map((a) => [a.key, a.text]));
+    const held = await this.store.answers();
+    this.copies = new Map(held.map((a) => [a.key, a.text]));
+    this.copyEvents = new Map(
+      held.flatMap((a) => (a.eventId === undefined ? [] : [[a.key, a.eventId] as const])),
+    );
     const latest = latestSession(history);
     const replayed = latest ? replaySession(deck, config, latest, history) : null;
     if (replayed && !roundDone(replayed)) this.live = replayed;
@@ -928,8 +947,12 @@ export class AppState {
    * One event, as the contract spells it, with this session's next seq; the engine names the kind.
    * For the front card unless a card id is given: a blank card's (ADR 0022).
    */
-  private async record(kind: EventKind, body?: string, cardId = this.card?.id): Promise<void> {
-    if (!this.store || !this.workshop || !this.live || cardId === undefined) return;
+  private async record(
+    kind: EventKind,
+    body?: string,
+    cardId = this.card?.id,
+  ): Promise<Event | undefined> {
+    if (!this.store || !this.workshop || !this.live || cardId === undefined) return undefined;
     const event: Event = {
       id: crypto.randomUUID(),
       sessionId: this.live.session.id,
@@ -942,6 +965,27 @@ export class AppState {
     };
     await this.store.putEvent({ ...event, synced: 0 });
     this.history = { ...this.history, events: [...this.history.events, event] };
+    return event;
+  }
+
+  /** Keep the readable words of an answer just recorded, with the event they belong to. */
+  private async keepCopy(
+    key: string,
+    sessionId: string,
+    cardId: string,
+    text: string,
+    event: Event | undefined,
+  ): Promise<void> {
+    if (!this.store) return;
+    await this.store.putAnswer({
+      key,
+      sessionId,
+      cardId,
+      text,
+      ...(event === undefined ? {} : { eventId: event.id }),
+    });
+    this.copies = new Map(this.copies).set(key, text);
+    if (event !== undefined) this.copyEvents = new Map(this.copyEvents).set(key, event.id);
   }
 
   /** Tap, click or Enter on the front card: it opens with the field (`answering`). */
@@ -996,12 +1040,11 @@ export class AppState {
     const card = this.card;
     const session = this.live.session;
     const n = this.cardNo;
-    await this.record('answered', sealed);
+    const event = await this.record('answered', sealed);
     // The readable copy goes next to the outbox, never into it: the event above carries the
     // sealed text only, and `putAnswer` writes a table no sync ever reads (lib/store.ts).
     const key = answerKey(session.id, card.id);
-    await this.store.putAnswer({ key, sessionId: session.id, cardId: card.id, text });
-    this.copies = new Map(this.copies).set(key, text);
+    await this.keepCopy(key, session.id, card.id, text, event);
     this.live = withAnswer(this.live, card.id);
     this.drafts.delete(card.id);
     this.draft = '';
@@ -1149,11 +1192,10 @@ export class AppState {
       const cardId = target === null || target === NEW_OWN_CARD ? newOwnCardId() : target;
       const session = this.live.session;
       front = this.card?.id === cardId;
-      await this.record('answered', sealed, cardId);
+      const event = await this.record('answered', sealed, cardId);
       // The readable copy goes to the table no sync reads, never into the event (lib/store.ts).
       const key = answerKey(session.id, cardId);
-      await this.store.putAnswer({ key, sessionId: session.id, cardId, text });
-      this.copies = new Map(this.copies).set(key, text);
+      await this.keepCopy(key, session.id, cardId, text, event);
       // The round as a reload would replay it (ADR 0024): the card joins the round's answered
       // ids, which the deck engine ignores for a card not in the queue, and a blank card is not
       // a touch of the round, so the first card keeps its hints (lib/session.ts).
@@ -1280,6 +1322,7 @@ export class AppState {
     await this.store.wipe();
     // The readable copies went with the database (ADR 0014); nothing of them stays in memory either.
     this.copies = new Map();
+    this.copyEvents = new Map();
     this.history = { sessions: [], events: [] };
     this.live = null;
     try {

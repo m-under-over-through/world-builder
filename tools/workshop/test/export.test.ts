@@ -316,6 +316,47 @@ describe('workshop export', () => {
     expect(rows.filter((row) => row[7] === 'dismissed')).toHaveLength(2);
   });
 
+  it('two answers at the same place in the same round: the event id decides which is the latest, as on the phone', async () => {
+    // Two phones on one round can each give an answer the same place. The file must pick the one
+    // the phone picks (apps/web/src/lib/session.ts), and the same one on every run.
+    const f = await sealedFixture(['first words', 'another participant']);
+    const db = await connect(f.dbUrl);
+    const sessionId = crypto.randomUUID();
+    await db.insert(sessions).values({
+      id: sessionId,
+      participantId: f.participantIds[0]!,
+      sessionNo: 2,
+      startedDay: '2026-11-18',
+      deckVersion: deck.version,
+      seed: 'seed-2',
+    });
+    const tied = (id: string, words: string) => ({
+      id,
+      sessionId,
+      cardId: 'w-01',
+      seq: 4,
+      kind: 'answered' as const,
+      body: sealAnswer(f.publicKey, words),
+      createdDay: '2026-11-18',
+      deckVersion: deck.version,
+    });
+    // The higher id is stored first, so the order of storing cannot be what decides.
+    await db
+      .insert(events)
+      .values([
+        tied('00000000-0000-4000-8000-0000000000bb', 'from the higher id'),
+        tied('00000000-0000-4000-8000-0000000000aa', 'from the lower id'),
+      ]);
+    await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
+    const r = run(['rural-manufacturing', '--key', f.keyFile, '--db', f.dbUrl, '--out', f.out]);
+    expect(r.status, r.stderr).toBe(0);
+    const [, ...rows] = parseCsv(readFileSync(exported(f.out)!, 'utf8'));
+    const words = rows.filter((row) => row[7] === 'answered').map((row) => row[10]);
+    expect(words).toContain('from the higher id');
+    expect(words).not.toContain('from the lower id');
+    expect(words).not.toContain('first words');
+  });
+
   it('with --all-versions every row, with the latest marked', async () => {
     const f = await sealedFixture(['first words', 'another participant']);
     await withChangedAnswers(f);
