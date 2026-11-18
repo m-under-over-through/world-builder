@@ -15,7 +15,6 @@
   import { tintOf, type AppState } from '../lib/state.svelte.ts';
   import { reducedMotion, swipe, SWIPE_MS } from '../lib/swipe.ts';
   import { codePoints, truncateCodePoints } from '../lib/text.ts';
-  import { growField, keepEndInView } from '../lib/viewport.ts';
 
   /**
    * The stack (design/DESIGN.md, Layout and Components; ADR 0015): the front card and the two
@@ -41,14 +40,15 @@
    * field is: by itself on the first card of the first session, and from "Prefer to talk?".
    *
    * On a phone the open card is framed by what the keyboard leaves visible (ADR 0023; App.svelte
-   * and lib/viewport.ts): the field grows with the text, and the card scrolls, with "Save" at
-   * its end. On a laptop the field keeps its height and nothing of that applies.
+   * and lib/viewport.ts), and it is a fixed box (ADR 0025): the head with × at its top and the
+   * row with "Save" at its foot never move, the text scrolls inside the field, and only when the
+   * question and three lines of the field do not fit does the part around them scroll
+   * (`.scrolls`). On a laptop that part is not a box of its own and nothing of that applies.
    */
   let { app }: { app: AppState } = $props();
   let leaving = $state(false);
   let field: HTMLTextAreaElement | undefined = $state();
   let front: HTMLButtonElement | undefined = $state();
-  let openCard: HTMLDivElement | undefined = $state();
 
   const count = $derived(codePoints(app.draft));
   const busy = $derived(app.cardState === 'saving');
@@ -94,10 +94,6 @@
     if (codePoints(el.value) > MAX_ANSWER_CHARS)
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.draft = el.value;
-    if (!app.wide) {
-      growField(el, openCard ?? null);
-      keepEndInView(el, openCard ?? null);
-    }
   }
 
   /** Every card answered or out (ADR 0020): the thank-you card stands where the stack was. */
@@ -108,17 +104,9 @@
   // or the onboarding card goes, so the keyboard and the screen reader stay on the loop. When
   // the last card goes, the button that sent it goes too (Save, Set aside), so the thank-you
   // card takes the focus, and a screen reader reads it.
-  // A phone turned on its side wraps the text anew, so the open card's field is measured again
-  // (ADR 0023). Only while a card is open on a phone.
-  $effect(() => {
-    if (app.cardState === 'fresh' || app.wide) return;
-    const regrow = () => {
-      if (field) growField(field, openCard ?? null);
-    };
-    window.addEventListener('resize', regrow);
-    return () => window.removeEventListener('resize', regrow);
-  });
-
+  // The field takes it after `tick()`: by then App.svelte has put the frame's class and its two
+  // properties on the root, so the field is already where it will stay, and the browser has no
+  // reason to scroll the page to show it (ADR 0025).
   let wasOpen = false;
   let wasDemo = false;
   let wasThanks = false;
@@ -126,12 +114,7 @@
     const isOpen = app.cardState !== 'fresh';
     const isDemo = app.demoFront;
     const isThanks = thanks;
-    if (isOpen && !wasOpen)
-      void tick().then(() => {
-        // A draft kept from before: the field is as tall as its text from the start (ADR 0023).
-        if (field && !app.wide) growField(field, openCard ?? null);
-        field?.focus();
-      });
+    if (isOpen && !wasOpen) void tick().then(() => field?.focus());
     if ((!isOpen && wasOpen) || (!isDemo && wasDemo)) void tick().then(() => front?.focus());
     if (isThanks && !wasThanks) void tick().then(() => thanksCard?.focus());
     wasOpen = isOpen;
@@ -181,7 +164,7 @@
           </span>
         </button>
       {:else if entry.slot === 0}
-        <div class="card open" bind:this={openCard}>
+        <div class="card open">
           <div class="head">
             {@render label(entry.card.area)}
             <button
@@ -203,15 +186,30 @@
               >
             </button>
           </div>
-          <label for="answer">{entry.card.text}</label>
-          <div class="rule"></div>
-          <textarea
-            id="answer"
-            bind:this={field}
-            value={app.draft}
-            oninput={onInput}
-            disabled={busy}
-            aria-describedby={app.error ? 'answer-count answer-error' : 'answer-count'}></textarea>
+          <!-- The part of the open card that scrolls on a phone (ADR 0025): the question, the rule,
+               the field and the dictation hint. The head above and the counter and the row with
+               Save below never move. On a laptop it is not a box of its own (display: contents). -->
+          <div class="scrolls">
+            <label for="answer">{entry.card.text}</label>
+            <div class="rule"></div>
+            <textarea
+              id="answer"
+              bind:this={field}
+              value={app.draft}
+              oninput={onInput}
+              disabled={busy}
+              aria-describedby={app.error ? 'answer-count answer-error' : 'answer-count'}
+            ></textarea>
+            {#if app.platform && app.hintOpen}
+              <aside class="hint">
+                <h2>{app.copy.item('Titles', 'dictation hint')}</h2>
+                <p>{app.copy.item('Dictation hint', app.platform)}</p>
+                <button type="button" onclick={() => (app.hintOpen = false)}
+                  >{app.copy.item('Buttons', 'got it')}</button
+                >
+              </aside>
+            {/if}
+          </div>
           <div class="meta">
             <span id="answer-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span
             >
@@ -222,15 +220,6 @@
               {app.copy.item('Card labels', 'could not save')}
               {app.copy.error(app.error)}
             </p>
-          {/if}
-          {#if app.platform && app.hintOpen}
-            <aside class="hint">
-              <h2>{app.copy.item('Titles', 'dictation hint')}</h2>
-              <p>{app.copy.item('Dictation hint', app.platform)}</p>
-              <button type="button" onclick={() => (app.hintOpen = false)}
-                >{app.copy.item('Buttons', 'got it')}</button
-              >
-            </aside>
           {/if}
           <div class="actions">
             {#if app.platform && !app.hintOpen}

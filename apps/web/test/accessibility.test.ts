@@ -305,6 +305,70 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     ).toBe('none');
   });
 
+  it('while framed on a phone the open card and the place to write do not scroll, the part around the field does, and the field is never lower than three lines (ADR 0025)', () => {
+    for (const box of ['.app.framed .card.open', '.app.framed .own-card.sheet']) {
+      expect(rule(box)['overflow'], box).toBe('hidden');
+      expect(rule(box)['overflow-y'], box).toBeUndefined();
+      const part = rule(`${box} > .scrolls`);
+      expect(part['display'], box).toBe('flex');
+      expect(part['flex-direction'], box).toBe('column');
+      expect(part['flex'], box).toBe('1 1 0');
+      expect(part['min-height'], box).toBe('0');
+      expect(part['overflow-y'], box).toBe('auto');
+      // The part keeps a drag to itself at its ends; the field hands one on to it.
+      expect(part['overscroll-behavior'], box).toBe('contain');
+      const field = rule(`${box} textarea`);
+      expect(field['flex'], box).toBe('1 1 0');
+      expect(field['overflow-y'], box).toBe('auto');
+      expect(field['overscroll-behavior'], box).toBeUndefined();
+    }
+    expect(rule('.app.framed .card.open textarea')['min-height']).toBe('3lh');
+    // The place to write's field has 12 + 12 of padding and 1.5 + 1.5 of border in its box.
+    expect(rule('.own-card textarea')['padding']).toBe('12px 14px');
+    expect(rule('.own-card textarea')['border']).toMatch(/^1.5px solid/);
+    expect(rule('.app.framed .own-card.sheet textarea')['min-height']).toBe('calc(3lh + 27px)');
+    // The strip under the last row while the keyboard is up stays.
+    expect(rule('.app.framed.keyboard-up .loop.answering')['padding-bottom']).toBe('52px');
+    expect(rule('.app.framed.keyboard-up .own-card.sheet')['padding-bottom']).toBe('52px');
+    // Off the phone's frame, and on a laptop, the part that scrolls is no box of its own.
+    expect(rule('.scrolls')['display']).toBe('contents');
+    for (const r of rules.filter((r) => r.selectors.some((s) => s.includes('.scrolls'))))
+      for (const s of r.selectors)
+        expect(s, 'only the framed phone').toMatch(/^\.scrolls$|\.framed/);
+    // The field no longer grows with its text: nothing reads its height.
+    expect(css).not.toContain('--field-text');
+  });
+
+  it('on a phone the place to write fades in and out where it stands, and does not slide up (ADR 0025)', () => {
+    expect(rule('.own-card.sheet')['animation']).toMatch(/^fade-in /);
+    expect(rule('.own-card.sheet.closing')['animation']).toMatch(/^fade-out /);
+    // "Your world so far" still rises from the bottom.
+    expect(rule('.sheet')['animation']).toMatch(/^sheet-in /);
+  });
+
+  it('a finger on the parts of an open card that never move may only pinch; nothing that holds a field refuses a drag (ADR 0025)', () => {
+    for (const selector of [
+      '.app.framed .card.open .head',
+      '.app.framed .card.open .meta',
+      '.app.framed .card.open .actions',
+      '.app.framed .scrim',
+      '.app.framed .own-card.sheet .own-meta',
+      '.app.framed .own-card.sheet .own-actions',
+    ])
+      expect(rule(selector)['touch-action'], selector).toBe('pinch-zoom');
+    // The boxes around a field, by the last part of a selector: a browser takes touch-action from
+    // every one of them, so none may refuse a drag up and down.
+    const around = new Set(
+      'html body .app main .loop .loop.answering .stack .slot .card .card.open .scrolls .sheet .own-card .own-card.sheet textarea'.split(
+        ' ',
+      ),
+    );
+    const holdsAField = (s: string) => around.has(s.split(/[\s>]+/).at(-1)!);
+    for (const r of rules)
+      if (r.body['touch-action'] && r.body['touch-action'] !== 'pan-y')
+        for (const s of r.selectors) expect(holdsAField(s), s).toBe(false);
+  });
+
   it('the document says its language', () => {
     expect(indexHtml).toMatch(/<html lang="en">/);
   });

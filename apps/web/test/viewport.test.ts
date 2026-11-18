@@ -1,7 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { tick } from 'svelte';
@@ -12,12 +9,9 @@ import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import {
   expectedHeight,
-  FIELD_TEXT,
   followViewport,
   forgetKeyboards,
   frameOf,
-  growField,
-  keepEndInView,
   KEYBOARD_GUESS,
   KEYBOARD_MIN,
   KEYBOARD_WAIT_MS,
@@ -211,52 +205,6 @@ describe('the visual viewport, read', () => {
     expect(el.getAttribute('style')).toBeNull();
   });
 
-  it('a field measures the height of its text and hands it on, and is left as it was', () => {
-    const field = document.createElement('textarea');
-    Object.defineProperty(field, 'scrollHeight', { get: () => 130 });
-    field.style.height = '';
-    growField(field);
-    expect(field.style.getPropertyValue(FIELD_TEXT)).toBe('130px');
-    expect(field.style.height).toBe('');
-    expect(field.style.minHeight).toBe('');
-    expect(field.style.flexGrow).toBe('');
-  });
-
-  it('measuring a field leaves the card where the person had scrolled it', () => {
-    // A browser puts a scrolled frame back at its top while the field in it is made low to be
-    // measured, and leaves it there. The stand-in does the same when the height is read.
-    const frame = { scrollTop: 240 } as HTMLElement;
-    const field = document.createElement('textarea');
-    Object.defineProperty(field, 'scrollHeight', {
-      get: () => {
-        frame.scrollTop = 0;
-        return 900;
-      },
-    });
-    growField(field, frame);
-    expect(field.style.getPropertyValue(FIELD_TEXT)).toBe('900px');
-    expect(frame.scrollTop).toBe(240);
-  });
-
-  it('typing at the end of a long text keeps the last line and Save in sight; typing in the middle leaves the card where it is', () => {
-    const frame = { scrollTop: 100, scrollHeight: 900, clientHeight: 400 } as HTMLElement;
-    const field = document.createElement('textarea');
-    field.value = 'a long answer';
-    field.setSelectionRange(field.value.length, field.value.length);
-    keepEndInView(field, frame);
-    expect(frame.scrollTop).toBe(500);
-    // The caret in the middle: someone mending a word. The frame is theirs.
-    frame.scrollTop = 100;
-    field.setSelectionRange(3, 3);
-    keepEndInView(field, frame);
-    expect(frame.scrollTop).toBe(100);
-    // A text that fits: nothing to scroll.
-    const short = { scrollTop: 0, scrollHeight: 400, clientHeight: 400 } as HTMLElement;
-    field.setSelectionRange(field.value.length, field.value.length);
-    keepEndInView(field, short);
-    expect(short.scrollTop).toBe(0);
-  });
-
   it('a page pinched in is not a keyboard: no strip is kept for it', () => {
     expect(frameOf({ height: 410, offsetTop: 0, scale: 2 } as never, 844).keyboard).toBe(false);
     expect(frameOf({ height: 410, offsetTop: 0, scale: 1 } as never, 844).keyboard).toBe(true);
@@ -342,36 +290,42 @@ describe('the open card on a phone', () => {
     expect(root().classList.contains('framed')).toBe(false);
   });
 
-  it('the field is never lower than three lines, and grows with the text', async () => {
-    // The stylesheet: three lines at least, or the text's own height when it is taller.
-    const web = join(fileURLToPath(import.meta.url), '../..');
-    const css = readFileSync(join(web, 'src/app.css'), 'utf8');
-    const body = (selector: string) => {
-      const at = css.indexOf(`\n${selector} {`);
-      expect(at, selector).toBeGreaterThan(0);
-      return css.slice(at, css.indexOf('}', at));
+  /** What was on the root at the moment a field took the focus. */
+  function rootWhenFocused(): { framed: boolean; height: string; top: string }[] {
+    const seen: { framed: boolean; height: string; top: string }[] = [];
+    const record = (event: FocusEvent) => {
+      if (!(event.target instanceof HTMLTextAreaElement)) return;
+      seen.push({
+        framed: root().classList.contains('framed'),
+        height: property(VV_HEIGHT),
+        top: property(VV_TOP),
+      });
     };
-    expect(body('.app.framed .card.open textarea')).toMatch(
-      /min-height: max\(3lh, var\(--field-text, 0px\)\)/,
-    );
-    expect(body('.app.framed .card.open textarea')).toMatch(/flex: 1 0 auto/);
-    // The blank card's field has 12 + 12 of padding and 1.5 + 1.5 of border inside its box.
-    expect(body('.own-card textarea')).toMatch(/padding: 12px 14px/);
-    expect(body('.own-card textarea')).toMatch(/border: 1.5px solid/);
-    expect(body('.app.framed .own-card.sheet textarea')).toMatch(
-      /min-height: max\(calc\(3lh \+ 27px\), var\(--field-text, 0px\)\)/,
-    );
-    // The app: as the text grows, the field hands its height on.
+    document.addEventListener('focusin', record);
+    onTestFinished(() => document.removeEventListener('focusin', record));
+    return seen;
+  }
+
+  it("when the open card's field takes the focus on a phone, the root already carries the frame's class and both properties", async () => {
+    // A field that takes the focus before its box is in place sits at the bottom of the screen,
+    // and Safari scrolls the page to show it (ADR 0025).
     vi.stubGlobal('visualViewport', new StandIn());
     const app = await onACard();
     renderApp(app);
+    const seen = rootWhenFocused();
     app.openCard();
-    await tick();
-    const field = screen.getByRole('textbox') as HTMLTextAreaElement;
-    let lines = 1;
-    Object.defineProperty(field, 'scrollHeight', { get: () => Math.round(lines * 26.1) });
-    lines = 6;
-    await userEvent.setup().type(field, 'Six lines of words');
-    expect(field.style.getPropertyValue(FIELD_TEXT)).toBe('157px');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')));
+    expect(seen).toEqual([{ framed: true, height: '768px', top: '0px' }]);
+  });
+
+  it("when the field of the place to write takes the focus on a phone, the root already carries the frame's class and both properties", async () => {
+    vi.stubGlobal('visualViewport', new StandIn());
+    const app = await onACard();
+    renderApp(app);
+    const seen = rootWhenFocused();
+    app.openOwnCard();
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    expect(seen).toEqual([{ framed: true, height: '768px', top: '0px' }]);
   });
 });

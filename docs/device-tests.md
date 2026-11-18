@@ -17,7 +17,13 @@ Value: `marco-iphone-safari-01`. Second device: the laptop.
 1. In Safari, open `https://staging--worldbuilder-uot.netlify.app/rural-manufacturing/join/wave-1#p=marco-iphone-safari-01`. You see the welcome: the fanned cards, "The future of local production in America", the paragraph, "This link is yours...", and one black button, "I understand". The address bar ends in `/join/wave-1`, without the `#` part.
 2. Tap "I understand". The stack: in front, a card labelled "Try a card" that says "Open a card to answer. Swipe it away to set it aside.", with "Got it".
 3. Tap "Got it". The first card comes forward: its area at the top, the question, a pen with "Write an answer".
-4. Tap the card. It opens, the keyboard rises, the cursor is in the field. From the top of what is left above the keyboard: the ×, the question, the field (at least three lines tall), then "Prefer to talk?" and Save, greyed out. "World Builder" and the "?" are hidden behind the open card. Under Save there is a strip of empty space, about a finger wide, where Safari's address bar floats: the bar must not cover Save. Nothing slides out at the top. **Then the keyboard (ADR 0023):** type until the text is longer than the field, about eight lines. The field grows with the text and the card scrolls; the line you are typing stays in sight, just above the keyboard. The question may scroll away at the top: that is expected. Scroll the card down: Save is at the end, above the strip, and not under the address bar. Scroll back up: the question is there. Tap × to close: the cards are where they were, "World Builder" at the top, the page has not moved. Open the card again: your words are still there and the field is as tall as they are. Delete the words and leave the card open.
+4. Tap the card. It opens, the keyboard rises, the cursor is in the field. From the top of what is left above the keyboard: the ×, the question, the field (at least three lines tall), then "Prefer to talk?" and Save, greyed out. "World Builder" and the "?" are hidden behind the open card. Under Save there is a strip of empty space, about a finger wide, where Safari's address bar floats: the bar must not cover Save. Nothing slides out at the top. **Then only the card scrolls (ADR 0025)**, with the card open and the keyboard up:
+   1. Drag the question, the row with Save, and the grey around the card, up and down, slowly and then quickly. Nothing moves and nothing flickers.
+   2. Type more lines than the field shows, about eight. The text scrolls inside the field and the line you type stays in sight. The question and Save stay where they are. Drag up and down inside the field: the text scrolls, the card does not.
+   3. Turn the phone on its side, the keyboard up. The question and three lines of the field do not fit: the question and the field scroll together inside the card, between the × and Save, and Save stays. Turn the phone back.
+   4. Pinch with two fingers: the page zooms. Pinch back.
+   5. Tap × to close: the cards are where they were, "World Builder" at the top, the page has not moved. Tap "Write your own story": the place to write fades in where it stands, it does not slide up from the bottom, and the cards behind it do not move. Drag its title, the grey around it and the row with "Not now": nothing moves. Tap "Not now".
+   6. Open the card again: your words are still there, in a field of the same height. Delete the words and leave the card open.
 5. Tap the keyboard's microphone, say one sentence, then tap Save. The card flies down to the right, the next one is in front, the pill at the bottom reads 1.
 6. Tap "Set aside". The card leaves sideways and the next one comes forward.
 7. Drag the next card a little to the left and let go: it springs back. Drag it past about a third of the screen: it leaves, as with the button.
@@ -65,7 +71,13 @@ Value: `marco-android-chrome-01`. Second device: the iPhone.
 
 1. In Chrome, open the staging link with this value. The welcome with "This link is yours..." and "I understand"; the address bar without the `#` part.
 2. Tap "I understand": "Try a card". Tap "Got it": the first card, with its area, the question and "Write an answer".
-3. Tap the card. The keyboard rises. The card shrinks to fit above it: the ×, the question, the field and Save all show, and the page does not jump. "Prefer to talk?" sits in the card with "Tap the microphone on your keyboard." There is no empty strip under Save here: Chrome has no floating bar. **Then the keyboard (ADR 0023):** type until the text is longer than the field. The field grows and the card scrolls; the line you are typing stays just above the keyboard; Save is at the end when you scroll down. Hide the keyboard with Back: the card fills the screen again, Save at its foot. Close the card with ×: the cards are where they were. Open it again and delete the words.
+3. Tap the card. The keyboard rises. The card shrinks to fit above it: the ×, the question, the field and Save all show, and the page does not jump. "Prefer to talk?" sits in the card with "Tap the microphone on your keyboard." There is no empty strip under Save here: Chrome has no floating bar. **Then only the card scrolls (ADR 0025)**, with the card open and the keyboard up:
+   1. Drag the question, the row with Save, and the grey around the card, up and down. Nothing moves and nothing flickers.
+   2. Type more lines than the field shows. The text scrolls inside the field and the line you type stays just above the keyboard. The question and Save stay where they are.
+   3. Turn the phone on its side, the keyboard up: the question and the field scroll together inside the card, and Save stays. Turn it back.
+   4. Pinch with two fingers: the page zooms. Pinch back.
+   5. Hide the keyboard with Back: the card fills the screen again, Save at its foot, the field taller. Close the card with ×: the cards are where they were. Tap "Write your own story": the place to write fades in, and the cards behind do not move. Tap "Not now".
+   6. Open the card again and delete the words.
 4. Dictate one sentence with the keyboard's microphone, then Save. The card flies off, the next is in front, the pill reads 1.
 5. Tap "Set aside", then drag the next card away sideways. Both leave; a short drag springs back.
 6. Tap "Your world so far": the sheet, "1 answered · 2 set aside", your tile, two set-aside tiles, "Remind me" at the foot.
@@ -179,7 +191,7 @@ The card screen has to fit without scrolling. On a short screen there is no room
 4. Nothing sits under or over the black "Your world so far" button. Tap it: the sheet rises.
 5. Close the sheet. Tap "Write your own story": the place to write opens. Tap "Not now".
 6. Tap the "?" at the top right: the page opens on the first tap.
-7. Tap Back, then tap the card. The ×, the question, the field and Save all show above the keyboard (part 1, step 4).
+7. Tap Back, then tap the card. The ×, the question, the field and Save all show above the keyboard (part 1, step 4). Set cards aside until one with a long question is in front, and open it: if the question and three lines of the field do not fit above the keyboard, the question and the field scroll together inside the card, and Save stays where it is (ADR 0025).
 
 ## 8. A low-end Android
 
@@ -187,7 +199,7 @@ Value: `marco-android-lowend-01`, in Chrome, on the oldest or cheapest Android a
 
 1. **The stack's motion.** Drag a card slowly sideways: it follows the finger, turning as it goes, without stutter or lag. Let go short: it springs back. Drag past a third of the screen: it flies off and the next card moves forward in one smooth step.
 2. **Save.** Answer a card. From the tap on Save to the next card in front should feel immediate, under half a second, with the answered card flying off in one movement, not in jerks.
-3. **The keyboard over the answering card.** Tap a card. When the keyboard rises, the ×, the question, the field and Save are all above it, and the page does not jump or flicker. Type ten lines: the field grows and the card scrolls, Save stays reachable at its end. Close the keyboard with Back: the card fills the screen again.
+3. **The keyboard over the answering card.** Tap a card. When the keyboard rises, the ×, the question, the field and Save are all above it, and the page does not jump or flicker. Type ten lines: the text scrolls inside the field, and the question and Save stay where they are (ADR 0025). Close the keyboard with Back: the card fills the screen again.
 4. **Rotate** the phone with the keyboard up: the words you typed are still there.
 5. **The sheet.** It slides up smoothly; with a few answers in it, scrolling the tiles is smooth; dragging its top down closes it.
 6. **No motion.** Settings, Accessibility, Remove animations (on some phones: Developer options, animation scales off). Set aside a card: it fades in place. The sheet fades in instead of sliding. Turn it back.

@@ -954,15 +954,31 @@ textarea::placeholder {
   margin: 0;
 }
 
-/* ---------- the open card above the keyboard (phone; ADR 0023) ----------
+/* ---------- the open card above the keyboard (phone; ADR 0023, ADR 0025) ----------
    While a card is open on a phone and the browser reports a visual viewport, App.svelte puts
    `framed` on the app and keeps --vv-top and --vv-height on it (lib/viewport.ts). The frame is
-   that box: fixed, so moved down by how far the browser scrolled the page for the field, and as
-   tall as what the keyboard and the bars leave. In it the close button, the question, the field
-   and the row with Save; the field takes what is left, never less than three lines, and grows
-   with the text (--field-text), and the card scrolls. While the keyboard is up, 52 pixels stay
-   free at the bottom: Safari floats its address bar there. Without a visual viewport none of
-   this applies and the open card is as before. */
+   that box: fixed, so moved down by how far the browser scrolled the page, and as tall as what
+   the keyboard and the bars leave. While the keyboard is up, 52 pixels stay free at the bottom:
+   Safari floats its address bar there.
+
+   The card in it is a fixed box (ADR 0025). The head with × at its top, and the counter and the
+   row with Save at its foot, never move. Between them is the part that scrolls (.scrolls): the
+   question, the rule, the field and the dictation hint. The field takes the space left there and
+   is never lower than three lines; its text scrolls inside it. Only when the question and three
+   lines do not fit does the part around them scroll. The card itself does not scroll.
+
+   A finger on the parts that never move may only pinch (touch-action: pinch-zoom). Not on the
+   card, nor on anything that holds the field: a browser takes touch-action from every box
+   around an element, so the field could not be scrolled with a finger. The guard in
+   lib/page-lock.ts stops the rest. The part that scrolls keeps a drag to itself at its ends
+   (overscroll-behavior: contain); the field does not, so it hands a drag on to that part once
+   its own text is at its end. Learning note 13 explains the page and the keyboard.
+
+   Without a visual viewport none of this applies and the open card is as before. On a laptop
+   .scrolls is not a box of its own. */
+.scrolls {
+  display: contents;
+}
 .app.framed .loop.answering {
   position: fixed;
   z-index: 10;
@@ -986,16 +1002,37 @@ textarea::placeholder {
 .app.framed .card.open {
   padding: 16px 20px 14px;
   gap: 10px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
-/* nothing in the card gives way to the field: the card scrolls instead */
+/* the head, the counter and the row with Save keep their height; the part that scrolls gives */
 .app.framed .card.open > * {
   flex-shrink: 0;
 }
+.app.framed .card.open .head,
+.app.framed .card.open .meta,
+.app.framed .card.open .actions {
+  touch-action: pinch-zoom;
+}
+/* The 8 pixels on three sides keep the field's focus ring inside the box that scrolls, which
+   would cut it off; the negative margins give them back to the card. */
+.app.framed .card.open > .scrolls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -8px -8px;
+  padding: 0 8px 8px;
+}
+.app.framed .card.open .scrolls > :not(textarea) {
+  flex-shrink: 0;
+}
 .app.framed .card.open textarea {
-  flex: 1 0 auto;
-  min-height: max(3lh, var(--field-text, 0px));
+  flex: 1 1 0;
+  min-height: 3lh;
+  overflow-y: auto;
 }
 
 /* the answered card on its way out: drawn with its words, then gone */
@@ -1332,8 +1369,14 @@ button.tile .pen {
   flex-direction: column;
   gap: 10px;
 }
+/* On a phone the place to write fades in and out where it stands, and does not slide up (ADR
+   0025): a field taking the focus at the bottom of the screen makes Safari scroll the page. */
 .own-card.sheet {
   padding: 22px 20px calc(16px + var(--space-safe-bottom));
+  animation: fade-in 280ms var(--ease-sheet);
+}
+.own-card.sheet.closing {
+  animation: fade-out 280ms var(--ease-sheet) forwards;
 }
 .own-card h2 {
   margin: 0;
@@ -1408,15 +1451,17 @@ button.tile .pen {
 .own-card .own-actions .save.busy {
   opacity: 0.6;
 }
-/* the blank card's sheet, framed as the open card is (ADR 0023): from 8 under the top of what is
-   visible to its bottom, the field at least three lines (the 27 is its padding and border), the
-   sheet scrolling once the text is taller, the same strip free while the keyboard is up */
+/* The place to write on a phone, framed as the open card is (ADR 0023, ADR 0025): from 8 under
+   the top of what is visible to its bottom, the same strip free while the keyboard is up. A
+   fixed box: the counter and the row with "Not now" and Save never move; the title and the hint,
+   or the area and the question, and the field are in the part that scrolls; the field takes
+   what is left there, at least three lines (the 27 is its padding and border), and its text
+   scrolls inside it. The sheet itself does not scroll. */
 .app.framed .own-card.sheet {
   top: calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px) + 8px);
   bottom: auto;
   height: calc(var(--vv-height, 100dvh) - env(safe-area-inset-top, 0px) - 8px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding-top: 18px;
 }
 .app.framed.keyboard-up .own-card.sheet {
@@ -1425,9 +1470,30 @@ button.tile .pen {
 .app.framed .own-card.sheet > * {
   flex-shrink: 0;
 }
+.app.framed .scrim,
+.app.framed .own-card.sheet .own-meta,
+.app.framed .own-card.sheet .own-actions {
+  touch-action: pinch-zoom;
+}
+/* the same 8 pixels as on the open card, for the field's focus ring */
+.app.framed .own-card.sheet > .scrolls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -8px -8px;
+  padding: 0 8px 8px;
+}
+.app.framed .own-card.sheet .scrolls > :not(textarea) {
+  flex-shrink: 0;
+}
 .app.framed .own-card.sheet textarea {
-  flex: 1 0 auto;
-  min-height: max(calc(3lh + 27px), var(--field-text, 0px));
+  flex: 1 1 0;
+  min-height: calc(3lh + 27px);
+  overflow-y: auto;
 }
 .own-desk {
   position: fixed;
