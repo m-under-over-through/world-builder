@@ -2602,6 +2602,7 @@ How the round stays the same after a reload. A round is never stored: it is repl
 - The readable copy is keyed by round and card (ADR 0014). If two phones of one participant change the same card in the same round, the phone that wrote first would show its own words although the latest answer is the other phone's. Telling them apart needs the event's id next to the copy, a change to `lib/store.ts`, which was not in this brief.
 - The ADR's sentence for the privacy policy ("a changed answer adds to what is kept") is still Marco's to write.
 - Whether the pen in the corner reads as "tap me" on a phone is for Marco's eye. It is small on purpose: the tiles must not grow.
+
 ### After the review
 
 The reviewer's verdict was to fix one thing first, and it is fixed in this pull request:
