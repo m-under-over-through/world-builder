@@ -25,4 +25,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0019   | One page before the cards: the welcome is the intro and the consent; no numbers, no toasts       |
 | 0020   | The deck rules of 5 November: set-aside cards return later, never first; the deck ends           |
 | 0021   | The invitation page: a link set per invitation, made in the browser, kept nowhere                |
-| 0022   | The blank card: a card the participant writes, an answer like any other (proposed)               |
+| 0022   | The blank card: a card the participant writes, an answer like any other                          |

@@ -1,6 +1,6 @@
 # 0022. The blank card
 
-Date: 2026-11-18. Status: proposed. It lives on a branch with a preview and is not merged: Marco tests the design and the words first, and it merges only when he is happy with them.
+Date: 2026-11-18. Status: accepted, Marco's decision of 18 November after he tried it on a preview, with two changes of his: the button reads "Write your own story", and the place to write has no line about names. It was built on a branch of its own and merged on his word.
 
 ## Context
 
@@ -13,7 +13,7 @@ The launch is days away. Whatever this is, it must not need a change on the serv
 ## Decision
 
 - **A blank card: a card with no question, which the participant writes.** The word fits the app: the cards are index cards on a desk, and this is the one that comes empty.
-- **Reachable at any time from the card screen**, by a quiet button under the stack, next to "Set aside". Also when the deck is done, under the thank-you card. Not on the welcome: a person writes after they have seen what this is and agreed to it.
+- **Reachable at any time from the card screen**, by a quiet button under the stack, next to "Set aside": "Write your own story". Also when the deck is done, under the thank-you card. Not on the welcome: a person writes after they have seen what this is and agreed to it.
 - **It opens as a place of its own to write, not in the stack.** A title, a short hint, a large field, "Save" and "Not now". On a phone it is a sheet over the screen; on a laptop a wide card over the desk. "Not now" keeps the words in memory for the next time it is opened, as a card keeps its draft.
 - **The same limit as any answer: 4,000 characters.** The counter shows only near the limit, as on a card.
 - **As many as the participant wants.** Each saved blank card is a tile in "Your world so far". The button stays.
@@ -21,7 +21,7 @@ The launch is days away. Whatever this is, it must not need a change on the serv
 - **Unique without a list**, as link values are (learning note 12): a random id needs no counting, and two phones of one participant cannot make the same one.
 - **A deck may not use the prefix.** The deck schema refuses a card id that starts with `own-`, so no card of a deck can be mistaken for a blank card.
 - **The deck rules do not see it.** It is in no round's queue and does not count towards the end of the deck (`isDeckDone` ignores ids that are not in the deck).
-- **The hint asks to leave people's names out.** A free text invites names more than a question does, and the answers are read by the research team.
+- **No line about names.** The first version asked, under the hint, to leave people's names out. Marco took the line off on 18 November. What stays is the step the privacy policy describes: the research team removes any names after it unlocks the answers.
 
 ## Consequences
 
@@ -40,10 +40,10 @@ The launch is days away. Whatever this is, it must not need a change on the serv
 - **A text box on the welcome page.** It comes before the consent and before the person has seen a card.
 - **A card in the deck that says "write anything".** It would come round when the shuffle says so, once, and could be set aside for good. The person with a story should not have to wait for it.
 
-## Open, for Marco on the preview
+## Settled on the preview
 
-1. The name on the screen: "Your own card".
-2. Where the button sits, and how quiet it is.
-3. One or several.
-4. The limit of 4,000 characters. More is possible, as a second step with a server change.
-5. Every word of the hint.
+1. The button reads "Write your own story". The title of the place to write and the tile in "Your world so far" read "Your own card".
+2. The button sits under "Set aside", as a quiet underlined line.
+3. As many as the participant wants.
+4. The limit stays at 4,000 characters.
+5. The words of the hint are Marco's to edit in the copy file, with the rest of the copy.
