@@ -94,3 +94,15 @@ The traps from earlier weeks: a client test that syncs without `stubRoutes` hang
 - Commit messages: imperative first line under 72 characters, the why and the how-to-verify, and the trailer `CLAUDE.md` gives.
 - No new dependency. No third-party anything. Relative imports carry `.ts`. Plain words, short sentences, no em-dashes.
 - Do not merge. Report what you built, every decision the brief did not make for you, what you saw in the browser, the result of the check, and what you could not verify.
+
+## After the first review (18 November 2026)
+
+The reviewer's verdict: ready to merge once Marco approves the design. Nothing blocks. These are for the next round, together with whatever Marco asks for on the preview:
+
+1. **A test on `seq`.** Save a card, a blank card, a card, a blank card: the events' `seq` are in order and no number comes twice. Two `saveOwnCard()` calls started together store one event.
+2. **The open flag.** `ownCardOpen` stays true when the screen leaves the cards while the dialog is open (a sync that finds the workshop closed). Clear it when the blank card stops being offered.
+3. **The swipe hint.** Saving a blank card before any card is answered marks the round as touched, so the hint under the first card is gone after a reload. A blank card should not count as a touch.
+4. **Three tests that are missing**: a click on the scrim closes and keeps the words; "Delete everything" removes a blank card's copy; a second device that replays the server's rows shows the blank card's tile and plans the same round.
+5. **The limit with an emoji.** `sealAnswer` now counts characters as the client does (pull request 63). Once `main` is merged into this branch, the test on the limit can save a full-length text that holds an emoji.
+
+Not for this branch: if the readable copy cannot be written after the event is stored, the save can be repeated with the same `seq`. An ordinary card's save has the same gap; it gets its own change.
