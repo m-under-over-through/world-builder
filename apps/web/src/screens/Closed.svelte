@@ -5,7 +5,7 @@
   /**
    * Closed (docs/screen-map.md, Offline and failure behaviour): the workshop is past its close
    * day, or, for a new arrival before the opening day, not open yet. What happens to the answers
-   * now is on the page about the app, one tap away at the foot of the screen.
+   * now is on the page about the app, one tap away on the "?" in the header (ADR 0023).
    */
   let { app }: { app: AppState } = $props();
   /** "16 November 2026" in the phone's language; noon avoids the day shifting at a timezone edge. */

@@ -201,22 +201,55 @@ li {
   font-size: 15px;
 }
 
-/* the top bar: two centered lines on a phone, a block on the left on a laptop, nothing else */
+/* the header (ADR 0023): the same on every screen and at every width, the name and the organizer
+   on the left, the round "?" on the right; on the laptop's card screen the count of answers to its
+   left. 48 pixels tall on a phone: the "?" fits in it with 2 to spare above and below. */
 .topbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  justify-content: space-between;
+  gap: 12px;
   height: 48px;
-  padding: 0 var(--space-page-x);
-  text-align: center;
+  padding: 0 calc(var(--space-page-x) - 10px) 0 var(--space-page-x);
+  text-align: left;
 }
 .topbar .lines {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 2px;
+  min-width: 0;
+}
+.topbar .end {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: none;
+}
+/* the "?": a ring of 36 in a target of 44, which its pad makes up. The header's right padding is
+   10 less than its left and the ring has 4 of margin, so the ring sits 18 from the screen's edge
+   and its target 13: a thumb reaches it without hitting the edge of the screen. */
+.about-mark {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  margin: 0 4px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+.about-mark::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
 }
 .topbar .name {
   font-size: 15px;
@@ -347,7 +380,8 @@ section .row {
   width: 100%;
   max-width: 36rem;
   margin: 0 auto;
-  padding: 8px var(--space-text-x) 32px;
+  /* no foot under the text screens any more (ADR 0023), so the safe area is kept here */
+  padding: 8px var(--space-text-x) calc(32px + var(--space-safe-bottom));
 }
 p.lead {
   font-size: 19px;
@@ -600,20 +634,27 @@ textarea::placeholder {
   align-items: center;
   justify-content: center;
   gap: var(--space-stack-gap);
-  padding: 0 var(--space-stack-x);
+  /* 60 above the stack: the back cards reach up to 44 above its box (slot-2 below: 52 up, less
+     what its scale takes, plus what its turn adds), and 16 of air under the header. 12 under the
+     last row, above the foot (ADR 0023). */
+  padding: 60px var(--space-stack-x) 12px;
 }
 .loop.answering {
   padding: 6px 20px 14px;
   gap: 0;
 }
 
-/* the stack frame: the front card and the two behind it */
+/* the stack frame: the front card and the two behind it. Its height is what the screen leaves
+   (ADR 0023): 12 over the header (--space-safe-top), 48 the header, 60 over the stack (.loop), 30
+   from the stack to the rows (--space-stack-gap), 120 the three rows under it (44 Set aside, 8,
+   16 the swipe hint, 8, 44 Write your own story), 12 under them (.loop), 66 the foot (8, the
+   pill's 48, 10): 12 + 48 + 60 + 30 + 120 + 12 + 66 = 348, and the safe areas. */
 .stack {
   position: relative;
   width: min(326px, 100%);
   height: clamp(
     280px,
-    calc(100dvh - 330px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)),
+    calc(100dvh - 348px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)),
     430px
   );
   flex: none;
@@ -913,6 +954,43 @@ textarea::placeholder {
   margin: 0;
 }
 
+/* ---------- the open card above the keyboard (phone; ADR 0023) ----------
+   While a card is open on a phone and the browser reports a visual viewport, App.svelte puts
+   `framed` on the app and keeps --vv-top and --vv-height on it (lib/viewport.ts). The frame is
+   that box: fixed, so moved down by how far the browser scrolled the page for the field, and as
+   tall as what the keyboard and the bars leave. In it the close button, the question, the field
+   and the row with Save; the field takes what is left, never less than three lines, and grows
+   with the text (--field-text), and the card scrolls. While the keyboard is up, 52 pixels stay
+   free at the bottom: Safari floats its address bar there. Without a visual viewport none of
+   this applies and the open card is as before. */
+.app.framed .loop.answering {
+  position: fixed;
+  z-index: 10;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-height, 100dvh);
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 12px calc(10px + var(--space-safe-bottom));
+  background-color: var(--color-ground);
+}
+.app.framed.keyboard-up .loop.answering {
+  padding-bottom: 52px;
+}
+.app.framed .card.open {
+  padding: 16px 20px 14px;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* nothing in the card gives way to the field: the card scrolls instead */
+.app.framed .card.open > * {
+  flex-shrink: 0;
+}
+.app.framed .card.open textarea {
+  flex: 1 0 auto;
+  min-height: max(3lh, var(--field-text, 0px));
+}
+
 /* the answered card on its way out: drawn with its words, then gone */
 .slot.exit {
   pointer-events: none;
@@ -966,39 +1044,32 @@ textarea::placeholder {
    floor of 280, so a third row under it has nowhere to go. It pushed the cards over the top bar
    and landed under the world pill (build log, 18 November 2026). Here "Set aside" and "Write
    your own story" share one row and the swipe hint is left out: 44 pixels where there were 120.
-   On a screen too narrow for both, they wrap to two rows, still without the hint. */
-@media (max-height: 620px) {
+   The three rows need 348 + 280 = 628 pixels (the stack's budget above), so the line is 630
+   (ADR 0023). With one row the screen needs 552, so 553 fits; a second row would not, so the
+   row is let out to the screen's edges to stay one on a 320 screen. */
+@media (max-height: 630px) {
   .app.phone-loop .aside-row {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 0 12px;
+    gap: 0 8px;
+    /* The row may reach 8 from the screen's edges, past the stack's 32: on a 320 screen the two
+       controls take 288 and the stack's column only 256, and a second row would not fit. */
+    align-self: stretch;
+    margin-inline: calc(8px - var(--space-stack-x));
   }
   .app.phone-loop .aside-row .swipe-hint {
     display: none;
   }
 }
 
-/* the foot: the world pill on a phone, and the one quiet link on every screen */
+/* the foot: on a phone's card screen only, the world pill alone (ADR 0023); no other screen has one */
 .foot {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
   padding: 8px var(--space-page-x) calc(10px + var(--space-safe-bottom));
-}
-.foot .about {
-  min-height: var(--tap);
-  padding: 12px 28px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--color-muted);
-  text-decoration: none;
-}
-.foot .about:hover {
-  color: var(--color-ink);
-  text-decoration: underline;
 }
 .pill.world {
   height: 48px;
@@ -1271,6 +1342,27 @@ textarea::placeholder {
 .own-card .own-actions .save.busy {
   opacity: 0.6;
 }
+/* the blank card's sheet, framed as the open card is (ADR 0023): from 8 under the top of what is
+   visible to its bottom, the field at least three lines (the 27 is its padding and border), the
+   sheet scrolling once the text is taller, the same strip free while the keyboard is up */
+.app.framed .own-card.sheet {
+  top: calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px) + 8px);
+  bottom: auto;
+  height: calc(var(--vv-height, 100dvh) - env(safe-area-inset-top, 0px) - 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 18px;
+}
+.app.framed.keyboard-up .own-card.sheet {
+  padding-bottom: 52px;
+}
+.app.framed .own-card.sheet > * {
+  flex-shrink: 0;
+}
+.app.framed .own-card.sheet textarea {
+  flex: 1 0 auto;
+  min-height: max(calc(3lh + 27px), var(--field-text, 0px));
+}
 .own-desk {
   position: fixed;
   z-index: 21;
@@ -1452,10 +1544,6 @@ textarea::placeholder {
   border-radius: 20px;
   padding: 18px 18px 20px;
 }
-.app.wide .foot {
-  padding: 8px 36px 20px;
-}
-
 /* ---------- motion ---------- */
 @keyframes card-exit {
   to {

@@ -9,7 +9,7 @@
 
   /**
    * The one page about the app (docs/screen-map.md, Always reachable; ADR 0013), reached from
-   * the small "About this app" link at the foot of every screen. In this order (ADR 0019): Back
+   * the round "?" in the header of every screen, named "About this app" (ADR 0023). In this order (ADR 0019): Back
    * at the top; what this is, with the "Remind me" line under it (ADR 0017); a few plain
    * sentences; then one closed fold, "The technical details", holding how answers are protected
    * (the trust page's six paragraphs, the key fingerprint and the source address filled in, the
