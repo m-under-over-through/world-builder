@@ -2389,6 +2389,7 @@ Marco asked for a place for a story that no card asks for. ADR 0022 (proposed) s
 - `sealAnswer` (packages/crypto) checks the length in UTF-16 units; the client cuts by code points. A text of 4,000 code points with an emoji in it is refused with `CLIENT_SEAL_FAILED`. This is already so for a card; a long free text makes it likelier. The fix is in `packages/crypto`, which this change does not touch.
 - Everything in ADR 0022's "Open, for Marco on the preview": the name, the button's place and how quiet it is, one or several, the limit, the words of the hint.
 - The privacy policy's "What we store" should gain a few words for a card the participant writes (ADR 0022). Marco's file.
+
 ## 2026-11-18, Wednesday. The answer limit is counted in characters when sealing (pull request 63)
 
 ### What
