@@ -175,7 +175,6 @@
             value={app.draft}
             oninput={onInput}
             disabled={busy}
-            placeholder={app.copy.item('Card labels', 'placeholder')}
             aria-describedby={app.error ? 'answer-count answer-error' : 'answer-count'}></textarea>
           <div class="meta">
             <span id="answer-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span
