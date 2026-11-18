@@ -576,6 +576,55 @@ Could not reach the server. Your answers are saved on this device and will sync 
 [placeholder]
 The text could not be copied. Select it and copy it by hand.
 
+# Your own card
+
+<!-- The blank card (ADR 0022): a card with no question, which the participant writes. Its button sits under the stack, with "Set aside", on the card screen; it opens a place to write, a sheet on a phone and a wide card on a laptop. Saved, it is a tile in "Your world so far". -->
+
+## Own card: button (a few words)
+
+<!-- The quiet button under the stack that opens the place to write. Also under the thank-you card once the deck is done. -->
+
+Write your own card
+
+## Own card: title (a few words)
+
+<!-- The title at the top of the place to write. -->
+
+Your own card
+
+## Own card: hint (under 40 words)
+
+<!-- The line under the title. -->
+
+[placeholder]
+Is there something you already want to say that no card has asked? A story, an idea, a worry. Write it here, in your own words and at your own length.
+
+## Own card: names (one line)
+
+<!-- Under the hint, above the field: the answers are read by the research team. -->
+
+[placeholder]
+Please leave out the names of people.
+
+## Own card: field (a few words)
+
+<!-- Not shown: the name a screen reader says for the large field. -->
+
+Your own words
+
+## Own card: buttons (one or two words each)
+
+<!-- "save" keeps the card and closes the place to write; "not now" closes it and keeps the words for the next time it is opened. -->
+
+- save: Save
+- not now: Not now
+
+## Own card: tile (a few words)
+
+<!-- The label on a blank card's tile in "Your world so far", where a card's tile shows its area. The tile has no question. -->
+
+Your own card
+
 # Invitation page
 
 <!-- The page at /rural-manufacturing/join/<wave>/invitations, for the person at Mechanism who sends the invitations by hand (ADR 0021). Participants never see it; no screen links to it. -->

@@ -953,6 +953,15 @@ textarea::placeholder {
   line-height: 1.3;
   color: var(--color-muted);
 }
+/* "Write your own card" (ADR 0022): a quiet text link, quieter than Set aside, 44 pixels tall */
+.aside-row .own-open {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.aside-row .own-open:hover {
+  color: var(--color-ink);
+}
 
 /* the foot: the world pill on a phone, and the one quiet link on every screen */
 .foot {
@@ -1057,6 +1066,11 @@ textarea::placeholder {
 .tile.aside {
   background: var(--color-surface);
   border: 1.5px solid var(--color-line);
+}
+/* a blank card (ADR 0022): white like paper, an ink line so it is not taken for a card set aside */
+.tile.own {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-ink);
 }
 /* nothing answered yet: one notice the size of a tile, in the place of the first one */
 .world-empty {
@@ -1172,6 +1186,101 @@ textarea::placeholder {
   flex-direction: column;
   gap: 20px;
   padding-bottom: calc(20px + var(--space-safe-bottom));
+}
+
+/* the place to write a blank card (ADR 0022): a sheet on a phone (with .sheet), a wide card on a laptop */
+.own-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.own-card.sheet {
+  padding: 22px 20px calc(16px + var(--space-safe-bottom));
+}
+.own-card h2 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.05;
+}
+.own-card .own-hint,
+.own-card .own-names {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.own-card .own-names {
+  color: var(--color-muted);
+}
+.own-card textarea {
+  flex: 1 1 auto;
+  min-height: 6lh;
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-line);
+  border-radius: var(--radius-input);
+  background: var(--color-ground);
+  resize: none;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--color-ink);
+  caret-color: var(--color-ink);
+}
+.own-card .own-meta {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 16px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-muted);
+}
+.own-card .own-meta .count {
+  font-variant-numeric: tabular-nums;
+}
+.own-card .own-meta .count.near {
+  font-weight: 700;
+}
+.own-card .error {
+  margin: 0;
+  font-size: 14px;
+}
+.own-card .own-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.own-card .own-actions .save {
+  height: var(--tap);
+  padding: 0 24px;
+}
+.own-card .own-actions .save.busy {
+  opacity: 0.6;
+}
+.own-desk {
+  position: fixed;
+  z-index: 21;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: min(640px, calc(100vw - 72px));
+  height: min(600px, calc(100dvh - 96px));
+  padding: 30px 30px 26px;
+  border-radius: 26px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  animation: fade-in 280ms var(--ease-sheet);
+}
+.own-desk.closing {
+  animation: fade-out 280ms var(--ease-sheet) forwards;
+}
+.own-desk h2 {
+  font-size: 28px;
+}
+.own-desk textarea {
+  font-size: 17px;
+  line-height: 1.5;
 }
 
 /* ---------- the laptop page (600px and wider): stack left, world right, the page scrolls as one ---------- */

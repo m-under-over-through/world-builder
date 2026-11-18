@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import type { Session } from '@wb/contracts';
 import App from '../src/App.svelte';
@@ -225,6 +225,31 @@ describe('the stylesheet: what a test DOM cannot see', () => {
         expect(r.body[property], `${r.selectors.join(', ')} ${property}`).toBeUndefined();
   });
 
+  it('the blank card: "Write your own card", "Save" and "Not now" are at least 44 pixels to a finger, and no rule of the blank card makes a button smaller', async () => {
+    renderApp(await onACard());
+    const opener = screen.getByRole('button', { name: copy.text('Own card: button') });
+    expect(opener.classList.contains('link')).toBe(true);
+    expect(rule('button.link')['min-height']).toBe('var(--tap)');
+    expect(rule('.own-card .own-actions .save')['height']).toBe('var(--tap)');
+    const ofTheBlankCard = (s: string) =>
+      s.includes('own-') && /button|\.save|\.not-now|own-open/.test(s);
+    for (const r of rules.filter((r) => r.selectors.some(ofTheBlankCard)))
+      for (const property of ['min-height', 'max-height', 'padding-block'])
+        expect(r.body[property], `${r.selectors.join(', ')} ${property}`).toBeUndefined();
+    await userEvent.setup().click(opener);
+    const dialog = await screen.findByRole('dialog');
+    const notNow = within(dialog).getByRole('button', {
+      name: copy.item('Own card: buttons', 'not now'),
+    });
+    // "Not now" is a plain button: the 44-pixel rule of every button holds for it.
+    expect(notNow.className.trim()).toBe('not-now');
+    expect(
+      within(dialog)
+        .getByRole('button', { name: copy.item('Own card: buttons', 'save') })
+        .classList.contains('save'),
+    ).toBe(true);
+  });
+
   it('with reduced motion asked for, nothing moves: every transition of a place or a size, and every animation that moves, is overridden; the fades stay', () => {
     expect(css).toContain(REDUCE);
     const moving = new Set(
@@ -367,6 +392,17 @@ describe('headings', () => {
     expectHeadingsInOrder('the laptop page');
   });
 
+  it('with the blank card open the screen keeps one h1 and no level skipped, on a phone and on a laptop', async () => {
+    for (const wide of [false, true]) {
+      const app = await onACard({ wide });
+      const { unmount } = renderApp(app);
+      app.openOwnCard();
+      await screen.findByRole('dialog', { name: copy.text('Own card: title') });
+      expectHeadingsInOrder(`the blank card ${wide ? 'on a laptop' : 'on a phone'}`);
+      unmount();
+    }
+  });
+
   it('on every other screen the app name stays a line, not a heading', () => {
     renderApp(onAScreen({ screen: 'welcome' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(copy.text('Welcome: title'));
@@ -449,6 +485,60 @@ describe('focus', () => {
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     for (const el of behind()) expect(inert(el), el.tagName).toBe(false);
+  });
+});
+
+describe('the blank card (ADR 0022)', () => {
+  it('the focus goes into the field on opening, stays inside, and back to the button on closing; Escape closes, as "Not now" does; the page behind is inert meanwhile', async () => {
+    for (const wide of [false, true]) {
+      const app = await onACard({ wide });
+      const user = userEvent.setup();
+      const { unmount } = renderApp(app);
+      const inert = (el: Element) => (el as HTMLElement & { inert?: boolean }).inert === true;
+      const opener = () => screen.getByRole('button', { name: copy.text('Own card: button') });
+      await user.click(opener());
+      const dialog = await screen.findByRole('dialog', { name: copy.text('Own card: title') });
+      expect(dialog.getAttribute('aria-modal')).toBe('true');
+      const field = screen.getByRole('textbox', { name: copy.text('Own card: field') });
+      await waitFor(() => expect(document.activeElement).toBe(field));
+      for (const tag of ['header', 'main', 'footer'])
+        expect(inert(document.querySelector(tag)!), tag).toBe(true);
+      await user.type(field, 'Words');
+      await user.tab();
+      await user.tab();
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(opener()));
+      for (const tag of ['header', 'main', 'footer'])
+        expect(inert(document.querySelector(tag)!), tag).toBe(false);
+      await user.click(opener());
+      await screen.findByRole('dialog');
+      await user.click(
+        screen.getByRole('button', { name: copy.item('Own card: buttons', 'not now') }),
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(opener()));
+      expect(app.ownDraft).toBe('Words');
+      unmount();
+    }
+  });
+
+  it('the field is described by the hint, the line about names and the counter, and a save that fails is an alert', async () => {
+    const app = await onACard();
+    renderApp(app);
+    app.openOwnCard();
+    app.ownDraft = 'a lone surrogate \uD83D';
+    await screen.findByRole('dialog');
+    const field = screen.getByRole('textbox', { name: copy.text('Own card: field') });
+    expect(field.getAttribute('aria-describedby')).toBe('own-hint own-names own-count');
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: copy.item('Own card: buttons', 'save') }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.id).toBe('own-error');
+    expect(field.getAttribute('aria-describedby')).toContain('own-error');
   });
 });
 
