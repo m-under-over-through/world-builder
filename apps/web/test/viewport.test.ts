@@ -11,12 +11,16 @@ import { currentCardId, replaySession } from '../src/lib/session.ts';
 import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import {
+  expectedHeight,
   FIELD_TEXT,
   followViewport,
+  forgetKeyboards,
   frameOf,
   growField,
   keepEndInView,
+  KEYBOARD_GUESS,
   KEYBOARD_MIN,
+  KEYBOARD_WAIT_MS,
   keyboardUp,
   VV_HEIGHT,
   VV_TOP,
@@ -56,6 +60,7 @@ class StandIn extends EventTarget {
 }
 
 beforeEach(freshIndexedDb);
+beforeEach(forgetKeyboards);
 afterEach(() => vi.unstubAllGlobals());
 
 async function onACard(patch: Partial<AppState> = {}): Promise<AppState> {
@@ -124,6 +129,80 @@ describe('the visual viewport, read', () => {
     // Android Chrome with resizes-content: the page shrinks with the visible part, so the
     // comparison says no keyboard, and no strip is kept for a bar that is not there.
     expect(frameOf({ height: 400, offsetTop: 0 } as never, 400).keyboard).toBe(false);
+  });
+
+  it('on a touch screen the frame starts at the height the keyboard is expected to leave, takes the real one once the keyboard has settled, and starts from that the next time', () => {
+    // An iPhone says what is left only when its keyboard has stopped moving. Until then the
+    // card would be as tall as the whole page, its foot under the keyboard, and then jump.
+    const viewport = new StandIn();
+    const el = document.createElement('div');
+    const frames: { height: number; keyboard: boolean }[] = [];
+    const options = {
+      viewport,
+      layoutHeight: () => 768,
+      layoutWidth: () => 393,
+      expectKeyboard: true,
+      onChange: (frame: { height: number; keyboard: boolean }) => frames.push(frame),
+    };
+    const stop = followViewport(el, options)!;
+    const guess = Math.round(768 * KEYBOARD_GUESS);
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe(`${guess}px`);
+    // The strip under Save is kept from the start, so nothing moves when the keyboard lands.
+    expect(frames.at(-1)).toEqual({ height: guess, top: 0, keyboard: true });
+    // Safari's bars moving while the keyboard rises change nothing yet.
+    viewport.resize(740);
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe(`${guess}px`);
+    viewport.resize(410);
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('410px');
+    expect(frames.at(-1)?.keyboard).toBe(true);
+    stop();
+    // The next card opens at the height this keyboard left, on a page this wide.
+    expect(expectedHeight(393, 768)).toBe(410);
+    expect(expectedHeight(852, 393)).toBe(Math.round(393 * KEYBOARD_GUESS));
+    viewport.resize(768);
+    const again = followViewport(el, options)!;
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('410px');
+    again();
+  });
+
+  it('if no keyboard comes, the card takes the whole visible part after a moment', () => {
+    vi.useFakeTimers();
+    try {
+      const viewport = new StandIn();
+      const el = document.createElement('div');
+      const frames: boolean[] = [];
+      const stop = followViewport(el, {
+        viewport,
+        layoutHeight: () => 768,
+        layoutWidth: () => 393,
+        expectKeyboard: true,
+        onChange: (frame) => frames.push(frame.keyboard),
+      })!;
+      expect(el.style.getPropertyValue(VV_HEIGHT)).toBe(`${Math.round(768 * KEYBOARD_GUESS)}px`);
+      vi.advanceTimersByTime(KEYBOARD_WAIT_MS);
+      expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('768px');
+      expect(frames.at(-1)).toBe(false);
+      stop();
+      // Stopped before the wait is over: the timer is gone with it, and nothing is set later.
+      const early = followViewport(el, {
+        viewport,
+        layoutHeight: () => 768,
+        expectKeyboard: true,
+      })!;
+      early();
+      vi.advanceTimersByTime(KEYBOARD_WAIT_MS * 2);
+      expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('without a touch screen nothing is expected: the frame is the visible part from the start', () => {
+    const viewport = new StandIn();
+    const el = document.createElement('div');
+    const stop = followViewport(el, { viewport, layoutHeight: () => 768 })!;
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('768px');
+    stop();
   });
 
   it('without a visual viewport nothing is set and there is nothing to stop', () => {

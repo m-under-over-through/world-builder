@@ -976,6 +976,13 @@ textarea::placeholder {
 .app.framed.keyboard-up .loop.answering {
   padding-bottom: 52px;
 }
+/* The framed card takes its place at once. The stack's own change of width and height, and the
+   back cards fading, ran at the same time as the keyboard and the frame's own change of size:
+   three movements at three speeds (Marco, 18 November 2026: "weird and janky"). */
+.app.framed .stack,
+.app.framed .slot {
+  transition: none;
+}
 .app.framed .card.open {
   padding: 16px 20px 14px;
   gap: 10px;

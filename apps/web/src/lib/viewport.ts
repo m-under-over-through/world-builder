@@ -57,11 +57,51 @@ export function frameOf(viewport: ViewportLike, layoutHeight: number): Frame {
   return { height, top, keyboard: !pinched && keyboardUp(layoutHeight, height) };
 }
 
+/**
+ * The share of the page taken as free above a phone's keyboard the first time, before the
+ * browser has said. A little low on purpose: a card that grows by a few pixels once the
+ * keyboard has settled reads better than one whose foot is cut off and then jumps up.
+ */
+export const KEYBOARD_GUESS = 0.5;
+
+/**
+ * How long the keyboard is waited for before the page believes there is none (a phone with a
+ * keyboard attached, a field that did not take the focus). An iPhone's keyboard is up within
+ * half a second.
+ */
+export const KEYBOARD_WAIT_MS = 1000;
+
+/**
+ * What was left above the keyboard the last time it was up, by the page's width: a phone on
+ * its side has another keyboard. Kept in memory only, until the page is closed.
+ */
+const remembered = new Map<number, number>();
+
+/** Forget what earlier keyboards left free. For tests. */
+export function forgetKeyboards(): void {
+  remembered.clear();
+}
+
+/** The height to expect above the keyboard on a page this wide and this tall. */
+export function expectedHeight(layoutWidth: number, layoutHeight: number): number {
+  return remembered.get(layoutWidth) ?? Math.round(layoutHeight * KEYBOARD_GUESS);
+}
+
 export interface FollowOptions {
   /** The visual viewport; the browser's own by default. */
   viewport?: ViewportLike | null;
   /** The layout viewport's height: the page's own box, which an iPhone's keyboard does not change. */
   layoutHeight?: () => number;
+  /** The layout viewport's width, to remember a keyboard by. */
+  layoutWidth?: () => number;
+  /**
+   * The keyboard is about to rise: a touch screen, and a field about to take the focus. The
+   * frame then starts at the height the keyboard is expected to leave, not at the whole page.
+   * An iPhone says how much is left only once its keyboard has stopped moving; without this the
+   * card opens over the whole screen, the keyboard covers its lower half, and the card jumps
+   * to half its height a moment later (Marco's "weird and janky", 18 November 2026).
+   */
+  expectKeyboard?: boolean;
   /** Called with each new frame, the first one included. */
   onChange?: (frame: Frame) => void;
 }
@@ -72,6 +112,15 @@ function browserViewport(): ViewportLike | null {
 
 function pageHeight(): number {
   return document.documentElement.clientHeight || window.innerHeight;
+}
+
+function pageWidth(): number {
+  return document.documentElement.clientWidth || window.innerWidth;
+}
+
+/** Whether this is a screen worked by a finger, where a field brings a keyboard up. */
+export function touchScreen(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true;
 }
 
 /**
@@ -86,16 +135,41 @@ export function followViewport(
   const viewport = options.viewport === undefined ? browserViewport() : options.viewport;
   if (!viewport) return null;
   const layoutHeight = options.layoutHeight ?? pageHeight;
+  const layoutWidth = options.layoutWidth ?? pageWidth;
+  // Waiting for a keyboard that has not said where it stops yet.
+  let expecting = options.expectKeyboard === true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const update = () => {
-    const frame = frameOf(viewport, layoutHeight());
+    const real = frameOf(viewport, layoutHeight());
+    if (real.keyboard) {
+      // The keyboard has settled: this is the box, and the next opening starts from it.
+      remembered.set(layoutWidth(), real.height);
+      expecting = false;
+      clearTimeout(timer);
+    }
+    const frame: Frame =
+      expecting && !real.keyboard
+        ? {
+            height: Math.min(real.height, expectedHeight(layoutWidth(), layoutHeight())),
+            top: real.top,
+            keyboard: true,
+          }
+        : real;
     root.style.setProperty(VV_HEIGHT, `${frame.height}px`);
     root.style.setProperty(VV_TOP, `${frame.top}px`);
     options.onChange?.(frame);
   };
   update();
+  if (expecting)
+    timer = setTimeout(() => {
+      // No keyboard came: the whole visible part is the card's after all.
+      expecting = false;
+      update();
+    }, KEYBOARD_WAIT_MS);
   viewport.addEventListener('resize', update);
   viewport.addEventListener('scroll', update);
   return () => {
+    clearTimeout(timer);
     viewport.removeEventListener('resize', update);
     viewport.removeEventListener('scroll', update);
     root.style.removeProperty(VV_HEIGHT);
