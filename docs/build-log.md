@@ -2319,7 +2319,7 @@ Mechanism writes each invitation in Gmail, with a personal note, so no tool puts
 - The welcome's line "Welcome: your link" says to use "the links at the foot of the email". In the invitation text the spare links follow the own link at the end of the block; whether they are at the foot depends on where Mechanism puts the personal note. Marco's words to align, in `copy.md`.
 - The in-app browser used for the look refused the clipboard, so the good copy was seen in the tests and, in the browser, only with the clipboard replaced from the console. A real copy and paste on a Mac and on a phone is still to do.
 
-## 18 November 2026: deck 0.5, every card of the sheet; the invitation's opening line (pull request 61)
+## 2026-11-18, Wednesday. Deck 0.5, every card of the sheet; the invitation's opening line (pull request 61)
 
 ### What
 
