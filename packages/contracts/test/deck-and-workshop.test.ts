@@ -31,6 +31,20 @@ describe('deck', () => {
     expect(result.success).toBe(false);
   });
 
+  it('refuses a card id that starts with own-, which is kept for blank cards (ADR 0022)', () => {
+    const deck = (id: string) => ({
+      version: '0.1',
+      cards: [
+        { id, set: 'warmup', text: 'A?' },
+        { id: 'other-card', set: 'checkpoint', text: 'B?' },
+      ],
+    });
+    expect(deckSchema.safeParse(deck('own-story')).success).toBe(false);
+    // The prefix, not the letters: a card about who owns the plant is fine.
+    expect(deckSchema.safeParse(deck('owns-plant')).success).toBe(true);
+    expect(deckSchema.safeParse(deck('who-own-it')).success).toBe(true);
+  });
+
   it('needs at least one warm-up and one checkpoint', () => {
     const onlyWarmups = {
       version: '0.1',

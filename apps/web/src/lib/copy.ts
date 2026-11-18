@@ -167,6 +167,11 @@ export const COPY_TEXT = [
   'Welcome: link not accepted',
   'Closed',
   'Thank you card',
+  'Own card: button',
+  'Own card: title',
+  'Own card: hint',
+  'Own card: field',
+  'Own card: tile',
   'Not open yet',
   'About: what this is',
   'About: in short',
@@ -297,6 +302,7 @@ export const COPY_LISTS = {
   Diagnostics: ['last sync', 'outbox', 'last error', 'never', 'ok', 'offline', 'error'],
   Reminder: ['summary', 'description'],
   'Invitation page: buttons': ['new', 'copy'],
+  'Own card: buttons': ['save', 'not now'],
 } as const;
 
 /** One line per error code, server and client, under "Error: <CODE>". */

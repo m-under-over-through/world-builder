@@ -7,6 +7,7 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 - **card**: one question. Has an id, a text, and belongs to a **set**: **warm-up** or **checkpoint**. May carry an **area**, the theme it probes, shown as the card's label.
 - **session**: one round of the cards, as the deck engine plans it: W warm-ups, then C checkpoints. Numbered per participant from 1. Has a **seed** that makes its shuffle reproducible. When one is over the next starts at once (ADR 0017), so one sitting can hold several; the participant is shown no word for it.
 - **round**: the word code and docs use for a session as it follows the last one without a pause.
+- **blank card**: a card with no question, which the participant writes. An `answered` event like any other, with a card id that starts with `own-` and is in no deck (ADR 0022).
 - **participant**: one anonymous code. Not a person: a person with two codes is two participants.
 - **code**: the anonymous code, 16 digits. The only identifier. Sent in the `Authorization` header, stored as a **keyed hash**, never in a URL. Since 4 November 2026 (ADR 0018) the device makes it from the **link value**, or at random when the link has none; it is never typed or shown.
 - **link value**: the value after `#p=` in an invitation's link, one per link, made at random by the **invitation page**. It stays in the browser, is never sent to any server, and makes the code.

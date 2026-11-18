@@ -1,5 +1,6 @@
 import {
   generateCode,
+  isOwnCardId,
   MAX_ANSWER_CHARS,
   type Card,
   type Event,
@@ -13,6 +14,7 @@ import { api, DEFAULT_RETRY_AFTER_SECONDS, type ApiResult } from './api.ts';
 import type { Copy } from './copy.ts';
 import { dayStatus } from './days.ts';
 import { codeFromValue, valueFromHash } from './identity.ts';
+import { newOwnCardId } from './own-card.ts';
 import { detectPlatform, type Platform } from './platform.ts';
 import {
   countsAsOpen,
@@ -114,6 +116,8 @@ export interface WorldTile {
   question: string;
   /** The words, on the device that wrote them; null on any other device. */
   answer: string | null;
+  /** True for a blank card (ADR 0022): no question and no area; the tile shows its own label. */
+  own?: boolean;
 }
 
 /**
@@ -160,7 +164,18 @@ export const RETRY_FIRST_MS = 5_000;
 export const RETRY_MAX_MS = 5 * 60_000;
 
 export class AppState {
-  screen = $state<Screen>('loading');
+  #screen = $state<Screen>('loading');
+  /**
+   * The screen showing. Leaving the cards (a sync that finds the workshop closed, the about page)
+   * also closes the blank card, so it is not found open on the way back (ADR 0022).
+   */
+  get screen(): Screen {
+    return this.#screen;
+  }
+  set screen(screen: Screen) {
+    this.#screen = screen;
+    if (screen !== 'card') this.ownCardOpen = false;
+  }
   workshop = $state.raw<Workshop | undefined>(undefined);
   copy = $state.raw<Copy>(defaultCopy());
   store: Store | undefined;
@@ -196,6 +211,14 @@ export class AppState {
    */
   draft = $state('');
   private drafts = new Map<string, string>();
+  /**
+   * The blank card (ADR 0022): whether the place to write it is open, its draft, and whether it
+   * is being saved. The draft lives in memory only, never in the store, so "Not now" keeps the
+   * words for the next time the place is opened in this open of the app, as a card keeps its draft.
+   */
+  ownCardOpen = $state(false);
+  ownDraft = $state('');
+  ownSaving = $state(false);
   /** True while a refused join waits out the server's Retry-After before its one retry. */
   retrying = $state(false);
   /** How the join waits; a test replaces it so the wait is instant. */
@@ -380,8 +403,11 @@ export class AppState {
         this.live?.session.id === session.id
           ? this.live.queueAsPlanned
           : planAsStarted(deck, config, session, this.history).queue;
-      const answered = this.history.events
-        .filter((e) => e.kind === 'answered' && e.sessionId === session.id && cards.has(e.cardId))
+      const ofSession = this.history.events.filter(
+        (e) => e.kind === 'answered' && e.sessionId === session.id,
+      );
+      const answered = ofSession
+        .filter((e) => cards.has(e.cardId))
         .map((e) => ({ cardId: e.cardId, n: cardNumber(queue, e.cardId) }))
         .sort((a, b) => a.n - b.n);
       for (const { cardId, n } of answered) {
@@ -395,6 +421,22 @@ export class AppState {
           ...(card.area === undefined ? {} : { area: card.area }),
           question: card.text,
           answer: this.copies.get(key) ?? null,
+        });
+      }
+      // A blank card is in no deck, so the line above leaves it out; it is a tile all the same,
+      // after the round's cards, in the order written (ADR 0022). It has no number in the round,
+      // so `n` is 0 and the tile does not take a tint from it.
+      const own = ofSession.filter((e) => isOwnCardId(e.cardId)).sort((a, b) => a.seq - b.seq);
+      for (const { cardId } of own) {
+        const key = answerKey(session.id, cardId);
+        tiles.push({
+          key,
+          cardId,
+          sessionNo: session.sessionNo,
+          n: 0,
+          question: '',
+          answer: this.copies.get(key) ?? null,
+          own: true,
         });
       }
     }
@@ -847,13 +889,16 @@ export class AppState {
     }
   }
 
-  /** One event, as the contract spells it, with this session's next seq; the engine names the kind. */
-  private async record(kind: EventKind, body?: string): Promise<void> {
-    if (!this.store || !this.workshop || !this.live || !this.card) return;
+  /**
+   * One event, as the contract spells it, with this session's next seq; the engine names the kind.
+   * For the front card unless a card id is given: a blank card's (ADR 0022).
+   */
+  private async record(kind: EventKind, body?: string, cardId = this.card?.id): Promise<void> {
+    if (!this.store || !this.workshop || !this.live || cardId === undefined) return;
     const event: Event = {
       id: crypto.randomUUID(),
       sessionId: this.live.session.id,
-      cardId: this.card.id,
+      cardId,
       seq: this.live.nextSeq,
       kind,
       createdDay: localDay(),
@@ -951,6 +996,78 @@ export class AppState {
     this.live = live;
     void this.requestSync();
     await this.showCard();
+  }
+
+  /**
+   * Whether the blank card is offered (ADR 0022): on the card screen whenever a round is live,
+   * also once the deck is done; never on the welcome or the about page, and never while the
+   * onboarding card is in front, since a person writes after they have seen what this is.
+   */
+  get ownCardOffered(): boolean {
+    return this.screen === 'card' && this.live !== null && !this.demoFront;
+  }
+
+  /** "Write your own story": the place to write opens, with the words left there last time. */
+  openOwnCard(): void {
+    if (!this.ownCardOffered || this.cardState !== 'fresh') return;
+    this.error = '';
+    this.ownCardOpen = true;
+  }
+
+  /** "Not now", Esc: the place closes; the draft stays in memory for the next time. */
+  closeOwnCard(): void {
+    if (this.ownSaving) return;
+    this.error = '';
+    this.ownCardOpen = false;
+  }
+
+  /**
+   * Save a blank card (ADR 0022), as `save` does for a card, with a fresh id from `newOwnCardId`:
+   * cut to the limit by code points, sealed before anything is written, one `answered` event on
+   * the live round through the same outbox, the readable copy next to it (ADR 0014), then the
+   * sync in the background. The round is left as it was: the front card, its draft, the queue
+   * and the stack do not move, and no `shown` is recorded. An empty text, or spaces only, is not
+   * saved. Returns whether it was taken.
+   */
+  async saveOwnCard(answer = this.ownDraft): Promise<boolean> {
+    if (!this.workshop || !this.live || !this.store || this.ownSaving || !this.ownCardOffered)
+      return false;
+    if (!answer.trim()) return false;
+    this.error = '';
+    const text = truncateCodePoints(answer, MAX_ANSWER_CHARS);
+    let sealed: string;
+    try {
+      sealed = sealAnswer(this.workshop.publicKey, text);
+    } catch {
+      // As for a card: to a participant it is one thing, nothing was saved (CLIENT_SEAL_FAILED).
+      this.fail('CLIENT_SEAL_FAILED');
+      return false;
+    }
+    this.ownSaving = true;
+    try {
+      const cardId = newOwnCardId();
+      const session = this.live.session;
+      await this.record('answered', sealed, cardId);
+      // The readable copy goes to the table no sync reads, never into the event (lib/store.ts).
+      const key = answerKey(session.id, cardId);
+      await this.store.putAnswer({ key, sessionId: session.id, cardId, text });
+      this.copies = new Map(this.copies).set(key, text);
+      // The seq moves on; the id joins the round's answered ids, which the deck engine ignores
+      // for a card it does not hold, as a replay of the round would do. Not `withAnswer`: a blank
+      // card is not a touch of the round, so the first card keeps its hints (lib/session.ts).
+      this.live = {
+        ...this.live,
+        answered: new Set([...this.live.answered, cardId]),
+        nextSeq: this.live.nextSeq + 1,
+      };
+      this.ownDraft = '';
+      this.ownCardOpen = false;
+      this.announce('saved');
+    } finally {
+      this.ownSaving = false;
+    }
+    await this.requestSync();
+    return true;
   }
 
   /** The pill "Your world so far" on a phone: the sheet opens; × , the scrim, Esc or a swipe down closes it. */

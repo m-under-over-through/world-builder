@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import Invitations from './components/Invitations.svelte';
+  import OwnCard from './components/OwnCard.svelte';
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
   import { AppState } from './lib/state.svelte.ts';
@@ -41,9 +42,11 @@
    * While the sheet is open on a phone, the page behind it is `inert`: no tap, no Tab and no
    * screen-reader swipe reaches it. `aria-modal` says the same, but not every screen reader
    * honours it, so the page says it too (design/DESIGN.md, Accessibility). The hidden line for
-   * the screen reader stays outside, so it can still speak.
+   * the screen reader stays outside, so it can still speak. The same holds while the place to
+   * write a blank card is open, on a phone and on a laptop alike (ADR 0022).
    */
-  const behindSheet = $derived(app.worldOpen && !app.wide);
+  const ownCardShown = $derived(app.ownCardOpen && app.ownCardOffered);
+  const behindSheet = $derived((app.worldOpen && !app.wide) || ownCardShown);
 
   /**
    * A screen that replaces another takes the button that was pressed with it ("I understand",
@@ -142,7 +145,7 @@
       {#key app.announcement.n}{app.announcement.text}{/key}
     </p>
     {#if app.wide}
-      <main class="page-main"><Card {app} /></main>
+      <main class="page-main" inert={behindSheet}><Card {app} /></main>
     {:else}
       <main class="loop" class:answering={app.cardState !== 'fresh'} inert={behindSheet}>
         <Card {app} />
@@ -204,5 +207,8 @@
   {/if}
   {#if app.worldOpen && !app.wide}
     <WorldSheet {app} returnTo={worldPill} />
+  {/if}
+  {#if ownCardShown}
+    <OwnCard {app} />
   {/if}
 </div>

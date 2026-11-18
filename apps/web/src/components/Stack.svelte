@@ -1,3 +1,11 @@
+<script module lang="ts">
+  /** The counter shows from here (DESIGN.md: "near 4,000"), and in bold from `COUNTER_NEAR`; the blank card's too. */
+  export const COUNTER_FROM = 3000;
+  export const COUNTER_NEAR = 3900;
+  /** The id of "Write your own story", so the place to write can give the focus back to it (ADR 0022). */
+  export const OWN_CARD_OPENER = 'own-card-open';
+</script>
+
 <script lang="ts">
   import { MAX_ANSWER_CHARS } from '@wb/contracts';
   import { tick } from 'svelte';
@@ -16,7 +24,10 @@
    * × closes it and keeps the draft. The answered card leaves through `app.exiting`, drawn here
    * on its way out while the next card is already the front. Under the stack: Set aside, which
    * makes the card leave sideways before recording it, and on a phone the hint that a swipe
-   * does the same (lib/swipe.ts).
+   * does the same (lib/swipe.ts). Under those, "Write your own story", a quiet text button that
+   * opens the blank card (ADR 0022; components/OwnCard.svelte): there whenever a round is live,
+   * also under the thank-you card, and not while the onboarding card is in front. To move it, move
+   * the one line that renders the snippet `ownCardButton`.
    *
    * On the first open the onboarding card is the front (`app.demoFront`, ADR 0019): tinted,
    * "Try a card" as its label, the words large, "Got it" at its foot; the first real cards
@@ -27,9 +38,6 @@
    * field is: by itself on the first card of the first session, and from "Prefer to talk?".
    */
   let { app }: { app: AppState } = $props();
-  /** The counter shows from here (DESIGN.md: "near 4,000"), and in bold from `COUNTER_NEAR`. */
-  const COUNTER_FROM = 3000;
-  const COUNTER_NEAR = 3900;
   let leaving = $state(false);
   let field: HTMLTextAreaElement | undefined = $state();
   let front: HTMLButtonElement | undefined = $state();
@@ -267,22 +275,35 @@
     </div>
   {/if}
 </div>
-{#if !open && (app.card || app.demoFront)}
+{#snippet ownCardButton()}
+  <button
+    type="button"
+    class="link own-open"
+    id={OWN_CARD_OPENER}
+    disabled={busy || leaving}
+    onclick={() => app.openOwnCard()}>{app.copy.text('Own card: button')}</button
+  >
+{/snippet}
+
+{#if !open && (app.card || app.demoFront || app.ownCardOffered)}
   <div class="aside-row">
-    <button type="button" class="ghost" disabled={busy || leaving} onclick={setAside}>
-      {app.copy.item('Buttons', 'set aside')}
-      <svg
-        aria-hidden="true"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.75"
-        stroke-linecap="round"
-        stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg
-      >
-    </button>
-    <span class="swipe-hint">{app.copy.item('Card labels', 'swipe hint')}</span>
+    {#if app.card || app.demoFront}
+      <button type="button" class="ghost" disabled={busy || leaving} onclick={setAside}>
+        {app.copy.item('Buttons', 'set aside')}
+        <svg
+          aria-hidden="true"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg
+        >
+      </button>
+      <span class="swipe-hint">{app.copy.item('Card labels', 'swipe hint')}</span>
+    {/if}
+    {#if app.ownCardOffered}{@render ownCardButton()}{/if}
   </div>
 {/if}

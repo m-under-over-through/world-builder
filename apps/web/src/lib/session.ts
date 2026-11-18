@@ -1,4 +1,10 @@
-import type { Deck, Event, Session, WorkshopConfig } from '@wb/contracts';
+import {
+  isOwnCardId,
+  type Deck,
+  type Event,
+  type Session,
+  type WorkshopConfig,
+} from '@wb/contracts';
 import { applyDismiss, isDeckDone, isSessionOver, planSession, type SessionPlan } from '@wb/deck';
 
 /**
@@ -166,7 +172,8 @@ export function replaySession(
     dismissed,
     deferred,
     nextSeq: last ? last.seq + 1 : 0,
-    untouched: own.every((e) => e.kind === 'shown'),
+    // A blank card is not a touch of the round (ADR 0022): the hints of a first card stay.
+    untouched: own.every((e) => e.kind === 'shown' || isOwnCardId(e.cardId)),
     deckDone,
   };
 }

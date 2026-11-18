@@ -10,7 +10,8 @@
    * The same order in the sheet and in the laptop's column. With no answer yet, one quiet notice
    * in the place of the first tile, the size of a tile, so nothing jumps when the first one
    * lands. Under it all, in the sheet and in the column, a quiet line with "Remind me", the
-   * workshop's calendar file (lib/reminder.ts; ADR 0017).
+   * workshop's calendar file (lib/reminder.ts; ADR 0017). A blank card (ADR 0022) is a tile
+   * with no question and no tint: its label is the copy file's "Own card: tile", then the words.
    */
   let { app, sheet = false }: { app: AppState; sheet?: boolean } = $props();
   const world = $derived(app.world);
@@ -27,9 +28,17 @@
   {:else}
     <ul class="tiles">
       {#each world.tiles as tile (tile.key)}
-        <li class="tile" style:--tint={`var(--tint-${tintOf(tile.n)})`}>
-          {#if tile.area}<span class="label">{tile.area}</span>{/if}
-          <span class="q">{tile.question}</span>
+        <li
+          class="tile"
+          class:own={tile.own}
+          style:--tint={tile.own ? undefined : `var(--tint-${tintOf(tile.n)})`}
+        >
+          {#if tile.own}
+            <span class="label">{app.copy.text('Own card: tile')}</span>
+          {:else}
+            {#if tile.area}<span class="label">{tile.area}</span>{/if}
+            <span class="q">{tile.question}</span>
+          {/if}
           {#if tile.answer === null}
             <span class="a elsewhere">{app.copy.item('Your world', 'written elsewhere')}</span>
           {:else}

@@ -5,6 +5,17 @@ import { deckVersionSchema, slugLikeSchema } from './primitives.ts';
 export const CARD_SETS = ['warmup', 'checkpoint'] as const;
 export type CardSet = (typeof CARD_SETS)[number];
 
+/**
+ * A blank card is a card the participant writes (ADR 0022). Its id is this prefix and a random
+ * tail, made on the device, and it is in no deck. A deck may not use the prefix.
+ */
+export const OWN_CARD_PREFIX = 'own-';
+
+/** Whether a card id is a blank card's. */
+export function isOwnCardId(id: string): boolean {
+  return id.startsWith(OWN_CARD_PREFIX);
+}
+
 export const cardSchema = z.object({
   id: slugLikeSchema,
   set: z.enum(CARD_SETS),
@@ -27,6 +38,12 @@ export const deckSchema = z
         ctx.addIssue({ code: 'custom', message: `duplicate card id "${card.id}"` });
       }
       seen.add(card.id);
+      if (isOwnCardId(card.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `card id "${card.id}" starts with "${OWN_CARD_PREFIX}", which is kept for blank cards (ADR 0022)`,
+        });
+      }
     }
     for (const set of CARD_SETS) {
       if (!deck.cards.some((card) => card.set === set)) {
