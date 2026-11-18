@@ -1,10 +1,10 @@
 {
-  "version": "0.5",
+  "version": "0.6",
   "cards": [
     {
       "id": "tuesday-night",
       "set": "warmup",
-      "text": "What happens on typical Tuesday night?",
+      "text": "What happens on a typical Tuesday night?",
       "area": "Everyday life"
     },
     {
@@ -658,13 +658,13 @@
     {
       "id": "failed",
       "set": "warmup",
-      "text": "What is the busiest local government office?",
+      "text": "What failed?",
       "area": "Losses and the transition"
     },
     {
       "id": "busiest-office",
       "set": "warmup",
-      "text": "What is the busiest office at City Hall?",
+      "text": "What is the busiest local government office?",
       "area": "Land, water and energy"
     },
     {

@@ -250,7 +250,6 @@ export const COPY_LISTS = {
   'Card labels': [
     'demo label',
     'write an answer',
-    'placeholder',
     'counter',
     'swipe hint',
     'close without saving',
