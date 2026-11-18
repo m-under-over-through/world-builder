@@ -2375,3 +2375,36 @@ The client counts and cuts an answer by code points: an emoji is one character, 
 ### Open questions
 
 - None.
+
+## 2026-11-18, Wednesday. Deck 0.6, 6 December everywhere, "email" for "newsletter", no hint in the field (pull request 64)
+
+### What
+
+- `workshops/rural-manufacturing/deck.json`: version 0.6. Three texts change against 0.5, after Marco corrected the sheet: `tuesday-night`, `failed` and `busiest-office`. `plant-sound` stays as it is in the sheet.
+- `workshops/rural-manufacturing/copy.md`:
+  - "Invitation: text" opens with "This is your link, you can reopen it until December 6th:".
+  - The welcome's link line and the terms speak of "the two other links in the email", not of links "at the foot of the email".
+  - The terms, the policy and one error line no longer say "newsletter". The policy's "What we store" says: "Mechanism, which sends the emails, knows which link went to which address and we never see that list", and "which round of emails they came through".
+  - The line "placeholder" of "Card labels" is gone.
+- `docs/participant-texts.md`: the same three sentences of the terms and the policy.
+- `apps/web/src/components/Stack.svelte` and `apps/web/src/lib/copy.ts`: the open card's field has no `placeholder`.
+- `apps/web/test/card.test.ts`: the open card's field is empty, has no hint text and is named by the card's question.
+
+### Why
+
+Marco, 18 November: the closing day is 6 December, and the invitation line was his slip. "No hint is more elegant", and the keyboard is already open when a card opens. The newsletter is gone since Mechanism sends each invitation by hand (ADR 0021), so texts that named it were no longer true.
+
+### How to verify
+
+1. `npm run check`: 527 tests.
+2. On staging: open a card, the field is empty. The invitation page's text gives December 6th. The about page's fold, the terms and the policy have no "newsletter".
+
+### Decisions made on the way
+
+- The policy could not just swap one word: there is no tool that "knows which link went to which address", there is Mechanism. The sentence says so.
+- "Which newsletter link they came through" is the wave. It reads "which round of emails they came through".
+- These texts keep their draft marks. Marco is reading the whole copy file again.
+
+### Open questions
+
+- `plant-sound` reads "when you walk around in during the day". Marco confirmed the card; the extra "in" was pointed out to him once more.

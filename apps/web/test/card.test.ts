@@ -162,6 +162,19 @@ describe('the states of the card', () => {
     );
   });
 
+  it("the open card's field is empty: no hint text in it, and its name is the card's question", async () => {
+    const app = await onACard();
+    const user = userEvent.setup();
+    render(Card, { app });
+    await user.click(frontCard());
+    // Marco, 18 November 2026: no hint is more elegant, and the keyboard is already open.
+    const field = (await screen.findByRole('textbox', {
+      name: app.card!.text,
+    })) as HTMLTextAreaElement;
+    expect(field.getAttribute('placeholder')).toBeNull();
+    expect(field.value).toBe('');
+  });
+
   it('Enter on the focused card opens it', async () => {
     const app = await onACard();
     const user = userEvent.setup();
