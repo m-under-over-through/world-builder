@@ -1,5 +1,5 @@
 {
-  "version": "0.4",
+  "version": "0.5",
   "cards": [
     {
       "id": "tuesday-night",
@@ -11,6 +11,30 @@
       "id": "first-sound",
       "set": "warmup",
       "text": "What is the first sound you hear in the morning?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "getting-to-work",
+      "set": "warmup",
+      "text": "How do people get to work?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "saturday-afternoon",
+      "set": "warmup",
+      "text": "What do people do on a Saturday afternoon?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "bored-teenagers",
+      "set": "warmup",
+      "text": "What do bored teenagers do here?",
+      "area": "Everyday life"
+    },
+    {
+      "id": "where-people-meet",
+      "set": "warmup",
+      "text": "Where do people go to see each other?",
       "area": "Everyday life"
     },
     {
@@ -32,39 +56,69 @@
       "area": "Raw materials"
     },
     {
+      "id": "raw-materials-from-v2",
+      "set": "checkpoint",
+      "text": "Which material still can't be found anywhere near here?",
+      "area": "Raw materials"
+    },
+    {
       "id": "abundant",
       "set": "warmup",
       "text": "What is abundant?",
       "area": "Raw materials"
     },
     {
+      "id": "scarce",
+      "set": "warmup",
+      "text": "What is scarce?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "hoarded-material",
+      "set": "warmup",
+      "text": "What do people hoard because it's hard to get?",
+      "area": "Raw materials"
+    },
+    {
       "id": "trash-now-valuable",
-      "set": "warmup",
-      "text": "What used to be trash and is now worth something?",
-      "area": "Raw materials"
-    },
-    {
-      "id": "grows-for-factory",
-      "set": "warmup",
-      "text": "What grows here that ends up in a factory, not on a plate?",
-      "area": "Raw materials"
-    },
-    {
-      "id": "town-known-for",
-      "set": "warmup",
-      "text": "What is the town known for making?",
-      "area": "Making"
-    },
-    {
-      "id": "what-town-makes",
       "set": "checkpoint",
-      "text": "What does the town make that people far away want?",
+      "text": "What used to be considered trash and is now worth something?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "old-buildings-reuse",
+      "set": "warmup",
+      "text": "What do people pull out of old buildings to use again?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "dug-from-ground",
+      "set": "warmup",
+      "text": "What gets dug out of the ground around here?",
+      "area": "Raw materials"
+    },
+    {
+      "id": "known-for-making",
+      "set": "warmup",
+      "text": "What is this place known for making?",
       "area": "Making"
     },
     {
-      "id": "through-the-plant",
+      "id": "made-here",
+      "set": "checkpoint",
+      "text": "What is made here that people far away want?",
+      "area": "Making"
+    },
+    {
+      "id": "made-here-v2",
+      "set": "checkpoint",
+      "text": "What is made here only for local use?",
+      "area": "Making"
+    },
+    {
+      "id": "one-at-a-time",
       "set": "warmup",
-      "text": "Pick one thing made here. What happens to it on its way through the plant?",
+      "text": "What is still made by hand? Why?",
       "area": "Making"
     },
     {
@@ -74,21 +128,51 @@
       "area": "Making"
     },
     {
+      "id": "plant-sound",
+      "set": "warmup",
+      "text": "What can you hear from the street when you walk around in during the day? What about the night?",
+      "area": "Making"
+    },
+    {
+      "id": "biggest-building",
+      "set": "warmup",
+      "text": "What happens inside the biggest building around here?",
+      "area": "Making"
+    },
+    {
       "id": "who-fixes-machines",
       "set": "warmup",
       "text": "Who fixes the machines when they break?",
       "area": "Making"
     },
     {
-      "id": "how-goods-leave",
+      "id": "what-breaks",
       "set": "warmup",
-      "text": "How does a finished thing leave town?",
+      "text": "What happens when something breaks?",
+      "area": "Making"
+    },
+    {
+      "id": "what-breaks-most",
+      "set": "warmup",
+      "text": "What breaks most often?",
+      "area": "Making"
+    },
+    {
+      "id": "how-goods-leave-v2",
+      "set": "warmup",
+      "text": "What passes you on the road at night?",
       "area": "Distribution"
     },
     {
       "id": "who-buys",
       "set": "checkpoint",
-      "text": "Who buys what the town makes?",
+      "text": "Who buys what's made here?",
+      "area": "Distribution"
+    },
+    {
+      "id": "general-store",
+      "set": "warmup",
+      "text": "What is on the shelves of every local shop?",
       "area": "Distribution"
     },
     {
@@ -98,9 +182,21 @@
       "area": "Distribution"
     },
     {
+      "id": "nearby-needs",
+      "set": "warmup",
+      "text": "What do nearby places need from here?",
+      "area": "Distribution"
+    },
+    {
+      "id": "visitors-come-for",
+      "set": "warmup",
+      "text": "What do people from elsewhere come here for?",
+      "area": "Distribution"
+    },
+    {
       "id": "fields-around",
       "set": "warmup",
-      "text": "What grows in the fields around town?",
+      "text": "What grows in the fields around here?",
       "area": "Food"
     },
     {
@@ -110,9 +206,21 @@
       "area": "Food"
     },
     {
-      "id": "lunch-break",
+      "id": "harvest-machines",
       "set": "warmup",
-      "text": "What do people eat on their lunch break at the plant?",
+      "text": "Who or what does the harvesting?",
+      "area": "Food"
+    },
+    {
+      "id": "food-processing",
+      "set": "warmup",
+      "text": "Where does the local food get packed and processed?",
+      "area": "Food"
+    },
+    {
+      "id": "food-proud",
+      "set": "warmup",
+      "text": "What food are people here proud of?",
       "area": "Food"
     },
     {
@@ -122,9 +230,33 @@
       "area": "Food"
     },
     {
+      "id": "winter-pantry",
+      "set": "warmup",
+      "text": "What do people put away for winter?",
+      "area": "Food"
+    },
+    {
       "id": "robots-doing",
       "set": "warmup",
       "text": "What are the robots doing right now?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "robots-at-night",
+      "set": "warmup",
+      "text": "What do the machines do after everyone goes home?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "robot-nickname",
+      "set": "warmup",
+      "text": "What do people call the robots?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "machine-decides",
+      "set": "checkpoint",
+      "text": "What does a machine decide now that a person used to?",
       "area": "Physical AI and automation"
     },
     {
@@ -134,21 +266,105 @@
       "area": "Physical AI and automation"
     },
     {
+      "id": "no-robot-job",
+      "set": "warmup",
+      "text": "What job could no robot ever do here?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "teaches-robot",
+      "set": "warmup",
+      "text": "Who teaches a new robot its job?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "learn-to-fix-robots",
+      "set": "warmup",
+      "text": "Where does someone learn to fix a machine?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "robot-owner",
+      "set": "checkpoint",
+      "text": "Who owns the robots in the plant?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "robot-harm",
+      "set": "checkpoint",
+      "text": "When a robot hurts someone, who is responsible?",
+      "area": "Physical AI and automation"
+    },
+    {
       "id": "jobs-to-robots",
       "set": "checkpoint",
       "text": "What do people do now whose jobs went to machines?",
       "area": "Physical AI and automation"
     },
     {
+      "id": "jobs-to-robots-v2",
+      "set": "checkpoint",
+      "text": "When a robot arrives at the plant, what happens to the people?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "robot-or-worker",
+      "set": "checkpoint",
+      "text": "Which costs more here, a robot or a worker?",
+      "area": "Physical AI and automation"
+    },
+    {
+      "id": "shift-length",
+      "set": "warmup",
+      "text": "How long is a shift?",
+      "area": "Workers"
+    },
+    {
+      "id": "after-shift",
+      "set": "warmup",
+      "text": "What do people do right after a shift ends?",
+      "area": "Workers"
+    },
+    {
+      "id": "weeks-pay",
+      "set": "warmup",
+      "text": "What does a week's pay buy?",
+      "area": "Workers"
+    },
+    {
       "id": "afford-house",
       "set": "checkpoint",
-      "text": "Can someone who works at the plant afford a house here?",
+      "text": "Who can afford to live here? How?",
+      "area": "Workers"
+    },
+    {
+      "id": "hurt-at-work",
+      "set": "checkpoint",
+      "text": "What happens when someone gets hurt at work?",
+      "area": "Workers"
+    },
+    {
+      "id": "too-old",
+      "set": "checkpoint",
+      "text": "What happens to a worker who gets too old for the job?",
       "area": "Workers"
     },
     {
       "id": "worker-voice",
       "set": "checkpoint",
       "text": "When workers disagree with the boss, what do they do?",
+      "area": "Workers"
+    },
+    {
+      "id": "worker-voice-v2",
+      "set": "checkpoint",
+      "text": "Who speaks for the workers?",
+      "area": "Workers"
+    },
+    {
+      "id": "union-fights",
+      "set": "checkpoint",
+      "text": "What does the union fight about?",
       "area": "Workers"
     },
     {
@@ -164,15 +380,57 @@
       "area": "Workers"
     },
     {
+      "id": "first-day",
+      "set": "warmup",
+      "text": "What does a new hire learn on day one?",
+      "area": "Workers"
+    },
+    {
       "id": "night-shift-kids",
       "set": "warmup",
       "text": "Who looks after the kids during the night shift?",
       "area": "Workers"
     },
     {
+      "id": "who-owns-plant",
+      "set": "checkpoint",
+      "text": "Who owns the plant?",
+      "area": "Money and power"
+    },
+    {
+      "id": "who-owns-plant-v2",
+      "set": "checkpoint",
+      "text": "Who gets the money when the plant has a good year?",
+      "area": "Money and power"
+    },
+    {
       "id": "who-gets-rich",
       "set": "checkpoint",
       "text": "Who gets rich here?",
+      "area": "Money and power"
+    },
+    {
+      "id": "who-struggles",
+      "set": "checkpoint",
+      "text": "Who is struggling here?",
+      "area": "Money and power"
+    },
+    {
+      "id": "pay-with",
+      "set": "warmup",
+      "text": "What do people pay with?",
+      "area": "Money and power"
+    },
+    {
+      "id": "public-money",
+      "set": "checkpoint",
+      "text": "What does public money pay for here?",
+      "area": "Money and power"
+    },
+    {
+      "id": "who-paid-sign",
+      "set": "warmup",
+      "text": "What does the sign outside the new plant say about who paid for it?",
       "area": "Money and power"
     },
     {
@@ -182,10 +440,34 @@
       "area": "Money and power"
     },
     {
-      "id": "town-meeting",
-      "set": "warmup",
-      "text": "What do people argue about at the town meeting?",
+      "id": "open-new-shop",
+      "set": "checkpoint",
+      "text": "What stops someone from opening a new shop here?",
       "area": "Money and power"
+    },
+    {
+      "id": "community-meeting",
+      "set": "warmup",
+      "text": "What do people argue about at community meetings?",
+      "area": "Money and power"
+    },
+    {
+      "id": "outside-company",
+      "set": "checkpoint",
+      "text": "What happens when a big company from outside wants to move in?",
+      "area": "Money and power"
+    },
+    {
+      "id": "land-before",
+      "set": "warmup",
+      "text": "What did the land under the plant used to be?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "more-land",
+      "set": "checkpoint",
+      "text": "When the plant wants more land, who can say no?",
+      "area": "Land, water and energy"
     },
     {
       "id": "water-shortage",
@@ -200,9 +482,27 @@
       "area": "Land, water and energy"
     },
     {
+      "id": "power-from",
+      "set": "warmup",
+      "text": "Where does the plant's electricity come from?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "on-the-roofs",
+      "set": "warmup",
+      "text": "What do you see on the roofs?",
+      "area": "Land, water and energy"
+    },
+    {
       "id": "waste-goes",
       "set": "warmup",
       "text": "Where does the plant's waste go?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "neighbors-complain",
+      "set": "warmup",
+      "text": "What do the neighbors complain about?",
       "area": "Land, water and energy"
     },
     {
@@ -212,9 +512,45 @@
       "area": "Land, water and energy"
     },
     {
+      "id": "after-flood",
+      "set": "checkpoint",
+      "text": "Who rebuilds after the flood?",
+      "area": "Land, water and energy"
+    },
+    {
+      "id": "immigrants",
+      "set": "checkpoint",
+      "text": "Are new people moving in? From where?",
+      "area": "People and generations"
+    },
+    {
       "id": "newest-arrivals",
       "set": "checkpoint",
-      "text": "What work do the newest arrivals in town do?",
+      "text": "What work do the newest arrivals here do?",
+      "area": "People and generations"
+    },
+    {
+      "id": "newcomers-argue",
+      "set": "warmup",
+      "text": "What do newcomers and old-timers argue about?",
+      "area": "People and generations"
+    },
+    {
+      "id": "who-moves-away",
+      "set": "checkpoint",
+      "text": "Who moves away?",
+      "area": "People and generations"
+    },
+    {
+      "id": "who-returns",
+      "set": "warmup",
+      "text": "Who comes back after years away?",
+      "area": "People and generations"
+    },
+    {
+      "id": "important-classes",
+      "set": "warmup",
+      "text": "What are the most important classes at school?",
       "area": "People and generations"
     },
     {
@@ -224,9 +560,27 @@
       "area": "People and generations"
     },
     {
+      "id": "old-timers-know",
+      "set": "warmup",
+      "text": "What do the old-timers know that nobody else does?",
+      "area": "People and generations"
+    },
+    {
+      "id": "retired-do",
+      "set": "warmup",
+      "text": "What do retired workers do all day?",
+      "area": "People and generations"
+    },
+    {
       "id": "embarrassing",
       "set": "warmup",
       "text": "What is embarrassing?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "cool",
+      "set": "warmup",
+      "text": "What is cool?",
       "area": "Culture and pride"
     },
     {
@@ -236,10 +590,40 @@
       "area": "Culture and pride"
     },
     {
-      "id": "town-celebrates",
+      "id": "proud-week",
       "set": "warmup",
-      "text": "What does the town celebrate every year?",
+      "text": "What is a worker proudest of at the end of the week?",
       "area": "Culture and pride"
+    },
+    {
+      "id": "made-here-label",
+      "set": "warmup",
+      "text": "What does \"made here\" mean on a label?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "on-tv",
+      "set": "warmup",
+      "text": "What is on TV?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "songs-about",
+      "set": "warmup",
+      "text": "What do people sing about?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "yearly-celebration",
+      "set": "warmup",
+      "text": "What do people here celebrate every year?",
+      "area": "Culture and pride"
+    },
+    {
+      "id": "what-disappeared",
+      "set": "checkpoint",
+      "text": "What disappeared around here when things changed?",
+      "area": "Losses and the transition"
     },
     {
       "id": "who-lost-out",
@@ -248,9 +632,21 @@
       "area": "Losses and the transition"
     },
     {
+      "id": "who-fought-change",
+      "set": "checkpoint",
+      "text": "Who fought against the change?",
+      "area": "Losses and the transition"
+    },
+    {
       "id": "people-miss",
       "set": "warmup",
       "text": "What do older people miss about how things were?",
+      "area": "Losses and the transition"
+    },
+    {
+      "id": "nobody-misses",
+      "set": "warmup",
+      "text": "What is nobody sad to see gone?",
       "area": "Losses and the transition"
     },
     {
@@ -262,7 +658,7 @@
     {
       "id": "failed",
       "set": "warmup",
-      "text": "What failed?",
+      "text": "What is the busiest local government office?",
       "area": "Losses and the transition"
     },
     {
@@ -286,7 +682,7 @@
     {
       "id": "preparing-for",
       "set": "warmup",
-      "text": "What people are preparing for?",
+      "text": "What are people preparing for?",
       "area": "Culture and pride"
     },
     {
@@ -316,13 +712,13 @@
     {
       "id": "people-and-robots",
       "set": "warmup",
-      "text": "What people do with robots?",
+      "text": "What do people do with robots?",
       "area": "Physical AI and automation"
     },
     {
       "id": "people-and-computers",
       "set": "warmup",
-      "text": "What people do with their computers and AIs?",
+      "text": "What do people do with their computers and AIs?",
       "area": "Physical AI and automation"
     }
   ]

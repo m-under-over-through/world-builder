@@ -627,7 +627,7 @@ Copied. Paste it into the email, then press "New set" for the next person.
 <!-- The text the person at Mechanism copies and pastes into the email, with a personal note around it. Plain text: no bold. The app fills [your link] with the recipient's own link and [spare link 1] and [spare link 2] with the two links to forward; keep each slot on a line of its own, and keep all three. -->
 
 [placeholder]
-This link is yours. It opens your cards on any phone or computer. It is the key to what you write, so keep it to yourself:
+This is your link, you can reopen it until the end of November:
 
 [your link]
 
