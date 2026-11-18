@@ -176,7 +176,10 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(token('tap')).toBe('44px');
     expect(rule('button')['min-height']).toBe('var(--tap)');
     expect(rule('summary')['min-height']).toBe('var(--tap)');
-    expect(rule('.foot .about')['min-height']).toBe('var(--tap)');
+    // The "?" in the header (ADR 0023): a ring of 36 with a pad around it.
+    expect(
+      px(rule('.about-mark')['height']) + 2 * insetTop(rule('.about-mark::after')['inset']),
+    ).toBeGreaterThanOrEqual(44);
     expect(rule('ul.links a')['min-height']).toBe('var(--tap)');
     expect(px(rule('.pill.world')['min-height'])).toBeGreaterThanOrEqual(44);
     // The × on an open card, 32 across, and on the sheet, 36 across, each with a pad around it.
@@ -227,9 +230,10 @@ describe('the stylesheet: what a test DOM cannot see', () => {
 
   it('on a short phone screen "Set aside" and "Write your own story" share one row and the swipe hint is left out, so the row cannot land on the world pill', () => {
     // jsdom lays nothing out, so this pins the rule. The numbers behind it: the stack's floor is
-    // 280 pixels and everything else on the screen takes 330 with the three rows under the
-    // stack, so below 610 pixels of height the rows ran into the foot (build log, 18 November 2026).
-    const SHORT = '@media (max-height: 620px)';
+    // 280 pixels and everything else on the screen takes 348 with the three rows under the
+    // stack (ADR 0023), so below 628 pixels of height the rows would run into the foot (build
+    // log, 18 November 2026).
+    const SHORT = '@media (max-height: 630px)';
     const short = (selector: string) =>
       rules.find((r) => r.media === SHORT && r.selectors.includes(selector))?.body;
     const row = short('.app.phone-loop .aside-row');
@@ -522,8 +526,9 @@ describe('the blank card (ADR 0022)', () => {
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       const field = screen.getByRole('textbox', { name: copy.text('Own card: field') });
       await waitFor(() => expect(document.activeElement).toBe(field));
-      for (const tag of ['header', 'main', 'footer'])
-        expect(inert(document.querySelector(tag)!), tag).toBe(true);
+      // A laptop has no foot (ADR 0023).
+      const behind = wide ? ['header', 'main'] : ['header', 'main', 'footer'];
+      for (const tag of behind) expect(inert(document.querySelector(tag)!), tag).toBe(true);
       await user.type(field, 'Words');
       await user.tab();
       await user.tab();
@@ -532,8 +537,7 @@ describe('the blank card (ADR 0022)', () => {
       await user.keyboard('{Escape}');
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(opener()));
-      for (const tag of ['header', 'main', 'footer'])
-        expect(inert(document.querySelector(tag)!), tag).toBe(false);
+      for (const tag of behind) expect(inert(document.querySelector(tag)!), tag).toBe(false);
       await user.click(opener());
       await screen.findByRole('dialog');
       await user.click(
@@ -615,5 +619,142 @@ describe('what a screen reader is told', () => {
     const button = screen.getByRole('button', { name: copy.item('Buttons', 'i understand') });
     expect(last.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByRole('button')).toEqual([button]);
+  });
+});
+
+describe('the header and the foot (ADR 0023)', () => {
+  const about = () => copy.item('Buttons', 'about');
+  /** The header's two sides: the lines with the name on the left, then what stands on the right. */
+  function sides() {
+    const header = document.querySelector('header.topbar')!;
+    const [left, right, ...rest] = [...header.children];
+    return { header, left: left!, right, rest };
+  }
+
+  it('the header has the name on the left and one button on the right, named About this app, on the welcome, the card screen, closed and the invitation page; it opens the about page', async () => {
+    const screens: [string, () => Promise<AppState> | AppState][] = [
+      ['welcome', () => onAScreen({ screen: 'welcome' })],
+      ['the card screen', () => onACard()],
+      ['closed', () => onAScreen({ screen: 'closed' })],
+      ['the invitation page', () => onAScreen({ screen: 'invitations', invitationWave: 'wave-1' })],
+    ];
+    for (const [where, make] of screens) {
+      const app = await make();
+      stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
+      const { unmount } = renderApp(app);
+      const { left, right, rest } = sides();
+      expect(left.classList.contains('lines'), where).toBe(true);
+      expect(left.textContent, where).toContain(copy.item('App labels', 'app name'));
+      expect(rest, where).toEqual([]);
+      const buttons = [...right!.querySelectorAll('button')];
+      expect(buttons, where).toHaveLength(1);
+      expect(buttons[0]!.getAttribute('aria-label'), where).toBe(about());
+      expect(buttons[0]!.textContent?.trim(), where).toBe('?');
+      await userEvent.setup().click(screen.getByRole('button', { name: about() }));
+      expect(
+        await screen.findByRole('heading', { level: 1, name: copy.item('Titles', 'about') }),
+        where,
+      ).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it('an address that is not a workshop has the name alone: there is no page about a workshop to open', () => {
+    renderApp(Object.assign(new AppState(), { screen: 'no-workshop' }));
+    expect(sides().right).toBeUndefined();
+    expect(screen.queryByRole('button', { name: about() })).toBeNull();
+  });
+
+  it('the about page, the terms and the policy show Back and no question mark', () => {
+    for (const page of ['about', 'terms', 'privacy'] as const) {
+      const { unmount } = renderApp(onAScreen({ screen: page }));
+      expect(document.querySelectorAll('header button'), page).toHaveLength(0);
+      expect(screen.queryByRole('button', { name: about() }), page).toBeNull();
+      expect(screen.getAllByRole('button', { name: copy.item('Buttons', 'back') }).length).toBe(2);
+      unmount();
+    }
+  });
+
+  it("the foot of a phone's card screen is the world pill alone; no other screen has a foot", async () => {
+    const phone = renderApp(await onACard());
+    const foot = document.querySelector('footer.foot')!;
+    const buttons = [...foot.querySelectorAll('button')];
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]!.classList.contains('world')).toBe(true);
+    expect(foot.textContent).not.toContain(about());
+    phone.unmount();
+
+    const laptop = renderApp(await onACard({ wide: true }));
+    expect(document.querySelector('footer.foot')).toBeNull();
+    laptop.unmount();
+    for (const patch of [
+      { screen: 'welcome' },
+      { screen: 'closed' },
+      { screen: 'about' },
+      { screen: 'terms' },
+      { screen: 'privacy' },
+      { screen: 'invitations', invitationWave: 'wave-1' },
+    ] as Partial<AppState>[]) {
+      const { unmount } = renderApp(onAScreen(patch));
+      expect(document.querySelector('footer.foot'), String(patch.screen)).toBeNull();
+      unmount();
+    }
+  });
+});
+
+describe('the card screen keeps air (ADR 0023)', () => {
+  /** The comment right above a rule, as written. */
+  const commentAbove = (selector: string) => {
+    const at = css.indexOf(`\n${selector} {`);
+    const before = css.slice(0, at);
+    return before.slice(before.lastIndexOf('/*'));
+  };
+
+  it("the stack's budget in the stylesheet matches the sum in its comment, and the parts are the stylesheet's own numbers", () => {
+    const comment = commentAbove('.stack');
+    const sum = comment.match(/((?:\d+ \+ )+\d+) = (\d+)/)!;
+    const parts = sum[1]!.split(' + ').map(Number);
+    const total = Number(sum[2]);
+    expect(parts.reduce((a, b) => a + b, 0)).toBe(total);
+    expect(rule('.stack')['height']).toContain(`100dvh - ${total}px`);
+    // The parts, in the order the comment gives them.
+    const [safeTop, header, above, gap, rows, below, foot] = parts as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ];
+    expect(token('space-safe-top')).toContain(`+ ${safeTop}px`);
+    expect(rule('.topbar')['height']).toBe(`${header}px`);
+    const loop = rule('.loop')['padding']!.split(/\s+/);
+    expect(loop[0]).toBe(`${above}px`);
+    expect(loop.at(-1)).toBe(`${below}px`);
+    expect(token('space-stack-gap')).toBe(`${gap}px`);
+    // The three rows: Set aside, 8, the swipe hint, 8, Write your own story.
+    expect(rows).toBe(44 + 8 + 16 + 8 + 44);
+    expect(rule('.aside-row')['gap']).toBe('8px');
+    // The foot: 8 above the pill, the pill, 10 under it (and the safe area).
+    expect(rule('.foot')['padding']).toBe(
+      '8px var(--space-page-x) calc(10px + var(--space-safe-bottom))',
+    );
+    expect(foot).toBe(8 + px(rule('.pill.world')['height']) + 10);
+    // 16 of air over the highest painted edge: slot-2 reaches 52 up, less the 6% its scale takes
+    // off a stack of at least 280, plus at most 8 for its 3 degrees on a card 326 wide.
+    const reach = 52 - 0.06 * 280 + 0.44 * 326 * Math.sin((3 * Math.PI) / 180);
+    expect(above - reach).toBeGreaterThanOrEqual(16);
+  });
+
+  it('the short-screen rule still holds: its line is where the three rows stop fitting at the floor, and one row fits at 553', () => {
+    const comment = commentAbove('.stack');
+    const total = Number(comment.match(/= (\d+)/)![1]);
+    const floor = px(rule('.stack')['height']!.match(/clamp\(\s*(\d+)px/)![1]);
+    const line = rules.find((r) => r.media?.startsWith('@media (max-height:'))!.media!;
+    const threshold = px(line.match(/max-height: (\d+)px/)![1]);
+    expect(threshold).toBeGreaterThanOrEqual(total + floor);
+    // One row of 44 where there were 120.
+    expect(total - (44 + 8 + 16 + 8 + 44) + 44 + floor).toBeLessThanOrEqual(553);
   });
 });

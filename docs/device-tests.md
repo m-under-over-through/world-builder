@@ -17,14 +17,14 @@ Value: `marco-iphone-safari-01`. Second device: the laptop.
 1. In Safari, open `https://staging--worldbuilder-uot.netlify.app/rural-manufacturing/join/wave-1#p=marco-iphone-safari-01`. You see the welcome: the fanned cards, "The future of local production in America", the paragraph, "This link is yours...", and one black button, "I understand". The address bar ends in `/join/wave-1`, without the `#` part.
 2. Tap "I understand". The stack: in front, a card labelled "Try a card" that says "Open a card to answer. Swipe it away to set it aside.", with "Got it".
 3. Tap "Got it". The first card comes forward: its area at the top, the question, a pen with "Write an answer".
-4. Tap the card. It opens, the keyboard rises, the cursor is in the field. The question sits above the field; "Prefer to talk?" with "Tap the microphone on your keyboard." sits in the card; Save is greyed out. Nothing is hidden behind the keyboard: the question, the field and Save are all on screen.
+4. Tap the card. It opens, the keyboard rises, the cursor is in the field. From the top of what is left above the keyboard: the ×, the question, the field (at least three lines tall), then "Prefer to talk?" and Save, greyed out. "World Builder" and the "?" are hidden behind the open card. Under Save there is a strip of empty space, about a finger wide, where Safari's address bar floats: the bar must not cover Save. Nothing slides out at the top. **Then the keyboard (ADR 0023):** type until the text is longer than the field, about eight lines. The field grows with the text and the card scrolls; the line you are typing stays in sight, just above the keyboard. The question may scroll away at the top: that is expected. Scroll the card down: Save is at the end, above the strip, and not under the address bar. Scroll back up: the question is there. Tap × to close: the cards are where they were, "World Builder" at the top, the page has not moved. Open the card again: your words are still there and the field is as tall as they are. Delete the words and leave the card open.
 5. Tap the keyboard's microphone, say one sentence, then tap Save. The card flies down to the right, the next one is in front, the pill at the bottom reads 1.
 6. Tap "Set aside". The card leaves sideways and the next one comes forward.
 7. Drag the next card a little to the left and let go: it springs back. Drag it past about a third of the screen: it leaves, as with the button.
 8. Tap "Your world so far". A white sheet rises: "1 answered · 2 set aside", your answer's tile with your words, two white tiles under "Set aside", and at the foot "Come back whenever you like..." with "Remind me". Tap "Remind me": the Calendar offers the event; cancel it. Drag the sheet down by its top: it closes.
-9. Tap "About this app". Back at the top, the title, "The technical details" folded. Tap the fold: it opens. Tap Back: you are on the cards where you left them.
+9. Tap the round "?" at the top right. Back at the top, the title, "The technical details" folded; no "?" on this page. Tap the fold: it opens. Tap Back: you are on the cards where you left them.
 10. On the laptop, open the same link with the same value. No welcome: the cards. In "Your world so far", your iPhone answer shows its question and "Written on another phone." instead of the words.
-11. On the iPhone: "About this app", then "Delete everything and start over". The question "Delete everything you sent...?" with "Yes, delete everything" and "Keep my answers". Tap "Keep my answers": the question goes. Tap the delete button again, then "Yes, delete everything". You are on the welcome.
+11. On the iPhone: the "?", then "Delete everything and start over". The question "Delete everything you sent...?" with "Yes, delete everything" and "Keep my answers". Tap "Keep my answers": the question goes. Tap the delete button again, then "Yes, delete everything". You are on the welcome.
 12. On the laptop, reload the page. The welcome says "The link this phone remembered is not in use any more. Open the link from your email again."
 13. Settings, Accessibility, Motion, Reduce Motion on. Open the link again (it starts you over), tap "I understand", "Got it", then "Set aside": the card fades where it is, it does not fly. Turn Reduce Motion off.
 
@@ -35,16 +35,16 @@ Value: `marco-iphone-gmail-01`. Second device: the laptop.
 Before: from the laptop, email yourself the link with this value, as a link. In the Gmail app on the iPhone, check in Gmail's settings (Default apps) that links open inside Gmail, not in Safari.
 
 1. In the Gmail app, tap the link. The page opens inside Gmail, with Gmail's bar around it. The welcome says "This link is yours...". If it does not, the `#` part was lost on the way: stop here and note it. This is the newsletter's risk (ADR 0018), and the most important line of this section.
-2. Tap "I understand", then "Got it", then the first card. The keyboard rises; the field and Save stay above it, and Gmail's own bar does not cover Save.
+2. Tap "I understand", then "Got it", then the first card. The keyboard rises; the ×, the question, the field and Save stay above it, and Gmail's own bar does not cover Save.
 3. Write a sentence and tap Save. The next card comes forward; the pill reads 1.
 4. Tap "Set aside". The card leaves.
 5. Tap "Your world so far": the sheet, your tile, one set-aside tile. Tap ×: it closes.
 6. Tap "Remind me" in the sheet. Note what happens: inside Gmail the calendar may not open. That is Gmail's choice, not a failure, as long as the page itself still works after it.
-7. Tap "About this app", open the fold, tap Back.
+7. Tap the "?" at the top right, open the fold, tap Back.
 8. Close the in-app browser and tap the link in the email again. Note which of the two you see: the cards where you left them, or the welcome with "This link is yours...". Both are right; on the welcome, "I understand" must land on your cards, with your answer as "Written on another phone." if Gmail kept nothing.
 9. From the in-app browser's menu, choose "Open in Safari". Expected today: Safari shows the welcome **without** "This link is yours", because the page had already dropped the `#` part from its address. Do not tap "I understand". Note it: a participant who moves to Safari this way starts over unless they open the email's link in Safari.
 10. On the laptop, open the same link with the same value: the cards, your iPhone answer as "Written on another phone."
-11. Back in Gmail's browser: "About this app", "Delete everything and start over", "Yes, delete everything". The welcome. Reload on the laptop: "The link this phone remembered is not in use any more...".
+11. Back in Gmail's browser: the "?", "Delete everything and start over", "Yes, delete everything". The welcome. Reload on the laptop: "The link this phone remembered is not in use any more...".
 
 ## 3. Android, Chrome
 
@@ -52,15 +52,15 @@ Value: `marco-android-chrome-01`. Second device: the iPhone.
 
 1. In Chrome, open the staging link with this value. The welcome with "This link is yours..." and "I understand"; the address bar without the `#` part.
 2. Tap "I understand": "Try a card". Tap "Got it": the first card, with its area, the question and "Write an answer".
-3. Tap the card. The keyboard rises. The card shrinks to fit above it: the question, the field and Save all show, and the page does not jump. "Prefer to talk?" sits in the card with "Tap the microphone on your keyboard."
+3. Tap the card. The keyboard rises. The card shrinks to fit above it: the ×, the question, the field and Save all show, and the page does not jump. "Prefer to talk?" sits in the card with "Tap the microphone on your keyboard." There is no empty strip under Save here: Chrome has no floating bar. **Then the keyboard (ADR 0023):** type until the text is longer than the field. The field grows and the card scrolls; the line you are typing stays just above the keyboard; Save is at the end when you scroll down. Hide the keyboard with Back: the card fills the screen again, Save at its foot. Close the card with ×: the cards are where they were. Open it again and delete the words.
 4. Dictate one sentence with the keyboard's microphone, then Save. The card flies off, the next is in front, the pill reads 1.
 5. Tap "Set aside", then drag the next card away sideways. Both leave; a short drag springs back.
 6. Tap "Your world so far": the sheet, "1 answered · 2 set aside", your tile, two set-aside tiles, "Remind me" at the foot.
 7. With the sheet open, use Android's Back (the gesture or the button). Note what happens. Expected today: the sheet does not catch Back, so Chrome goes back a page and leaves the app. Open the link again: you land on your cards, nothing lost.
 8. Open the sheet and tap "Remind me": the calendar app offers the event, or Chrome downloads `reminder.ics`. Note which. Close the sheet with ×.
-9. "About this app": the title, the fold opens and closes, Back returns to the card.
+9. The "?" at the top right: the title, the fold opens and closes, Back returns to the card.
 10. On the iPhone, in Safari, open the same link with the same value: the cards, your Android answer as "Written on another phone."
-11. On the Android: "About this app", "Delete everything and start over", "Keep my answers" (the question goes), delete again, "Yes, delete everything": the welcome.
+11. On the Android: the "?", "Delete everything and start over", "Keep my answers" (the question goes), delete again, "Yes, delete everything": the welcome.
 12. On the iPhone, reload: "The link this phone remembered is not in use any more...".
 
 ## 4. Laptop, Chrome
@@ -69,11 +69,11 @@ Value: `marco-laptop-chrome-01`. Second device: the iPhone. This section uses th
 
 1. Open the staging link with this value in a window at least 1,100 pixels wide. The welcome; "I understand" with the mouse.
 2. "Got it". The page: the stack on the left, "Your world so far" on the right with its empty notice, and "0 answered" in the top bar.
-3. Click the page's empty background once, then press Tab. A black ring shows around each control in turn: the card, "Set aside", "Remind me", "About this app". No control is skipped, none is without a ring.
+3. Click the page's empty background once, then press Tab. A black ring shows around each control in turn: the "?" at the top right, the card, "Set aside", "Write your own story", "Remind me". No control is skipped, none is without a ring.
 4. Tab to the card and press Enter. The card opens with the cursor in the field. Type a sentence. Tab to Save and press Enter. The answer appears as a tile on the right, the top bar reads "1 answered", and the next card has the ring.
 5. Tab to "Set aside", press Enter. A white tile appears under "Set aside" on the right.
 6. Make the window narrower than 600 pixels. The phone layout: the pill at the bottom. Tab to the pill, press Enter. The sheet opens with the ring on ×. Press Tab a dozen times: the ring stays inside the sheet. Press Esc: the sheet closes and the ring is on the pill. Widen the window again.
-7. Tab to "About this app", press Enter. The page opens and the focus is on its title. Tab to "The technical details", press Enter: it opens; Enter again: it closes.
+7. Tab to the "?" at the top right (it is named "About this app"), press Enter. The page opens and the focus is on its title. Tab to "The technical details", press Enter: it opens; Enter again: it closes.
 8. Tab to "Delete everything and start over", press Enter. The focus moves to the question. Tab: "Yes, delete everything", then "Keep my answers". Press Enter on "Keep my answers": the ring is back on the delete button.
 9. Press Ctrl and + until the zoom reads 200%. Everything is still on screen, nothing is cut off, and the page does not scroll sideways. Ctrl and 0 to reset.
 10. On the iPhone, open the same link: the cards, your laptop answer as "Written on another phone."
@@ -86,11 +86,11 @@ Value: `marco-laptop-safari-01`. Second device: the Android.
 Safari does not move Tab to buttons and links unless asked: in Safari, Settings, Advanced, tick "Press Tab to highlight each item on a webpage". Or hold Option while pressing Tab.
 
 1. Open the staging link with this value. The welcome; "I understand"; "Got it".
-2. Tab through the page: a black ring on the card, "Set aside", "Remind me", "About this app".
+2. Tab through the page: a black ring on the "?", the card, "Set aside", "Write your own story", "Remind me".
 3. Enter on the card, type, Tab to Save, Enter. The tile on the right; "1 answered" in the top bar; the ring on the next card.
 4. Set aside a card with the keyboard. The white tile on the right.
 5. Narrow the window below 600 pixels, open the sheet from the pill with Enter, Tab inside it, Esc to close: the ring returns to the pill. Widen again.
-6. "About this app" with Enter. Open the fold with Enter: Safari draws no arrow of its own beside "The technical details", only ours, which turns.
+6. The "?" with Enter. Open the fold with Enter: Safari draws no arrow of its own beside "The technical details", only ours, which turns.
 7. Delete in two steps with the keyboard: Enter on delete, the focus on the question, "Keep my answers" returns it to the delete button.
 8. Click "Remind me": Safari downloads `reminder.ics` or opens Calendar. Note which.
 9. System Settings, Accessibility, Display, Reduce motion on. Set aside a card: it fades in place. Turn it off.
@@ -113,13 +113,13 @@ Turn VoiceOver on and off: Settings, Accessibility, Accessibility Shortcut, choo
 | Two-finger double-tap, in a text field                     | starts and stops dictation                    |
 
 1. Open the link. Swipe right from the top. You hear: "World Builder", the organizer line ("Under Over Through x Mechanism" for this workshop), "The future of local production in America, heading level 1", the purpose line, the paragraphs, "This link is yours...", "I understand, button". The fanned cards say nothing.
-2. Double-tap "I understand". VoiceOver lands on "World Builder, heading level 1". Swipe right: the organizer, "Try a card", "Open a card to answer. Swipe it away to set it aside.", "Got it, button", "Set aside, button", "or swipe the card away", "Your world so far, 0 answered, button", "About this app, button". The cards behind say nothing.
+2. Double-tap "I understand". VoiceOver lands on "World Builder, heading level 1". Swipe right: the organizer, "About this app, button" (the "?"), "Try a card", "Open a card to answer. Swipe it away to set it aside.", "Got it, button", "Set aside, button", "or swipe the card away", "Your world so far, 0 answered, button". The cards behind say nothing.
 3. Double-tap "Got it". VoiceOver lands on the first card: its area, its question, "Write an answer, button".
 4. Double-tap. You hear the question as the field's name, then "text field". Dictate a sentence (two-finger double-tap). Swipe right to "Save, button" (before you write it says "dimmed"); double-tap. You hear "Saved", and VoiceOver is on the next card.
 5. Swipe to "Set aside, button", double-tap. You hear "Set aside".
 6. Rotor on Headings, swipe down: the only heading on the card screen is "World Builder".
 7. Swipe to "Your world so far, 1 answered, button", double-tap. VoiceOver is on "Close, button". Swipe right: "Your world so far, heading level 2", "1 answered · 1 set aside", "Answered, heading level 3", your tile (area, question, words), "Set aside, heading level 3", the set-aside tile, the "Come back whenever..." line, "Remind me, link". Swipe right again: VoiceOver stays in the sheet; nothing from the cards behind. Swipe back to "Close, button", double-tap: the sheet closes and VoiceOver is on the pill.
-8. Swipe to "About this app, button", double-tap. You hear "About this app, heading level 1". Swipe right to "The technical details" (it says collapsed, or a button); double-tap: it says expanded; swipe right: "How your answers are protected, heading level 2".
+8. Swipe back to "About this app, button", just after the organizer, double-tap. You hear "About this app, heading level 1". Swipe right to "The technical details" (it says collapsed, or a button); double-tap: it says expanded; swipe right: "How your answers are protected, heading level 2".
 9. Find "Delete everything and start over, button", double-tap. VoiceOver reads the question, "Delete everything you sent, from this phone and from our server? It cannot be brought back." Swipe right: "Yes, delete everything, button", "Keep my answers, button". Double-tap Keep: VoiceOver is back on the delete button.
 10. Swipe left until "Back, button" at the top, double-tap: "World Builder, heading level 1" again.
 11. Turn VoiceOver off. Delete everything for this value if you like.
@@ -139,13 +139,13 @@ Turn TalkBack on and off: Settings, Accessibility, TalkBack. Once the shortcut i
 | Swipe down then left, or the Back button                                                                                              | Back                                          |
 
 1. Open the link. Swipe right from the top. You hear the app's name, the organizer, "The future of local production in America, heading 1", the paragraphs, "This link is yours...", "I understand, button". The fanned cards say nothing.
-2. Double-tap "I understand". TalkBack lands on "World Builder, heading 1". Swipe right: "Try a card", its words, "Got it, button", "Set aside, button", the swipe hint, "Your world so far, 0 answered, button", "About this app, button".
+2. Double-tap "I understand". TalkBack lands on "World Builder, heading 1". Swipe right: the organizer, "About this app, button" (the "?"), "Try a card", its words, "Got it, button", "Set aside, button", the swipe hint, "Your world so far, 0 answered, button".
 3. Double-tap "Got it": TalkBack is on the first card, read as one button with its area, its question and "Write an answer".
 4. Double-tap. TalkBack says the question as the field's name and "edit box". Type or dictate a sentence. Swipe to "Save, button", double-tap: you hear "Saved", and TalkBack is on the next card.
 5. "Set aside, button", double-tap: you hear "Set aside".
 6. Choose Headings in the reading controls: on the card screen there is one, "World Builder".
 7. Open "Your world so far" with a double-tap. TalkBack is on "Close, button". Swipe right through the sheet: the heading, the summary, "Answered", your tile, "Set aside", the tile, "Remind me, link". Swipe on past the end: TalkBack stays in the sheet. Double-tap Close: TalkBack is back on the pill.
-8. "About this app": "About this app, heading 1". "The technical details": it says collapsed; double-tap: expanded.
+8. "About this app, button", just after the organizer: "About this app, heading 1". "The technical details": it says collapsed; double-tap: expanded.
 9. "Delete everything and start over", double-tap: TalkBack reads the question. "Keep my answers", double-tap: TalkBack is back on the delete button.
 10. Back at the top of the page: "World Builder, heading 1" again.
 11. Turn TalkBack off.
@@ -155,11 +155,12 @@ Turn TalkBack on and off: Settings, Accessibility, TalkBack. Once the shortcut i
 The card screen has to fit without scrolling. On a short screen there is no room for three rows under the cards (build log, 18 November 2026).
 
 1. Open the link, tap "I understand", then "Got it".
-2. Look at the top: "World Builder" is readable, and no card covers it.
+2. Look at the top: "World Builder" is readable on the left, the round "?" on the right, and there is clear space, at least a fingertip, between them and the highest card behind the front one.
 3. Look under the cards: "Set aside" and "Write your own story" stand side by side on one row. The line "or swipe the card away" is not shown. On a tall phone they are one under the other, with that line between them.
 4. Nothing sits under or over the black "Your world so far" button. Tap it: the sheet rises.
 5. Close the sheet. Tap "Write your own story": the place to write opens. Tap "Not now".
-6. Tap "About this app" at the very bottom: the page opens on the first tap.
+6. Tap the "?" at the top right: the page opens on the first tap.
+7. Tap Back, then tap the card. The ×, the question, the field and Save all show above the keyboard (part 1, step 4).
 
 ## 8. A low-end Android
 
@@ -167,7 +168,7 @@ Value: `marco-android-lowend-01`, in Chrome, on the oldest or cheapest Android a
 
 1. **The stack's motion.** Drag a card slowly sideways: it follows the finger, turning as it goes, without stutter or lag. Let go short: it springs back. Drag past a third of the screen: it flies off and the next card moves forward in one smooth step.
 2. **Save.** Answer a card. From the tap on Save to the next card in front should feel immediate, under half a second, with the answered card flying off in one movement, not in jerks.
-3. **The keyboard over the answering card.** Tap a card. When the keyboard rises, the question, the field and Save are all above it, and the page does not jump or flicker. Type ten lines: the field scrolls inside the card, Save stays reachable. Close the keyboard with Back: the card fills the screen again.
+3. **The keyboard over the answering card.** Tap a card. When the keyboard rises, the ×, the question, the field and Save are all above it, and the page does not jump or flicker. Type ten lines: the field grows and the card scrolls, Save stays reachable at its end. Close the keyboard with Back: the card fills the screen again.
 4. **Rotate** the phone with the keyboard up: the words you typed are still there.
 5. **The sheet.** It slides up smoothly; with a few answers in it, scrolling the tiles is smooth; dragging its top down closes it.
 6. **No motion.** Settings, Accessibility, Remove animations (on some phones: Developer options, animation scales off). Set aside a card: it fades in place. The sheet fades in instead of sliding. Turn it back.
