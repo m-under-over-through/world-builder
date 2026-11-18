@@ -2465,3 +2465,37 @@ Marco, 18 November: the closing day is 6 December, and the invitation line was h
 ### Open questions
 
 - `plant-sound` reads "when you walk around in during the day". Marco confirmed the card; the extra "in" was pointed out to him once more.
+
+## 2026-11-18, Wednesday evening. A short phone screen: one row under the cards (pull request 65)
+
+### What
+
+- `apps/web/src/app.css`: one media rule. Below 620 pixels of height, on the phone's card screen, "Set aside" and "Write your own story" share a row and the swipe hint is not shown.
+- `apps/web/test/accessibility.test.ts`: a test that pins the rule.
+- `docs/device-tests.md`: part 7b, a short screen.
+
+### Why
+
+Marco tried the blank card and reported that the foot's controls were hard to hit and that he could not open the cards he had saved or set aside. Three different things were behind that report:
+
+1. **A real fault, from the blank card.** Its button is a third row under the stack. The stack's height is the screen's height minus 330 pixels, with a floor of 280. The 330 happened to cover the third row, so tall screens were fine. Below 610 pixels the stack is at its floor and the rows have nowhere to go: the block is centred, so it pushed the cards up over the top bar and the last row down under the world pill. At 375 by 553 (an iPhone SE or 8 in Safari, with its bars) "Write your own story" lay 15 pixels under the pill and a tap on its middle hit the foot.
+2. **Netlify's toolbar on preview links.** A pull request's preview carries a bar of Netlify's own, fixed at the bottom centre of the page, above everything. On a laptop it covers the lower two thirds of "About this app": a tap on the middle of the link lands on the bar. Staging and production do not have it. The blank card was tried on its preview, so this was there the whole time.
+3. **Not a fault: tiles do nothing when tapped.** An answer cannot be reopened (ADR 0014) and a card set aside comes back by itself in a later round (ADR 0020). Bringing one back by hand was put off to a second stage on 4 November (ADR 0015).
+
+### How to verify
+
+1. `npm run check`: 550 tests.
+2. In a browser's phone view at 375 by 553: "World Builder" is readable at the top, "Set aside" and "Write your own story" are side by side, and nothing overlaps "Your world so far". At 375 by 667 and 390 by 844 the three rows are one under the other, as before. At 320 by 568 the two controls wrap to two rows and still fit.
+3. On a real short phone: part 7b of `docs/device-tests.md`.
+
+### Decisions made on the way
+
+- The row gives way, not the card. Making the card lower than 280 pixels cuts into the longest questions.
+- The swipe hint is the thing left out on a short screen. It says what the button next to it already does.
+- The integrator tried the blank card in a browser at laptop width and at 375 by 812 only, and merged it. A short screen is now part of the look before a merge that adds anything to the card screen: 375 by 553.
+- A first measurement for this entry was taken a moment after resizing, while the stack was still changing height, and showed overlaps that were not there. The numbers above were taken twice, after the layout had settled.
+
+### Open questions
+
+- Below about 560 pixels of height the card screen was already too tall before the blank card, by a few pixels. At 375 by 500 the row now touches the world pill by 4 pixels. No phone in the test script is that short.
+- Whether a tap on a set-aside tile should bring the card back, and whether a saved answer should open, is Marco's call. Both need a new kind of event, so both are a change to the server.

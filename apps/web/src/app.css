@@ -962,6 +962,23 @@ textarea::placeholder {
 .aside-row .own-open:hover {
   color: var(--color-ink);
 }
+/* A short phone screen (an iPhone SE or 8 in Safari shows about 553 pixels): the stack is at its
+   floor of 280, so a third row under it has nowhere to go. It pushed the cards over the top bar
+   and landed under the world pill (build log, 18 November 2026). Here "Set aside" and "Write
+   your own story" share one row and the swipe hint is left out: 44 pixels where there were 120.
+   On a screen too narrow for both, they wrap to two rows, still without the hint. */
+@media (max-height: 620px) {
+  .app.phone-loop .aside-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0 12px;
+  }
+  .app.phone-loop .aside-row .swipe-hint {
+    display: none;
+  }
+}
 
 /* the foot: the world pill on a phone, and the one quiet link on every screen */
 .foot {

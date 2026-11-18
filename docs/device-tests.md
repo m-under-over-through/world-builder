@@ -150,6 +150,17 @@ Turn TalkBack on and off: Settings, Accessibility, TalkBack. Once the shortcut i
 10. Back at the top of the page: "World Builder, heading 1" again.
 11. Turn TalkBack off.
 
+## 7b. A short screen: an iPhone SE or iPhone 8, or any phone with large browser bars
+
+The card screen has to fit without scrolling. On a short screen there is no room for three rows under the cards (build log, 18 November 2026).
+
+1. Open the link, tap "I understand", then "Got it".
+2. Look at the top: "World Builder" is readable, and no card covers it.
+3. Look under the cards: "Set aside" and "Write your own story" stand side by side on one row. The line "or swipe the card away" is not shown. On a tall phone they are one under the other, with that line between them.
+4. Nothing sits under or over the black "Your world so far" button. Tap it: the sheet rises.
+5. Close the sheet. Tap "Write your own story": the place to write opens. Tap "Not now".
+6. Tap "About this app" at the very bottom: the page opens on the first tap.
+
 ## 8. A low-end Android
 
 Value: `marco-android-lowend-01`, in Chrome, on the oldest or cheapest Android at hand. This section is about what to watch, not about words.
