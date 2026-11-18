@@ -99,7 +99,8 @@ describe('a card set aside', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     const field = within(dialog).getByRole('textbox', { name: question(aside) });
     expect((field as HTMLTextAreaElement).value).toBe('');
-    expect(document.activeElement).toBe(field);
+    // The field takes the focus after `tick()`, once its box is in place (ADR 0025).
+    await waitFor(() => expect(document.activeElement).toBe(field));
     expect(dialog.textContent).not.toContain(copy.text('Own card: hint'));
     await user.type(field, 'Answered from its tile');
     await user.click(

@@ -5,7 +5,6 @@
   import { NEW_OWN_CARD, type AppState } from '../lib/state.svelte.ts';
   import { reducedMotion } from '../lib/swipe.ts';
   import { codePoints, truncateCodePoints } from '../lib/text.ts';
-  import { growField, keepEndInView } from '../lib/viewport.ts';
   import { COUNTER_FROM, COUNTER_NEAR, OWN_CARD_OPENER, WORLD_PILL } from './Stack.svelte';
 
   /**
@@ -23,8 +22,13 @@
    * behind is `inert` meanwhile (App.svelte). Closing keeps the words in memory (`app.ownDraft`).
    *
    * On a phone the sheet is framed by what the keyboard leaves visible, as the open card is (ADR
-   * 0023; lib/viewport.ts): the title, the hint, the field and the two buttons above the
-   * keyboard, the field growing with the text and the sheet scrolling, with "Save" at its end.
+   * 0023; lib/viewport.ts), and it is a fixed box (ADR 0025): the counter and the row with "Not
+   * now" and "Save" never move, the text scrolls inside the field, and only when the title and
+   * the hint, or the area and the question, and three lines of the field do not fit does the
+   * part around them scroll (`.scrolls`). On a phone it fades in and out where it stands, and
+   * does not slide up from the bottom: a field that takes the focus at the bottom of the screen
+   * makes Safari scroll the page, and the cards behind go with it. On a laptop the part that
+   * scrolls is not a box of its own and nothing of that applies.
    */
   let { app }: { app: AppState } = $props();
   const CLOSE_MS = 280;
@@ -47,13 +51,10 @@
   const card = $derived(app.writingCard);
 
   onMount(() => {
-    // A phone turned on its side wraps the text anew, so the field is measured again (ADR 0023).
-    const regrow = () => {
-      if (field && !app.wide) growField(field, dialog ?? null);
-    };
-    regrow();
-    field?.focus();
-    window.addEventListener('resize', regrow);
+    // The field takes the focus after `tick()`: by then App.svelte has put the frame's class and
+    // its two properties on the root, so the field is already where it will stay, and the
+    // browser has no reason to scroll the page to show it (ADR 0025).
+    void tick().then(() => field?.focus());
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     // Where the focus goes back to: "Write your own story" for a new blank card; for a tile, the
@@ -61,7 +62,6 @@
     const from = app.writing;
     const wide = app.wide;
     return () => {
-      window.removeEventListener('resize', regrow);
       document.body.style.overflow = overflow;
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
       void tick().then(() => {
@@ -90,10 +90,6 @@
     if (codePoints(el.value) > MAX_ANSWER_CHARS)
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.ownDraft = el.value;
-    if (!app.wide) {
-      growField(el, dialog ?? null);
-      keepEndInView(el, dialog ?? null);
-    }
   }
 
   /** Esc closes; Tab and Shift+Tab stay inside. */
@@ -140,22 +136,27 @@
   bind:this={dialog}
   onkeydown={onKey}
 >
-  {#if card}
-    <!-- A card of the deck, set aside or answered (ADR 0024): its area, then its question as
-         the title and the name of the field, as on the open card. -->
-    {#if card.area}<span class="own-label">{card.area}</span>{/if}
-    <h2 id="own-title" class="own-question">{card.text}</h2>
-  {:else}
-    <h2 id="own-title">{app.copy.text('Own card: title')}</h2>
-    <p class="own-hint" id="own-hint">{app.copy.text('Own card: hint')}</p>
-  {/if}
-  <textarea
-    bind:this={field}
-    value={app.ownDraft}
-    oninput={onInput}
-    disabled={busy}
-    aria-label={card ? card.text : app.copy.text('Own card: field')}
-    aria-describedby={described}></textarea>
+  <!-- The part that scrolls on a phone (ADR 0025): the title and the hint, or the area and the
+       question, and the field. The counter and the row with the buttons below never move. On a
+       laptop it is not a box of its own (display: contents). -->
+  <div class="scrolls">
+    {#if card}
+      <!-- A card of the deck, set aside or answered (ADR 0024): its area, then its question as
+           the title and the name of the field, as on the open card. -->
+      {#if card.area}<span class="own-label">{card.area}</span>{/if}
+      <h2 id="own-title" class="own-question">{card.text}</h2>
+    {:else}
+      <h2 id="own-title">{app.copy.text('Own card: title')}</h2>
+      <p class="own-hint" id="own-hint">{app.copy.text('Own card: hint')}</p>
+    {/if}
+    <textarea
+      bind:this={field}
+      value={app.ownDraft}
+      oninput={onInput}
+      disabled={busy}
+      aria-label={card ? card.text : app.copy.text('Own card: field')}
+      aria-describedby={described}></textarea>
+  </div>
   <div class="own-meta">
     <span id="own-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span>
   </div>

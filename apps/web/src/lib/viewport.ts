@@ -11,8 +11,12 @@
  * and the visual viewport then has the same box, so the same two numbers serve both.
  *
  * This module keeps two custom properties on the app's root up to date while a card or the
- * blank card is open on a phone, and says whether the keyboard is up. Without a visual viewport
- * it does nothing, and the open card is laid out as before.
+ * place to write is open on a phone, and says whether the keyboard is up. Without a visual
+ * viewport it does nothing, and the open card is laid out as before.
+ *
+ * The frame is a fixed box since ADR 0025: the text scrolls inside the field, and nothing here
+ * measures it. What keeps a finger from dragging the page under the frame is lib/page-lock.ts.
+ * Learning note 13 tells the whole story.
  */
 
 /** The custom properties the stylesheet reads (app.css, "the open card above the keyboard"). */
@@ -25,6 +29,18 @@ export const VV_TOP = '--vv-top';
  * visible part by less than 120 (ADR 0023).
  */
 export const KEYBOARD_MIN = 150;
+
+/**
+ * Under this height the frame is too low for a head and a foot that stay in place (ADR 0025):
+ * the close button, the row with "Save", the strip under it and the card's own edges take about
+ * 190 pixels, and a phone on its side with the keyboard up leaves less than 200. There the
+ * whole card scrolls, as it did under ADR 0023.
+ *
+ * The line is kept under 277: that is the first guess (`KEYBOARD_GUESS`) on a small phone whose
+ * page is 553 pixels tall, and such a phone leaves about 290 once its keyboard is up. A card
+ * must not open one way on the guess and settle the other way a moment later.
+ */
+export const LOW_FRAME = 260;
 
 /** What the module reads of `window.visualViewport`; a test hands in a stand-in. */
 export interface ViewportLike {
@@ -110,6 +126,15 @@ function browserViewport(): ViewportLike | null {
   return typeof window !== 'undefined' ? (window.visualViewport ?? null) : null;
 }
 
+/**
+ * Whether the browser reports a visual viewport, so that `followViewport` will frame the card.
+ * App.svelte reads it in the same render that shows the card, so the frame's class is on the
+ * root from the card's first frame (ADR 0025).
+ */
+export function hasVisualViewport(): boolean {
+  return browserViewport() !== null;
+}
+
 function pageHeight(): number {
   return document.documentElement.clientHeight || window.innerHeight;
 }
@@ -175,54 +200,4 @@ export function followViewport(
     root.style.removeProperty(VV_HEIGHT);
     root.style.removeProperty(VV_TOP);
   };
-}
-
-/** The custom property that carries the height of the text in a field (app.css reads it). */
-export const FIELD_TEXT = '--field-text';
-
-/**
- * Let a field grow with its text (ADR 0023): measure the height the text needs and hand it to
- * the stylesheet, which makes it the field's least height while a card is open on a phone. A
- * field measures its text only when it is lower than the text, so for a moment it is made as
- * low as it can be; the reading and the putting back happen before the browser paints.
- *
- * `frame` is what scrolls around the field: the open card, or the blank card's sheet. While the
- * field is low the frame has nothing to scroll, so the browser puts it back at its top, and it
- * stays there when the field is tall again. Typing a letter in the middle of a long answer
- * would throw the card to its top. So the frame's place is read first and put back after.
- */
-export function growField(field: HTMLTextAreaElement, frame: HTMLElement | null = null): void {
-  const scrolled = frame ? frame.scrollTop : 0;
-  const style = field.style;
-  const before = {
-    height: style.height,
-    minHeight: style.minHeight,
-    flexGrow: style.flexGrow,
-    flexBasis: style.flexBasis,
-  };
-  style.height = '0px';
-  style.minHeight = '0px';
-  style.flexGrow = '0';
-  style.flexBasis = '0px';
-  // The borders are in the field's box and not in its scroll height.
-  const text = field.scrollHeight + (field.offsetHeight - field.clientHeight);
-  style.height = before.height;
-  style.minHeight = before.minHeight;
-  style.flexGrow = before.flexGrow;
-  style.flexBasis = before.flexBasis;
-  if (text > 0) style.setProperty(FIELD_TEXT, `${text}px`);
-  else style.removeProperty(FIELD_TEXT);
-  if (frame && frame.scrollTop !== scrolled) frame.scrollTop = scrolled;
-}
-
-/**
- * When the caret is at the end of the text, where someone typing is, and the frame has more
- * than it can show, scroll the frame to its end: the last line and the row with "Save" under
- * it are both in sight. Elsewhere in the text the browser keeps the caret in view itself, and
- * the frame stays where the person put it.
- */
-export function keepEndInView(field: HTMLTextAreaElement, frame: HTMLElement | null): void {
-  if (!frame || field.selectionEnd !== field.value.length) return;
-  const end = frame.scrollHeight - frame.clientHeight;
-  if (end > 0 && frame.scrollTop < end) frame.scrollTop = end;
 }
