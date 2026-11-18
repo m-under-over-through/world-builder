@@ -24,7 +24,7 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 - **invite**: a single-use link a participant creates for someone else. The server records that an invite was spent, never who used it.
 - **join**: the request that creates a participant for a new code through a wave or an invite.
 - **trust page**: the page inside the app that states what is and is not collected and how to check it.
-- **about page**: the one page about the app, from the foot of every screen: what this is, the "Remind me" line, delete-me, and under one closed fold the trust page, the privacy panel and the diagnostics (ADR 0013, ADR 0019).
+- **about page**: the one page about the app, from the "?" in the header of every screen (ADR 0023; from the foot until 18 November 2026): what this is, the "Remind me" line, delete-me, and under one closed fold the trust page, the privacy panel and the diagnostics (ADR 0013, ADR 0019).
 - **privacy panel**: the live view, a section of the about page's fold, showing cookies (0), hosts contacted, what is stored, last sync, version, last error code, and "delete me".
 - **diagnostics**: the part of the privacy panel that shows the last sync result, the outbox size and the last error code.
 - **error code**: a stable name for one failure path, such as `AUTH_CODE_UNKNOWN`, with an entry in the runbook.

@@ -499,6 +499,8 @@ export class AppState {
       // The invitation page is for the person sending the invitations, not a participant: no
       // store, no code, no sync, no wave open counted, nothing remembered (ADR 0021).
       this.invitationWave = route.wave;
+      // Back from the page about the app, opened from the header's "?" (ADR 0023), comes here.
+      this.home = pathname;
       this.screen = 'invitations';
       return;
     }
@@ -1098,12 +1100,14 @@ export class AppState {
   }
 
   /**
-   * "About this app" from the foot of any screen: a fresh GET /me, so the rows are what the
-   * server holds now; then the page, at a section when an older address asked for one.
+   * "About this app", the "?" in the header of any screen (ADR 0023): a fresh GET /me, so the
+   * rows are what the server holds now; then the page, at a section when an older address asked
+   * for one. The invitation page has no store and no code (ADR 0021): the page opens without
+   * asking the server anything.
    */
   async openAbout(section: AboutSection | null = null): Promise<void> {
-    if (!this.store || !this.workshop) return;
-    if (this.code) {
+    if (!this.workshop) return;
+    if (this.store && this.code) {
       const { me, error } = await reconcile(this.store, this.workshop.config.slug, this.code);
       this.me = me;
       if (error) this.lastError = error;

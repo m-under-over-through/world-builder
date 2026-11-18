@@ -173,9 +173,25 @@ describe('the invitation page (ADR 0021)', () => {
     expect(localStorage.getItem(LAST_WORKSHOP)).toBeNull();
     expect(app.code).toBe('');
     expect(location.pathname + location.hash).toBe(PAGE);
-    // A page for the person sending, not the loop: no "About this app", no world pill.
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'about') })).toBeNull();
+    // A page for the person sending, not the loop: the header as on every screen (ADR 0023),
+    // no foot and no world pill.
+    expect(
+      document.querySelector('header')!.querySelector('button')!.getAttribute('aria-label'),
+    ).toBe(copy.item('Buttons', 'about'));
     expect(document.querySelector('footer.foot')).toBeNull();
+  });
+
+  it('the question mark on the invitation page opens the page about the app without a request or a store, and Back comes back to the invitation page', async () => {
+    const calls = stubRoutes({});
+    const app = await open(PAGE);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
+    await user.click(backs().at(-1)!);
+    await waitFor(() => expect(app.screen).toBe('invitations'));
+    expect(location.pathname).toBe(PAGE);
+    expect(calls).toEqual([]);
+    expect(app.store).toBeUndefined();
   });
 
   it('an unknown workshop at the invitation address is still "not a workshop"', async () => {
@@ -382,11 +398,12 @@ describe('the pages a participant can open directly', () => {
     expect(location.pathname).toBe(`/${SLUG}/`);
   });
 
-  it('the foot of the welcome is one link, "About this app"; the terms and the policy open from the page, and Back returns step by step', async () => {
+  it('the welcome has no foot and one button in its header, "About this app"; the terms and the policy open from the page, and Back returns step by step', async () => {
     stubRoutes({});
     const user = userEvent.setup();
     await open(`/${SLUG}/join/wave-1`);
-    expect(document.querySelectorAll('footer button')).toHaveLength(1);
+    expect(document.querySelector('footer')).toBeNull();
+    expect(document.querySelectorAll('header button')).toHaveLength(1);
     expect(
       screen.queryByRole('button', { name: copy.item('Trust page links', 'terms') }),
     ).toBeNull();

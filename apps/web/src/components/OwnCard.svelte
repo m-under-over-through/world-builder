@@ -5,6 +5,7 @@
   import type { AppState } from '../lib/state.svelte.ts';
   import { reducedMotion } from '../lib/swipe.ts';
   import { codePoints, truncateCodePoints } from '../lib/text.ts';
+  import { growField, keepEndInView } from '../lib/viewport.ts';
   import { COUNTER_FROM, COUNTER_NEAR, OWN_CARD_OPENER } from './Stack.svelte';
 
   /**
@@ -17,6 +18,10 @@
    * Focus goes into the field when it opens and stays inside; Esc, "Not now" and a tap on the
    * scrim close it, and the focus goes back to "Write your own story" (Stack.svelte). The page
    * behind is `inert` meanwhile (App.svelte). Closing keeps the words in memory (`app.ownDraft`).
+   *
+   * On a phone the sheet is framed by what the keyboard leaves visible, as the open card is (ADR
+   * 0023; lib/viewport.ts): the title, the hint, the field and the two buttons above the
+   * keyboard, the field growing with the text and the sheet scrolling, with "Save" at its end.
    */
   let { app }: { app: AppState } = $props();
   const CLOSE_MS = 280;
@@ -36,10 +41,17 @@
   );
 
   onMount(() => {
+    // A phone turned on its side wraps the text anew, so the field is measured again (ADR 0023).
+    const regrow = () => {
+      if (field && !app.wide) growField(field, dialog ?? null);
+    };
+    regrow();
     field?.focus();
+    window.addEventListener('resize', regrow);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      window.removeEventListener('resize', regrow);
       document.body.style.overflow = overflow;
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
       void tick().then(() => document.getElementById(OWN_CARD_OPENER)?.focus());
@@ -60,6 +72,10 @@
     if (codePoints(el.value) > MAX_ANSWER_CHARS)
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.ownDraft = el.value;
+    if (!app.wide) {
+      growField(el, dialog ?? null);
+      keepEndInView(el, dialog ?? null);
+    }
   }
 
   /** Esc closes; Tab and Shift+Tab stay inside. */

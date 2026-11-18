@@ -539,6 +539,18 @@ describe('the laptop page', () => {
       expect(document.querySelector('.answered-so-far .figure')!.textContent).toBe('4'),
     );
   });
+
+  it("on the laptop's card screen the count of answers and the question mark share the header's right side", async () => {
+    renderApp(await onACard({ wide: true }));
+    const header = document.querySelector('header.topbar')!;
+    const [left, right] = [...header.children];
+    expect(left!.classList.contains('lines')).toBe(true);
+    // The count first, then the "?", in one group on the right (ADR 0023).
+    const parts = [...right!.children];
+    expect(parts.map((p) => p.className)).toEqual(['answered-so-far', 'about-mark']);
+    expect(parts[1]!.getAttribute('aria-label')).toBe(copy.item('Buttons', 'about'));
+    expect(document.querySelector('footer')).toBeNull();
+  });
 });
 
 describe('the readable copy stays on the device (ADR 0014)', () => {

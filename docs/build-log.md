@@ -2499,3 +2499,66 @@ Marco tried the blank card and reported that the foot's controls were hard to hi
 
 - Below about 560 pixels of height the card screen was already too tall before the blank card, by a few pixels. At 375 by 500 the row now touches the world pill by 4 pixels. No phone in the test script is that short.
 - Whether a tap on a set-aside tile should bring the card back, and whether a saved answer should open, is Marco's call. Both need a new kind of event, so both are a change to the server.
+
+## 2026-11-18, Wednesday night. The header with a "?", air over the cards, the open card above the keyboard (pull request 66)
+
+### What
+
+- `apps/web/src/App.svelte`, `apps/web/src/app.css`: one header on every screen and at every width. The name and the organizer on the left; a round "?" on the right, named "About this app", which opens the about page. On the laptop's card screen the count of answers sits to its left. No "?" on the about page, the terms and the policy, which have Back. The link in the foot is gone: only a phone's card screen has a foot, the world pill alone.
+- `apps/web/src/app.css`: the card screen's budget, 330 pixels, is now 348, with 60 pixels over the stack for the back cards and 12 under the last row. The short-screen line moves from 620 to 630 pixels of height.
+- `apps/web/src/lib/viewport.ts` (new): follows `window.visualViewport` while a card or the blank card is open on a phone, and keeps its height and top on the app's root as `--vv-height` and `--vv-top`. It says when the keyboard is up.
+- `apps/web/src/components/Stack.svelte`, `OwnCard.svelte`: the field grows with the text; while typing at the end, the last line stays in sight.
+- `apps/web/src/lib/state.svelte.ts`: the about page opens from the invitation page, with no store and no request, and Back returns there.
+- Tests: `apps/web/test/viewport.test.ts` (new), and the header, the foot and the budget in `accessibility.test.ts`, `app.test.ts`, `card.test.ts`. 567 tests in all.
+- `docs/screen-map.md`, `docs/device-tests.md`: the "?" instead of the foot's link, and the keyboard steps on the iPhone (part 1, step 4) and the Android (part 3, step 3).
+
+### Why
+
+Marco tried staging on his iPhone and sent three pictures (ADR 0023). The blank card's row had taken the last of the card screen's height, so the back cards touched the organizer's line. And an open card did not fit above the keyboard: on an iPhone the keyboard does not make the page shorter, it covers it, and Safari scrolls the page up to show the field. The question slid out at the top and Save landed under Safari's floating address bar.
+
+How the fix works on an iPhone. The page has two boxes. The layout viewport is the page's own box, and `100dvh` is its height: the keyboard does not change it. The visual viewport is the part you can see: the keyboard makes it shorter, and when Safari scrolls the page for the field, `visualViewport.offsetTop` says by how much. A `position: fixed` element stays fixed to the layout viewport. So while a card is open, the frame is fixed, moved down by `offsetTop` and made as tall as `visualViewport.height`, and the card fits inside it. On Android Chrome the page's viewport line (`interactive-widget=resizes-content`) shrinks the layout viewport for the keyboard, and the visual viewport then has the same box, so the same rule serves both.
+
+### How to verify
+
+1. `npm run check`: 567 tests, exit 0.
+2. Local API and dev server, a phone view, the card screen with one card set aside and one answered. At each size, wait over a second after resizing (the stack animates its height) and measure twice. The gaps measured for this entry, in pixels:
+
+| Size      | Header to the front card's box top | Header to the highest back card (two back cards) | Stack to the first row | Last row to the foot |
+| --------- | ---------------------------------- | ------------------------------------------------ | ---------------------- | -------------------- |
+| 375 × 553 | 37.9                               | 18.3                                             | 30                     | 12.5                 |
+| 375 × 667 | 38.8                               | 20.4                                             | 30                     | 12.2                 |
+| 390 × 844 | 74.9                               | 59.8                                             | 30                     | 45.2                 |
+| 393 × 760 | 41.3                               | 25.7                                             | 30                     | 12.2                 |
+| 320 × 568 | 46.3                               | 27.1                                             | 30                     | 20.0                 |
+
+The second column counts the bounding boxes of the back slots, which are turned and moved up. In this state the round had one card behind the front, so a second back card was added for the moment of the measurement to find the worst case; the first column is with the one real back card. Nothing overlapped anything, and the page did not scroll at any size. 3. The keyboard, stood in for (no desktop browser shows one): at 393 × 760, a card open, `--vv-height: 410px` and `--vv-top: 0px` set by hand on `.app`, with `keyboard-up`. The × at 24 to 56, the question 66 to 124, the field 145 to 280 (five lines), Save 300 to 344, and 66 free under Save inside the 410 (52 of strip and the card's own 14). With a three-line question the field is at its three-line floor and nothing scrolls. With fourteen lines of text the card scrolls by 230, the line being typed stays in sight, and Save is at the end, above the strip. With `--vv-top: 300px` the whole frame moves down by 300. The blank card: title 26 to 53, hint 63 to 129, field 143 to 278, "Not now" and Save 314 to 358, 52 free under them. 4. On a real phone: `docs/device-tests.md`, part 1 step 4 and part 7b on the iPhone, part 3 step 3 on an Android.
+
+### Decisions made on the way
+
+- **The "?" is not on an address that is not a workshop, and not while loading.** The brief listed "not a workshop" among the screens with the "?", but the about page belongs to a workshop and there is none there to open. A button that does nothing would be worse than none.
+- **The about page opens from the invitation page.** It needed two lines in `state.svelte.ts`: `openAbout` no longer needs a store (it only asks the server when there is a code), and the invitation page remembers its own address for Back. Nothing is stored and nothing is sent.
+- **The open card covers the header and the foot on a phone** while the frame is on, and both are `inert` meanwhile. The about page is then one tap further: × first, then "?".
+- **The card is what scrolls**, inside the frame; the frame itself stays still. Save is at the card's end.
+- **The keyboard counts as up from 150 pixels** of difference between the page's height (`document.documentElement.clientHeight`) and the visible part. Safari's bars move by less than 120; a phone keyboard takes 250 or more.
+- **The ring of the "?" is 36 pixels** in a target of 44, like the sheet's ×; a 44-pixel ring next to a 15-pixel name looked heavy.
+- **On a short screen the one row may reach 8 pixels from the screen's edges.** At 320 wide the two controls need 288 pixels and the stack's column has 256; on two rows they ran 0.5 pixels into the foot.
+- **The field measures its text by script**, not with CSS `field-sizing`, which older iPhones do not have.
+
+### Open questions
+
+- Pinch zoom with a card open: the frame follows the visual viewport's height and top, not its left edge or scale. Not tried.
+- At 320 wide and the stack's floor, the front card's "Write an answer" sits under the card's edge for a long question. It was so before this change.
+- With the dictation hint open on the first card, the open card is taller than the space above the keyboard: the field shows, and Save is reached by scrolling.
+- The visual viewport is a new idea in this project. A note in `docs/learn/` would explain it better than this entry; that folder was not in this brief.
+- Only a real iPhone and a real Android phone can show whether the frame follows the keyboard without a jump, and whether Safari's address bar stays inside the strip.
+
+### After the review
+
+The reviewer's verdict was to fix one thing first, and it is fixed in this pull request:
+
+- **The card jumped to its top on a keystroke.** To measure a field's text the field is made low for a moment. A scrolled frame around it then has nothing to scroll, so the browser puts it back at its top and leaves it there. Typing a letter in the middle of a long answer threw the card to its top. `growField` now takes the frame, reads where it is scrolled before measuring and puts it back after.
+- **Typing at the end keeps "Save" in sight.** The frame goes to its end, not just to the last line.
+- **A page pinched in is not a keyboard.** The visual viewport is lower then too; no strip is kept for it.
+- **A phone turned on its side** wraps the text anew, so the open field is measured again on a resize.
+
+Three tests pin the first three with stand-ins. No test DOM lays anything out, so the real proof of all four is a phone.
