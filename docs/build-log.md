@@ -2390,6 +2390,22 @@ Marco asked for a place for a story that no card asks for. ADR 0022 (proposed) s
 - Everything in ADR 0022's "Open, for Marco on the preview": the name, the button's place and how quiet it is, one or several, the limit, the words of the hint.
 - The privacy policy's "What we store" should gain a few words for a card the participant writes (ADR 0022). Marco's file.
 
+### Second round, after Marco's look and the first review
+
+What changed:
+
+- The button reads "Write your own story", Marco's words. The title and the tile stay "Your own card".
+- The line "Please leave out the names of people." is gone, at Marco's word: its block in `copy.md`, its name in `lib/copy.ts`, the paragraph, and the field's `aria-describedby`. The field keeps its name and the hint.
+- A blank card is no longer a touch of the round. `replaySession` skips blank cards when it decides `untouched`, and `saveOwnCard` no longer calls `withAnswer`. Before, a blank card written before any card took away the dictation hint of the first card after a reload.
+- `screen` is now a getter and a setter. Leaving the card screen closes the blank card, so a sync that finds the workshop closed does not leave it open for the way back. The draft stays.
+- New tests: the seq across card, blank, card, blank, and two saves started together; the hint after a blank card; the blank card closing when the screen changes; the scrim; "Delete everything"; a second device replaying the server's rows. The limit test now saves a full-length text that holds an emoji, since pull request 63 made sealing count characters.
+
+How to verify: `npm run check`. On the preview, the button under Set aside reads "Write your own story", and the place to write has no line about names.
+
+Decision: the open flag is cleared in the setter of `screen`, the one place every way off the cards passes through. `live` and the onboarding card are not watched: no path brings the onboarding card in front, or empties `live`, while the cards are showing and the blank card is open.
+
+Still open, not for this branch: a save whose readable copy cannot be written after its event is stored (the review's last note). An ordinary card's save has the same gap.
+
 ## 2026-11-18, Wednesday. The answer limit is counted in characters when sealing (pull request 63)
 
 ### What
