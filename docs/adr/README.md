@@ -28,3 +28,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0022   | The blank card: a card the participant writes, an answer like any other                           |
 | 0023   | The header and the open card on a phone: "?" for the about page; the card fits above the keyboard |
 | 0024   | Tiles open: a card set aside can be answered from its tile, and an answer can be changed          |
+| 0025   | While a card is open on a phone, only the card scrolls; the page behind is held                   |
