@@ -149,7 +149,7 @@ Meaning: a private key that is not 32 bytes of valid base64. Cause: a bad copy f
 
 ### CRYPTO_BAD_TEXT
 
-Meaning: `sealAnswer` refused the text before sealing: longer than 4,000 UTF-16 units, or containing a lone surrogate (half of an emoji, usually from truncating by string length instead of by code point). Cause: a client bug in the length limit or truncation. Check: the client enforces the limit by code points and disables save beyond it. Fix: client. Confirm: a 4,000-character answer with emoji at the end seals on staging.
+Meaning: `sealAnswer` refused the text before sealing: longer than 4,000 characters, counted in code points as the client counts them (until 18 November 2026 it counted UTF-16 units, and refused a full-length text that held an emoji), or containing a lone surrogate (half of an emoji, usually from truncating by string length instead of by code point). Cause: a client bug in the length limit or truncation. Check: the client enforces the limit by code points and disables save beyond it. Fix: client. Confirm: a 4,000-character answer with emoji at the end seals on staging.
 
 ### CRYPTO_BAD_ENVELOPE
 

@@ -2389,3 +2389,29 @@ Marco asked for a place for a story that no card asks for. ADR 0022 (proposed) s
 - `sealAnswer` (packages/crypto) checks the length in UTF-16 units; the client cuts by code points. A text of 4,000 code points with an emoji in it is refused with `CLIENT_SEAL_FAILED`. This is already so for a card; a long free text makes it likelier. The fix is in `packages/crypto`, which this change does not touch.
 - Everything in ADR 0022's "Open, for Marco on the preview": the name, the button's place and how quiet it is, one or several, the limit, the words of the hint.
 - The privacy policy's "What we store" should gain a few words for a card the participant writes (ADR 0022). Marco's file.
+## 2026-11-18, Wednesday. The answer limit is counted in characters when sealing (pull request 63)
+
+### What
+
+- `packages/crypto/src/index.ts`: `sealAnswer` counts the text in code points before it compares it with `MAX_ANSWER_CHARS`. It counted UTF-16 units.
+- `packages/crypto/test/seal.test.ts`: one test. 4,000 emoji are sealed, pass the envelope's schema and open again; a text of 3,999 letters and one emoji is sealed; 4,001 emoji are refused.
+- `packages/contracts/src/events.ts`: the comment above `MAX_BODY_CHARS` does the sum for code points. No value changes.
+- `docs/runbook.md`: the entry for `CRYPTO_BAD_TEXT`.
+
+### Why
+
+The client counts and cuts an answer by code points: an emoji is one character, as it is to the person typing. `sealAnswer` counted UTF-16 units, where an emoji is two. A text that the field accepted as 4,000 characters, with one emoji in it, was 4,001 units long and was refused at sealing. The person saw `CLIENT_SEAL_FAILED` and could not save, with nothing to tell them why. It needs a text at the limit, so it is rare on a card. The blank card (ADR 0022) invites long texts, and its builder found it.
+
+### How to verify
+
+1. `npm run check`: 526 tests.
+2. By hand, on staging or a preview: paste 3,999 letters and one emoji into a card's field and save. Before the change it failed with `CLIENT_SEAL_FAILED`; now it saves.
+
+### Decisions made on the way
+
+- The fix is in the sealing, not in the client. One meaning of "4,000 characters" everywhere is easier to reason about than a field that counts one way and a seal that counts another.
+- The stored size was checked before the change. The widest text is 4,000 characters of four bytes each: 16,000 bytes, 16,048 sealed, 21,400 in base64, 21,403 with the prefix. `MAX_BODY_CHARS` is 24,000, so the server accepts it as it is.
+
+### Open questions
+
+- None.

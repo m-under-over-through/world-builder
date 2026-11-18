@@ -120,10 +120,20 @@ export function fingerprint(publicKey: string): string {
   return hex.match(/.{4}/g)!.join('-');
 }
 
+/** The length of a text in code points: what a person calls characters. */
+function codePoints(text: string): number {
+  let n = 0;
+  for (const _ of text) n++;
+  return n;
+}
+
 /** Seal an answer to the workshop's public key. Anyone can seal; only the private key can open. */
 export function sealAnswer(publicKey: string, text: string): string {
   const pk = decodeKey(publicKey, 'CRYPTO_BAD_PUBLIC_KEY');
-  if (text.length > MAX_ANSWER_CHARS) {
+  // Counted in code points, as the client counts and cuts (apps/web/src/lib/text.ts): an emoji is
+  // one character to the person typing and two UTF-16 units to `text.length`. Counting units
+  // here refused a text of 4,000 characters that held a single emoji (build log, 18 November 2026).
+  if (codePoints(text) > MAX_ANSWER_CHARS) {
     throw new CryptoError(
       'CRYPTO_BAD_TEXT',
       `answer is longer than ${MAX_ANSWER_CHARS} characters`,
