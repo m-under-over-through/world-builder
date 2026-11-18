@@ -164,7 +164,18 @@ export const RETRY_FIRST_MS = 5_000;
 export const RETRY_MAX_MS = 5 * 60_000;
 
 export class AppState {
-  screen = $state<Screen>('loading');
+  #screen = $state<Screen>('loading');
+  /**
+   * The screen showing. Leaving the cards (a sync that finds the workshop closed, the about page)
+   * also closes the blank card, so it is not found open on the way back (ADR 0022).
+   */
+  get screen(): Screen {
+    return this.#screen;
+  }
+  set screen(screen: Screen) {
+    this.#screen = screen;
+    if (screen !== 'card') this.ownCardOpen = false;
+  }
   workshop = $state.raw<Workshop | undefined>(undefined);
   copy = $state.raw<Copy>(defaultCopy());
   store: Store | undefined;
@@ -996,7 +1007,7 @@ export class AppState {
     return this.screen === 'card' && this.live !== null && !this.demoFront;
   }
 
-  /** "Write your own card": the place to write opens, with the words left there last time. */
+  /** "Write your own story": the place to write opens, with the words left there last time. */
   openOwnCard(): void {
     if (!this.ownCardOffered || this.cardState !== 'fresh') return;
     this.error = '';
@@ -1042,8 +1053,13 @@ export class AppState {
       await this.store.putAnswer({ key, sessionId: session.id, cardId, text });
       this.copies = new Map(this.copies).set(key, text);
       // The seq moves on; the id joins the round's answered ids, which the deck engine ignores
-      // for a card it does not hold, as a replay of the round would do.
-      this.live = withAnswer(this.live, cardId);
+      // for a card it does not hold, as a replay of the round would do. Not `withAnswer`: a blank
+      // card is not a touch of the round, so the first card keeps its hints (lib/session.ts).
+      this.live = {
+        ...this.live,
+        answered: new Set([...this.live.answered, cardId]),
+        nextSeq: this.live.nextSeq + 1,
+      };
       this.ownDraft = '';
       this.ownCardOpen = false;
       this.announce('saved');

@@ -525,14 +525,14 @@ describe('the blank card (ADR 0022)', () => {
     }
   });
 
-  it('the field is described by the hint, the line about names and the counter, and a save that fails is an alert', async () => {
+  it('the field is described by the hint and the counter, and a save that fails is an alert', async () => {
     const app = await onACard();
     renderApp(app);
     app.openOwnCard();
     app.ownDraft = 'a lone surrogate \uD83D';
     await screen.findByRole('dialog');
     const field = screen.getByRole('textbox', { name: copy.text('Own card: field') });
-    expect(field.getAttribute('aria-describedby')).toBe('own-hint own-names own-count');
+    expect(field.getAttribute('aria-describedby')).toBe('own-hint own-count');
     await userEvent
       .setup()
       .click(screen.getByRole('button', { name: copy.item('Own card: buttons', 'save') }));

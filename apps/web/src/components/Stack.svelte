@@ -2,7 +2,7 @@
   /** The counter shows from here (DESIGN.md: "near 4,000"), and in bold from `COUNTER_NEAR`; the blank card's too. */
   export const COUNTER_FROM = 3000;
   export const COUNTER_NEAR = 3900;
-  /** The id of "Write your own card", so the place to write can give the focus back to it (ADR 0022). */
+  /** The id of "Write your own story", so the place to write can give the focus back to it (ADR 0022). */
   export const OWN_CARD_OPENER = 'own-card-open';
 </script>
 
@@ -24,7 +24,7 @@
    * × closes it and keeps the draft. The answered card leaves through `app.exiting`, drawn here
    * on its way out while the next card is already the front. Under the stack: Set aside, which
    * makes the card leave sideways before recording it, and on a phone the hint that a swipe
-   * does the same (lib/swipe.ts). Under those, "Write your own card", a quiet text button that
+   * does the same (lib/swipe.ts). Under those, "Write your own story", a quiet text button that
    * opens the blank card (ADR 0022; components/OwnCard.svelte): there whenever a round is live,
    * also under the thank-you card, and not while the onboarding card is in front. To move it, move
    * the one line that renders the snippet `ownCardButton`.

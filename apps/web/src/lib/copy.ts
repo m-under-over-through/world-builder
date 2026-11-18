@@ -170,7 +170,6 @@ export const COPY_TEXT = [
   'Own card: button',
   'Own card: title',
   'Own card: hint',
-  'Own card: names',
   'Own card: field',
   'Own card: tile',
   'Not open yet',

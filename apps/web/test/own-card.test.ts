@@ -108,7 +108,6 @@ describe('the place to write', () => {
     await user.click(opener());
     const dialog = await screen.findByRole('dialog', { name: copy.text('Own card: title') });
     expect(dialog.textContent).toContain(copy.text('Own card: hint'));
-    expect(dialog.textContent).toContain(copy.text('Own card: names'));
     expect(dialog.textContent).not.toContain(front.text);
     expect(save().disabled).toBe(true);
     await user.type(field(), 'A story from before');
@@ -259,11 +258,15 @@ describe('saving a blank card', () => {
   it('a text longer than the limit is cut at 4,000 characters by code points, never through a pair', async () => {
     const app = await onACard();
     stubRoutes({});
-    // Saved: a text past the limit is cut to the limit, not refused.
-    expect(await app.saveOwnCard('a'.repeat(MAX_ANSWER_CHARS + 500))).toBe(true);
-    const [copyOnDevice] = await db(app).answers();
-    expect(copyOnDevice!.text).toBe('a'.repeat(MAX_ANSWER_CHARS));
+    // Saved: a text past the limit is cut to the limit, not refused, and an emoji at the cut is
+    // kept whole. Sealing counts characters as the client does (pull request 63).
+    const long = 'a'.repeat(MAX_ANSWER_CHARS - 1) + '😀😀😀';
+    expect(await app.saveOwnCard(long)).toBe(true);
     expect(app.error).toBe('');
+    const [copyOnDevice] = await db(app).answers();
+    expect(copyOnDevice!.text).toBe('a'.repeat(MAX_ANSWER_CHARS - 1) + '😀');
+    expect(codePoints(copyOnDevice!.text)).toBe(MAX_ANSWER_CHARS);
+    expect((await db(app).events.toArray())[0]!.body!.startsWith('v1.')).toBe(true);
     // Typed or pasted: the field refuses what passes the limit and keeps an emoji whole, so the
     // 4,000th character is the whole emoji and no half of the next one is left behind.
     renderApp(app);
@@ -280,6 +283,98 @@ describe('saving a blank card', () => {
         screen.getByText(fill(copy.item('Card labels', 'counter'), { n: '4,000', max: '4,000' })),
       ).toBeTruthy(),
     );
+    // A full-length text that holds an emoji saves from the field as well.
+    expect(await app.saveOwnCard()).toBe(true);
+    expect(app.error).toBe('');
+    expect((await db(app).answers()).map((a) => codePoints(a.text))).toEqual([
+      MAX_ANSWER_CHARS,
+      MAX_ANSWER_CHARS,
+    ]);
+  });
+
+  it('the seq goes on across cards and blank cards: card, blank, card, blank are in order and no number comes twice; two saves started together store one event', async () => {
+    const app = await onACard();
+    stubRoutes({});
+    app.draft = 'First card';
+    expect(await app.save()).toBe(true);
+    expect(await app.saveOwnCard('First blank')).toBe(true);
+    app.draft = 'Second card';
+    expect(await app.save()).toBe(true);
+    expect(await app.saveOwnCard('Second blank')).toBe(true);
+    const events = (await db(app).events.toArray()).sort((a, b) => a.seq - b.seq);
+    const seqs = events.map((e) => e.seq);
+    expect(new Set(seqs).size).toBe(seqs.length);
+    expect(seqs).toEqual([...seqs.keys()].map((i) => seqs[0]! + i));
+    const answered = events.filter((e) => e.kind === 'answered');
+    expect(answered.map((e) => isOwnCardId(e.cardId))).toEqual([false, true, false, true]);
+    expect(app.live!.nextSeq).toBe(seqs.at(-1)! + 1);
+    // Two presses at once: the second finds the first saving and does nothing.
+    app.openOwnCard();
+    app.ownDraft = 'Pressed twice';
+    const [first, second] = await Promise.all([app.saveOwnCard(), app.saveOwnCard()]);
+    expect([first, second]).toEqual([true, false]);
+    const after = await db(app).events.toArray();
+    expect(after).toHaveLength(events.length + 1);
+    expect(new Set(after.map((e) => e.seq)).size).toBe(after.length);
+    expect((await db(app).answers()).filter((a) => a.text === 'Pressed twice')).toHaveLength(1);
+  });
+
+  it('a blank card is not a touch of the round: the first card keeps its dictation hint, now and after a reload', async () => {
+    const app = await onACard({ platform: 'Android' });
+    stubRoutes({});
+    await app.enterSession();
+    expect(app.hintOpen).toBe(true);
+    expect(await app.saveOwnCard('Before any card')).toBe(true);
+    expect(app.live!.untouched).toBe(true);
+    expect(app.hintOpen).toBe(true);
+    await app.enterSession();
+    expect(app.live!.untouched).toBe(true);
+    expect(app.hintOpen).toBe(true);
+    expect(app.world.tiles.map((t) => t.answer)).toEqual(['Before any card']);
+  });
+
+  it('the blank card closes when it stops being offered: the workshop closed under it, it is not open on the way back', async () => {
+    const app = await onACard();
+    renderApp(app);
+    app.openOwnCard();
+    app.ownDraft = 'Half a story';
+    await screen.findByRole('dialog');
+    app.screen = 'closed';
+    expect(app.ownCardOpen).toBe(false);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    app.screen = 'card';
+    expect(app.ownCardOpen).toBe(false);
+    expect(app.ownDraft).toBe('Half a story');
+  });
+
+  it('a tap on the scrim closes the blank card and keeps the words', async () => {
+    const app = await onACard();
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(opener());
+    await screen.findByRole('dialog');
+    await user.type(field(), 'Words to keep');
+    await user.click(document.querySelector('.scrim')!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(app.ownDraft).toBe('Words to keep');
+    expect(await db(app).events.count()).toBe(0);
+    await user.click(opener());
+    await screen.findByRole('dialog');
+    expect(field().value).toBe('Words to keep');
+  });
+
+  it('"Delete everything" removes a blank card\'s readable copy with the rest', async () => {
+    const app = await onACard();
+    stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED], [`/api/${SLUG}/me`]: [] });
+    expect(await app.saveOwnCard('Gone soon')).toBe(true);
+    expect(app.copies.size).toBe(1);
+    app.go = () => {};
+    app.askDelete();
+    await app.deleteMe();
+    expect(app.copies.size).toBe(0);
+    expect(app.world.tiles).toEqual([]);
+    expect(await new WorkshopStore(SLUG).answers()).toEqual([]);
+    expect(await new WorkshopStore(SLUG).events.count()).toBe(0);
   });
 
   it('when sealing fails nothing is stored and the page says CLIENT_SEAL_FAILED', async () => {
@@ -363,5 +458,42 @@ describe('on another device', () => {
     expect(tile.querySelector('.label')!.textContent).toBe(copy.text('Own card: tile'));
     expect(tile.textContent).toContain(copy.item('Your world', 'written elsewhere'));
     expect(tile.textContent).not.toContain('QQQQ');
+  });
+
+  it("a second device that replays the server's rows shows the blank card's tile and plans the same round", async () => {
+    // The first device: a card answered, then a blank card, both synced.
+    const first = await onACard();
+    stubRoutes({});
+    first.draft = 'A card answered';
+    expect(await first.save()).toBe(true);
+    expect(await first.saveOwnCard('A story of my own')).toBe(true);
+    const rows = await db(first).history();
+    const front = first.card!.id;
+    const queue = [...first.live!.plan.queue];
+
+    // The second device: nothing stored, the same code; GET /me hands it the server's rows.
+    freshIndexedDb();
+    stubRoutes({});
+    const second = new AppState();
+    second.workshop = workshop;
+    second.copy = copy;
+    second.store = new WorkshopStore(SLUG);
+    await second.store.set('demoSeen', '2026-11-16');
+    second.wait = async () => {};
+    second.code = first.code;
+    second.me = {
+      workshop: { slug: SLUG, name: 'x', closesDay: '2026-12-06', deleteDay: '2027-02-05' },
+      participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 1 },
+      sessions: rows.sessions,
+      events: rows.events,
+    } as AppState['me'];
+    await second.enterSession();
+    expect(second.sessionNo).toBe(1);
+    expect(second.card!.id).toBe(front);
+    expect(second.live!.plan.queue).toEqual(queue);
+    expect(second.live!.nextSeq).toBe(first.live!.nextSeq);
+    const tiles = second.world.tiles;
+    expect(tiles.map((t) => t.own ?? false)).toEqual([false, true]);
+    expect(tiles.map((t) => t.answer)).toEqual([null, null]);
   });
 });

@@ -11,11 +11,11 @@
    * The place to write a blank card (ADR 0022): a card with no question, which the participant
    * writes. Over the card screen as a modal dialog: on a phone a sheet, built the way
    * WorldSheet.svelte is; on a laptop (`app.wide`) a wide card over the desk, with the same
-   * content. The title, the hint, the line about names, a large field with its own name for a
+   * content. The title, the hint, a large field with its own name for a
    * screen reader, the counter near the limit as on a card, then "Not now" and "Save".
    *
    * Focus goes into the field when it opens and stays inside; Esc, "Not now" and a tap on the
-   * scrim close it, and the focus goes back to "Write your own card" (Stack.svelte). The page
+   * scrim close it, and the focus goes back to "Write your own story" (Stack.svelte). The page
    * behind is `inert` meanwhile (App.svelte). Closing keeps the words in memory (`app.ownDraft`).
    */
   let { app }: { app: AppState } = $props();
@@ -88,7 +88,7 @@
   }
 
   const described = $derived(
-    ['own-hint', 'own-names', 'own-count', ...(app.error ? ['own-error'] : [])].join(' '),
+    ['own-hint', 'own-count', ...(app.error ? ['own-error'] : [])].join(' '),
   );
 </script>
 
@@ -108,7 +108,6 @@
 >
   <h2 id="own-title">{app.copy.text('Own card: title')}</h2>
   <p class="own-hint" id="own-hint">{app.copy.text('Own card: hint')}</p>
-  <p class="own-names" id="own-names">{app.copy.text('Own card: names')}</p>
   <textarea
     bind:this={field}
     value={app.ownDraft}

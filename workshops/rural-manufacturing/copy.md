@@ -584,7 +584,7 @@ The text could not be copied. Select it and copy it by hand.
 
 <!-- The quiet button under the stack that opens the place to write. Also under the thank-you card once the deck is done. -->
 
-Write your own card
+Write your own story
 
 ## Own card: title (a few words)
 
@@ -598,13 +598,6 @@ Your own card
 
 [placeholder]
 Is there something you already want to say that no card has asked? A story, an idea, a worry. Write it here, in your own words and at your own length.
-
-## Own card: names (one line)
-
-<!-- Under the hint, above the field: the answers are read by the research team. -->
-
-[placeholder]
-Please leave out the names of people.
 
 ## Own card: field (a few words)
 
