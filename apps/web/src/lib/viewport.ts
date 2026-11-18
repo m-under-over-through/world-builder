@@ -30,6 +30,8 @@ export const KEYBOARD_MIN = 150;
 export interface ViewportLike {
   readonly height: number;
   readonly offsetTop: number;
+  /** How far the page is pinched in; 1 when it is not. */
+  readonly scale?: number;
   addEventListener(type: 'resize' | 'scroll', listener: () => void): void;
   removeEventListener(type: 'resize' | 'scroll', listener: () => void): void;
 }
@@ -50,7 +52,9 @@ export function keyboardUp(layoutHeight: number, visualHeight: number): boolean 
 export function frameOf(viewport: ViewportLike, layoutHeight: number): Frame {
   const height = Math.max(0, viewport.height);
   const top = Math.max(0, viewport.offsetTop);
-  return { height, top, keyboard: keyboardUp(layoutHeight, height) };
+  // A page pinched in also has a lower visible part, and no keyboard: no strip is kept for it.
+  const pinched = (viewport.scale ?? 1) > 1.01;
+  return { height, top, keyboard: !pinched && keyboardUp(layoutHeight, height) };
 }
 
 export interface FollowOptions {
@@ -107,8 +111,14 @@ export const FIELD_TEXT = '--field-text';
  * the stylesheet, which makes it the field's least height while a card is open on a phone. A
  * field measures its text only when it is lower than the text, so for a moment it is made as
  * low as it can be; the reading and the putting back happen before the browser paints.
+ *
+ * `frame` is what scrolls around the field: the open card, or the blank card's sheet. While the
+ * field is low the frame has nothing to scroll, so the browser puts it back at its top, and it
+ * stays there when the field is tall again. Typing a letter in the middle of a long answer
+ * would throw the card to its top. So the frame's place is read first and put back after.
  */
-export function growField(field: HTMLTextAreaElement): void {
+export function growField(field: HTMLTextAreaElement, frame: HTMLElement | null = null): void {
+  const scrolled = frame ? frame.scrollTop : 0;
   const style = field.style;
   const before = {
     height: style.height,
@@ -128,15 +138,17 @@ export function growField(field: HTMLTextAreaElement): void {
   style.flexBasis = before.flexBasis;
   if (text > 0) style.setProperty(FIELD_TEXT, `${text}px`);
   else style.removeProperty(FIELD_TEXT);
+  if (frame && frame.scrollTop !== scrolled) frame.scrollTop = scrolled;
 }
 
 /**
- * When the text grows past the bottom of the frame and the caret is at its end, where someone
- * typing is, scroll the frame so the last line stays in sight. Elsewhere in the text the
- * browser keeps the caret in view itself.
+ * When the caret is at the end of the text, where someone typing is, and the frame has more
+ * than it can show, scroll the frame to its end: the last line and the row with "Save" under
+ * it are both in sight. Elsewhere in the text the browser keeps the caret in view itself, and
+ * the frame stays where the person put it.
  */
 export function keepEndInView(field: HTMLTextAreaElement, frame: HTMLElement | null): void {
   if (!frame || field.selectionEnd !== field.value.length) return;
-  const below = field.getBoundingClientRect().bottom - frame.getBoundingClientRect().bottom;
-  if (below > 0) frame.scrollTop += below + 8;
+  const end = frame.scrollHeight - frame.clientHeight;
+  if (end > 0 && frame.scrollTop < end) frame.scrollTop = end;
 }

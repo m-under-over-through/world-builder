@@ -41,11 +41,17 @@
   );
 
   onMount(() => {
-    if (field && !app.wide) growField(field);
+    // A phone turned on its side wraps the text anew, so the field is measured again (ADR 0023).
+    const regrow = () => {
+      if (field && !app.wide) growField(field, dialog ?? null);
+    };
+    regrow();
     field?.focus();
+    window.addEventListener('resize', regrow);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      window.removeEventListener('resize', regrow);
       document.body.style.overflow = overflow;
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
       void tick().then(() => document.getElementById(OWN_CARD_OPENER)?.focus());
@@ -67,7 +73,7 @@
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.ownDraft = el.value;
     if (!app.wide) {
-      growField(el);
+      growField(el, dialog ?? null);
       keepEndInView(el, dialog ?? null);
     }
   }

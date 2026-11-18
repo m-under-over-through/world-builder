@@ -93,7 +93,7 @@
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.draft = el.value;
     if (!app.wide) {
-      growField(el);
+      growField(el, openCard ?? null);
       keepEndInView(el, openCard ?? null);
     }
   }
@@ -106,6 +106,17 @@
   // or the onboarding card goes, so the keyboard and the screen reader stay on the loop. When
   // the last card goes, the button that sent it goes too (Save, Set aside), so the thank-you
   // card takes the focus, and a screen reader reads it.
+  // A phone turned on its side wraps the text anew, so the open card's field is measured again
+  // (ADR 0023). Only while a card is open on a phone.
+  $effect(() => {
+    if (app.cardState === 'fresh' || app.wide) return;
+    const regrow = () => {
+      if (field) growField(field, openCard ?? null);
+    };
+    window.addEventListener('resize', regrow);
+    return () => window.removeEventListener('resize', regrow);
+  });
+
   let wasOpen = false;
   let wasDemo = false;
   let wasThanks = false;
@@ -116,7 +127,7 @@
     if (isOpen && !wasOpen)
       void tick().then(() => {
         // A draft kept from before: the field is as tall as its text from the start (ADR 0023).
-        if (field && !app.wide) growField(field);
+        if (field && !app.wide) growField(field, openCard ?? null);
         field?.focus();
       });
     if ((!isOpen && wasOpen) || (!isDemo && wasDemo)) void tick().then(() => front?.focus());

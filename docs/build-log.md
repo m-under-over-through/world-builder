@@ -2551,3 +2551,14 @@ The second column counts the bounding boxes of the back slots, which are turned 
 - With the dictation hint open on the first card, the open card is taller than the space above the keyboard: the field shows, and Save is reached by scrolling.
 - The visual viewport is a new idea in this project. A note in `docs/learn/` would explain it better than this entry; that folder was not in this brief.
 - Only a real iPhone and a real Android phone can show whether the frame follows the keyboard without a jump, and whether Safari's address bar stays inside the strip.
+
+### After the review
+
+The reviewer's verdict was to fix one thing first, and it is fixed in this pull request:
+
+- **The card jumped to its top on a keystroke.** To measure a field's text the field is made low for a moment. A scrolled frame around it then has nothing to scroll, so the browser puts it back at its top and leaves it there. Typing a letter in the middle of a long answer threw the card to its top. `growField` now takes the frame, reads where it is scrolled before measuring and puts it back after.
+- **Typing at the end keeps "Save" in sight.** The frame goes to its end, not just to the last line.
+- **A page pinched in is not a keyboard.** The visual viewport is lower then too; no strip is kept for it.
+- **A phone turned on its side** wraps the text anew, so the open field is measured again on a resize.
+
+Three tests pin the first three with stand-ins. No test DOM lays anything out, so the real proof of all four is a phone.

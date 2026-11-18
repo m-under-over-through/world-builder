@@ -15,6 +15,7 @@ import {
   followViewport,
   frameOf,
   growField,
+  keepEndInView,
   KEYBOARD_MIN,
   keyboardUp,
   VV_HEIGHT,
@@ -140,6 +141,47 @@ describe('the visual viewport, read', () => {
     expect(field.style.height).toBe('');
     expect(field.style.minHeight).toBe('');
     expect(field.style.flexGrow).toBe('');
+  });
+
+  it('measuring a field leaves the card where the person had scrolled it', () => {
+    // A browser puts a scrolled frame back at its top while the field in it is made low to be
+    // measured, and leaves it there. The stand-in does the same when the height is read.
+    const frame = { scrollTop: 240 } as HTMLElement;
+    const field = document.createElement('textarea');
+    Object.defineProperty(field, 'scrollHeight', {
+      get: () => {
+        frame.scrollTop = 0;
+        return 900;
+      },
+    });
+    growField(field, frame);
+    expect(field.style.getPropertyValue(FIELD_TEXT)).toBe('900px');
+    expect(frame.scrollTop).toBe(240);
+  });
+
+  it('typing at the end of a long text keeps the last line and Save in sight; typing in the middle leaves the card where it is', () => {
+    const frame = { scrollTop: 100, scrollHeight: 900, clientHeight: 400 } as HTMLElement;
+    const field = document.createElement('textarea');
+    field.value = 'a long answer';
+    field.setSelectionRange(field.value.length, field.value.length);
+    keepEndInView(field, frame);
+    expect(frame.scrollTop).toBe(500);
+    // The caret in the middle: someone mending a word. The frame is theirs.
+    frame.scrollTop = 100;
+    field.setSelectionRange(3, 3);
+    keepEndInView(field, frame);
+    expect(frame.scrollTop).toBe(100);
+    // A text that fits: nothing to scroll.
+    const short = { scrollTop: 0, scrollHeight: 400, clientHeight: 400 } as HTMLElement;
+    field.setSelectionRange(field.value.length, field.value.length);
+    keepEndInView(field, short);
+    expect(short.scrollTop).toBe(0);
+  });
+
+  it('a page pinched in is not a keyboard: no strip is kept for it', () => {
+    expect(frameOf({ height: 410, offsetTop: 0, scale: 2 } as never, 844).keyboard).toBe(false);
+    expect(frameOf({ height: 410, offsetTop: 0, scale: 1 } as never, 844).keyboard).toBe(true);
+    expect(frameOf({ height: 410, offsetTop: 0 } as never, 844).keyboard).toBe(true);
   });
 });
 
