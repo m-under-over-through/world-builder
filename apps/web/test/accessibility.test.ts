@@ -225,6 +225,27 @@ describe('the stylesheet: what a test DOM cannot see', () => {
         expect(r.body[property], `${r.selectors.join(', ')} ${property}`).toBeUndefined();
   });
 
+  it('on a short phone screen "Set aside" and "Write your own story" share one row and the swipe hint is left out, so the row cannot land on the world pill', () => {
+    // jsdom lays nothing out, so this pins the rule. The numbers behind it: the stack's floor is
+    // 280 pixels and everything else on the screen takes 330 with the three rows under the
+    // stack, so below 610 pixels of height the rows ran into the foot (build log, 18 November 2026).
+    const SHORT = '@media (max-height: 620px)';
+    const short = (selector: string) =>
+      rules.find((r) => r.media === SHORT && r.selectors.includes(selector))?.body;
+    const row = short('.app.phone-loop .aside-row');
+    expect(row?.['flex-direction']).toBe('row');
+    expect(row?.['flex-wrap']).toBe('wrap');
+    expect(short('.app.phone-loop .aside-row .swipe-hint')?.['display']).toBe('none');
+    // The rule belongs to the phone's card screen only, and makes no control smaller.
+    for (const r of rules.filter((r) => r.media === SHORT)) {
+      expect(r.selectors.every((s) => s.startsWith('.app.phone-loop '))).toBe(true);
+      for (const property of ['height', 'min-height', 'max-height', 'padding', 'font-size'])
+        expect(r.body[property], `${r.selectors.join(', ')} ${property}`).toBeUndefined();
+    }
+    // Above that height nothing changes: a column, with the hint.
+    expect(rule('.aside-row')['flex-direction']).toBe('column');
+  });
+
   it('the blank card: "Write your own card", "Save" and "Not now" are at least 44 pixels to a finger, and no rule of the blank card makes a button smaller', async () => {
     renderApp(await onACard());
     const opener = screen.getByRole('button', { name: copy.text('Own card: button') });
