@@ -130,6 +130,21 @@ describe('sealed answers', () => {
     );
   });
 
+  it('counts the limit in characters as a person counts them: 4,000 emoji are sealed, one more is refused', () => {
+    const kp = generateKeyPair();
+    const factory = '\u{1F3ED}'; // one character, two UTF-16 units, four bytes in UTF-8
+    const full = factory.repeat(MAX_ANSWER_CHARS);
+    expect(full.length).toBe(2 * MAX_ANSWER_CHARS);
+    const sealed = sealAnswer(kp.publicKey, full);
+    // The widest text there can be still fits the envelope the server accepts.
+    expect(sealedEnvelopeSchema.safeParse(sealed).success).toBe(true);
+    expect(openAnswer(kp.privateKey, sealed)).toBe(full);
+    // A text at the limit with one emoji in it, the case that used to be refused.
+    const mixed = 'x'.repeat(MAX_ANSWER_CHARS - 1) + factory;
+    expect(openAnswer(kp.privateKey, sealAnswer(kp.publicKey, mixed))).toBe(mixed);
+    expect(() => sealAnswer(kp.publicKey, full + factory)).toThrow(failsWith('CRYPTO_BAD_TEXT'));
+  });
+
   it('handles the empty answer, unicode, and the maximum length in the widest characters', () => {
     const kp = generateKeyPair();
     const texts = [
