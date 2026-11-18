@@ -30,6 +30,8 @@ export const KEYBOARD_MIN = 150;
 export interface ViewportLike {
   readonly height: number;
   readonly offsetTop: number;
+  /** How far the page is pinched in; 1 when it is not. */
+  readonly scale?: number;
   addEventListener(type: 'resize' | 'scroll', listener: () => void): void;
   removeEventListener(type: 'resize' | 'scroll', listener: () => void): void;
 }
@@ -50,7 +52,39 @@ export function keyboardUp(layoutHeight: number, visualHeight: number): boolean 
 export function frameOf(viewport: ViewportLike, layoutHeight: number): Frame {
   const height = Math.max(0, viewport.height);
   const top = Math.max(0, viewport.offsetTop);
-  return { height, top, keyboard: keyboardUp(layoutHeight, height) };
+  // A page pinched in also has a lower visible part, and no keyboard: no strip is kept for it.
+  const pinched = (viewport.scale ?? 1) > 1.01;
+  return { height, top, keyboard: !pinched && keyboardUp(layoutHeight, height) };
+}
+
+/**
+ * The share of the page taken as free above a phone's keyboard the first time, before the
+ * browser has said. A little low on purpose: a card that grows by a few pixels once the
+ * keyboard has settled reads better than one whose foot is cut off and then jumps up.
+ */
+export const KEYBOARD_GUESS = 0.5;
+
+/**
+ * How long the keyboard is waited for before the page believes there is none (a phone with a
+ * keyboard attached, a field that did not take the focus). An iPhone's keyboard is up within
+ * half a second.
+ */
+export const KEYBOARD_WAIT_MS = 1000;
+
+/**
+ * What was left above the keyboard the last time it was up, by the page's width: a phone on
+ * its side has another keyboard. Kept in memory only, until the page is closed.
+ */
+const remembered = new Map<number, number>();
+
+/** Forget what earlier keyboards left free. For tests. */
+export function forgetKeyboards(): void {
+  remembered.clear();
+}
+
+/** The height to expect above the keyboard on a page this wide and this tall. */
+export function expectedHeight(layoutWidth: number, layoutHeight: number): number {
+  return remembered.get(layoutWidth) ?? Math.round(layoutHeight * KEYBOARD_GUESS);
 }
 
 export interface FollowOptions {
@@ -58,6 +92,16 @@ export interface FollowOptions {
   viewport?: ViewportLike | null;
   /** The layout viewport's height: the page's own box, which an iPhone's keyboard does not change. */
   layoutHeight?: () => number;
+  /** The layout viewport's width, to remember a keyboard by. */
+  layoutWidth?: () => number;
+  /**
+   * The keyboard is about to rise: a touch screen, and a field about to take the focus. The
+   * frame then starts at the height the keyboard is expected to leave, not at the whole page.
+   * An iPhone says how much is left only once its keyboard has stopped moving; without this the
+   * card opens over the whole screen, the keyboard covers its lower half, and the card jumps
+   * to half its height a moment later (Marco's "weird and janky", 18 November 2026).
+   */
+  expectKeyboard?: boolean;
   /** Called with each new frame, the first one included. */
   onChange?: (frame: Frame) => void;
 }
@@ -68,6 +112,15 @@ function browserViewport(): ViewportLike | null {
 
 function pageHeight(): number {
   return document.documentElement.clientHeight || window.innerHeight;
+}
+
+function pageWidth(): number {
+  return document.documentElement.clientWidth || window.innerWidth;
+}
+
+/** Whether this is a screen worked by a finger, where a field brings a keyboard up. */
+export function touchScreen(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true;
 }
 
 /**
@@ -82,16 +135,41 @@ export function followViewport(
   const viewport = options.viewport === undefined ? browserViewport() : options.viewport;
   if (!viewport) return null;
   const layoutHeight = options.layoutHeight ?? pageHeight;
+  const layoutWidth = options.layoutWidth ?? pageWidth;
+  // Waiting for a keyboard that has not said where it stops yet.
+  let expecting = options.expectKeyboard === true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const update = () => {
-    const frame = frameOf(viewport, layoutHeight());
+    const real = frameOf(viewport, layoutHeight());
+    if (real.keyboard) {
+      // The keyboard has settled: this is the box, and the next opening starts from it.
+      remembered.set(layoutWidth(), real.height);
+      expecting = false;
+      clearTimeout(timer);
+    }
+    const frame: Frame =
+      expecting && !real.keyboard
+        ? {
+            height: Math.min(real.height, expectedHeight(layoutWidth(), layoutHeight())),
+            top: real.top,
+            keyboard: true,
+          }
+        : real;
     root.style.setProperty(VV_HEIGHT, `${frame.height}px`);
     root.style.setProperty(VV_TOP, `${frame.top}px`);
     options.onChange?.(frame);
   };
   update();
+  if (expecting)
+    timer = setTimeout(() => {
+      // No keyboard came: the whole visible part is the card's after all.
+      expecting = false;
+      update();
+    }, KEYBOARD_WAIT_MS);
   viewport.addEventListener('resize', update);
   viewport.addEventListener('scroll', update);
   return () => {
+    clearTimeout(timer);
     viewport.removeEventListener('resize', update);
     viewport.removeEventListener('scroll', update);
     root.style.removeProperty(VV_HEIGHT);
@@ -107,8 +185,14 @@ export const FIELD_TEXT = '--field-text';
  * the stylesheet, which makes it the field's least height while a card is open on a phone. A
  * field measures its text only when it is lower than the text, so for a moment it is made as
  * low as it can be; the reading and the putting back happen before the browser paints.
+ *
+ * `frame` is what scrolls around the field: the open card, or the blank card's sheet. While the
+ * field is low the frame has nothing to scroll, so the browser puts it back at its top, and it
+ * stays there when the field is tall again. Typing a letter in the middle of a long answer
+ * would throw the card to its top. So the frame's place is read first and put back after.
  */
-export function growField(field: HTMLTextAreaElement): void {
+export function growField(field: HTMLTextAreaElement, frame: HTMLElement | null = null): void {
+  const scrolled = frame ? frame.scrollTop : 0;
   const style = field.style;
   const before = {
     height: style.height,
@@ -128,15 +212,17 @@ export function growField(field: HTMLTextAreaElement): void {
   style.flexBasis = before.flexBasis;
   if (text > 0) style.setProperty(FIELD_TEXT, `${text}px`);
   else style.removeProperty(FIELD_TEXT);
+  if (frame && frame.scrollTop !== scrolled) frame.scrollTop = scrolled;
 }
 
 /**
- * When the text grows past the bottom of the frame and the caret is at its end, where someone
- * typing is, scroll the frame so the last line stays in sight. Elsewhere in the text the
- * browser keeps the caret in view itself.
+ * When the caret is at the end of the text, where someone typing is, and the frame has more
+ * than it can show, scroll the frame to its end: the last line and the row with "Save" under
+ * it are both in sight. Elsewhere in the text the browser keeps the caret in view itself, and
+ * the frame stays where the person put it.
  */
 export function keepEndInView(field: HTMLTextAreaElement, frame: HTMLElement | null): void {
   if (!frame || field.selectionEnd !== field.value.length) return;
-  const below = field.getBoundingClientRect().bottom - frame.getBoundingClientRect().bottom;
-  if (below > 0) frame.scrollTop += below + 8;
+  const end = frame.scrollHeight - frame.clientHeight;
+  if (end > 0 && frame.scrollTop < end) frame.scrollTop = end;
 }

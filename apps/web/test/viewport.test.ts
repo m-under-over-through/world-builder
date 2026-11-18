@@ -11,11 +11,16 @@ import { currentCardId, replaySession } from '../src/lib/session.ts';
 import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import {
+  expectedHeight,
   FIELD_TEXT,
   followViewport,
+  forgetKeyboards,
   frameOf,
   growField,
+  keepEndInView,
+  KEYBOARD_GUESS,
   KEYBOARD_MIN,
+  KEYBOARD_WAIT_MS,
   keyboardUp,
   VV_HEIGHT,
   VV_TOP,
@@ -55,6 +60,7 @@ class StandIn extends EventTarget {
 }
 
 beforeEach(freshIndexedDb);
+beforeEach(forgetKeyboards);
 afterEach(() => vi.unstubAllGlobals());
 
 async function onACard(patch: Partial<AppState> = {}): Promise<AppState> {
@@ -125,6 +131,80 @@ describe('the visual viewport, read', () => {
     expect(frameOf({ height: 400, offsetTop: 0 } as never, 400).keyboard).toBe(false);
   });
 
+  it('on a touch screen the frame starts at the height the keyboard is expected to leave, takes the real one once the keyboard has settled, and starts from that the next time', () => {
+    // An iPhone says what is left only when its keyboard has stopped moving. Until then the
+    // card would be as tall as the whole page, its foot under the keyboard, and then jump.
+    const viewport = new StandIn();
+    const el = document.createElement('div');
+    const frames: { height: number; keyboard: boolean }[] = [];
+    const options = {
+      viewport,
+      layoutHeight: () => 768,
+      layoutWidth: () => 393,
+      expectKeyboard: true,
+      onChange: (frame: { height: number; keyboard: boolean }) => frames.push(frame),
+    };
+    const stop = followViewport(el, options)!;
+    const guess = Math.round(768 * KEYBOARD_GUESS);
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe(`${guess}px`);
+    // The strip under Save is kept from the start, so nothing moves when the keyboard lands.
+    expect(frames.at(-1)).toEqual({ height: guess, top: 0, keyboard: true });
+    // Safari's bars moving while the keyboard rises change nothing yet.
+    viewport.resize(740);
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe(`${guess}px`);
+    viewport.resize(410);
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('410px');
+    expect(frames.at(-1)?.keyboard).toBe(true);
+    stop();
+    // The next card opens at the height this keyboard left, on a page this wide.
+    expect(expectedHeight(393, 768)).toBe(410);
+    expect(expectedHeight(852, 393)).toBe(Math.round(393 * KEYBOARD_GUESS));
+    viewport.resize(768);
+    const again = followViewport(el, options)!;
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('410px');
+    again();
+  });
+
+  it('if no keyboard comes, the card takes the whole visible part after a moment', () => {
+    vi.useFakeTimers();
+    try {
+      const viewport = new StandIn();
+      const el = document.createElement('div');
+      const frames: boolean[] = [];
+      const stop = followViewport(el, {
+        viewport,
+        layoutHeight: () => 768,
+        layoutWidth: () => 393,
+        expectKeyboard: true,
+        onChange: (frame) => frames.push(frame.keyboard),
+      })!;
+      expect(el.style.getPropertyValue(VV_HEIGHT)).toBe(`${Math.round(768 * KEYBOARD_GUESS)}px`);
+      vi.advanceTimersByTime(KEYBOARD_WAIT_MS);
+      expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('768px');
+      expect(frames.at(-1)).toBe(false);
+      stop();
+      // Stopped before the wait is over: the timer is gone with it, and nothing is set later.
+      const early = followViewport(el, {
+        viewport,
+        layoutHeight: () => 768,
+        expectKeyboard: true,
+      })!;
+      early();
+      vi.advanceTimersByTime(KEYBOARD_WAIT_MS * 2);
+      expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('without a touch screen nothing is expected: the frame is the visible part from the start', () => {
+    const viewport = new StandIn();
+    const el = document.createElement('div');
+    const stop = followViewport(el, { viewport, layoutHeight: () => 768 })!;
+    expect(el.style.getPropertyValue(VV_HEIGHT)).toBe('768px');
+    stop();
+  });
+
   it('without a visual viewport nothing is set and there is nothing to stop', () => {
     const el = document.createElement('div');
     expect(followViewport(el, { viewport: null })).toBeNull();
@@ -140,6 +220,47 @@ describe('the visual viewport, read', () => {
     expect(field.style.height).toBe('');
     expect(field.style.minHeight).toBe('');
     expect(field.style.flexGrow).toBe('');
+  });
+
+  it('measuring a field leaves the card where the person had scrolled it', () => {
+    // A browser puts a scrolled frame back at its top while the field in it is made low to be
+    // measured, and leaves it there. The stand-in does the same when the height is read.
+    const frame = { scrollTop: 240 } as HTMLElement;
+    const field = document.createElement('textarea');
+    Object.defineProperty(field, 'scrollHeight', {
+      get: () => {
+        frame.scrollTop = 0;
+        return 900;
+      },
+    });
+    growField(field, frame);
+    expect(field.style.getPropertyValue(FIELD_TEXT)).toBe('900px');
+    expect(frame.scrollTop).toBe(240);
+  });
+
+  it('typing at the end of a long text keeps the last line and Save in sight; typing in the middle leaves the card where it is', () => {
+    const frame = { scrollTop: 100, scrollHeight: 900, clientHeight: 400 } as HTMLElement;
+    const field = document.createElement('textarea');
+    field.value = 'a long answer';
+    field.setSelectionRange(field.value.length, field.value.length);
+    keepEndInView(field, frame);
+    expect(frame.scrollTop).toBe(500);
+    // The caret in the middle: someone mending a word. The frame is theirs.
+    frame.scrollTop = 100;
+    field.setSelectionRange(3, 3);
+    keepEndInView(field, frame);
+    expect(frame.scrollTop).toBe(100);
+    // A text that fits: nothing to scroll.
+    const short = { scrollTop: 0, scrollHeight: 400, clientHeight: 400 } as HTMLElement;
+    field.setSelectionRange(field.value.length, field.value.length);
+    keepEndInView(field, short);
+    expect(short.scrollTop).toBe(0);
+  });
+
+  it('a page pinched in is not a keyboard: no strip is kept for it', () => {
+    expect(frameOf({ height: 410, offsetTop: 0, scale: 2 } as never, 844).keyboard).toBe(false);
+    expect(frameOf({ height: 410, offsetTop: 0, scale: 1 } as never, 844).keyboard).toBe(true);
+    expect(frameOf({ height: 410, offsetTop: 0 } as never, 844).keyboard).toBe(true);
   });
 });
 

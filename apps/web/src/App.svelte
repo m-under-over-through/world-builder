@@ -6,7 +6,7 @@
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
   import { AppState } from './lib/state.svelte.ts';
-  import { followViewport } from './lib/viewport.ts';
+  import { followViewport, touchScreen } from './lib/viewport.ts';
   import About from './screens/About.svelte';
   import Card from './screens/Card.svelte';
   import Closed from './screens/Closed.svelte';
@@ -71,7 +71,12 @@
   $effect(() => {
     if (!writing || !root) return;
     const scrolled = window.scrollY;
-    const stop = followViewport(root, { onChange: (frame) => (keyboardIsUp = frame.keyboard) });
+    // On a touch screen the field is about to bring the keyboard up: the frame starts at the
+    // height the keyboard is expected to leave, so the card does not open tall and then jump.
+    const stop = followViewport(root, {
+      expectKeyboard: touchScreen(),
+      onChange: (frame) => (keyboardIsUp = frame.keyboard),
+    });
     if (!stop) return;
     framed = true;
     return () => {

@@ -47,8 +47,13 @@
   const card = $derived(app.writingCard);
 
   onMount(() => {
-    if (field && !app.wide) growField(field);
+    // A phone turned on its side wraps the text anew, so the field is measured again (ADR 0023).
+    const regrow = () => {
+      if (field && !app.wide) growField(field, dialog ?? null);
+    };
+    regrow();
     field?.focus();
+    window.addEventListener('resize', regrow);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     // Where the focus goes back to: "Write your own story" for a new blank card; for a tile, the
@@ -56,6 +61,7 @@
     const from = app.writing;
     const wide = app.wide;
     return () => {
+      window.removeEventListener('resize', regrow);
       document.body.style.overflow = overflow;
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
       void tick().then(() => {
@@ -85,7 +91,7 @@
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.ownDraft = el.value;
     if (!app.wide) {
-      growField(el);
+      growField(el, dialog ?? null);
       keepEndInView(el, dialog ?? null);
     }
   }

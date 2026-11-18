@@ -2602,3 +2602,47 @@ How the round stays the same after a reload. A round is never stored: it is repl
 - The readable copy is keyed by round and card (ADR 0014). If two phones of one participant change the same card in the same round, the phone that wrote first would show its own words although the latest answer is the other phone's. Telling them apart needs the event's id next to the copy, a change to `lib/store.ts`, which was not in this brief.
 - The ADR's sentence for the privacy policy ("a changed answer adds to what is kept") is still Marco's to write.
 - Whether the pen in the corner reads as "tap me" on a phone is for Marco's eye. It is small on purpose: the tiles must not grow.
+### After the review
+
+The reviewer's verdict was to fix one thing first, and it is fixed in this pull request:
+
+- **The card jumped to its top on a keystroke.** To measure a field's text the field is made low for a moment. A scrolled frame around it then has nothing to scroll, so the browser puts it back at its top and leaves it there. Typing a letter in the middle of a long answer threw the card to its top. `growField` now takes the frame, reads where it is scrolled before measuring and puts it back after.
+- **Typing at the end keeps "Save" in sight.** The frame goes to its end, not just to the last line.
+- **A page pinched in is not a keyboard.** The visual viewport is lower then too; no strip is kept for it.
+- **A phone turned on its side** wraps the text anew, so the open field is measured again on a resize.
+
+Three tests pin the first three with stand-ins. No test DOM lays anything out, so the real proof of all four is a phone.
+
+## 2026-11-18, Wednesday evening. The open card starts at the size the keyboard will leave (pull request 68)
+
+### What
+
+- `apps/web/src/lib/viewport.ts`: `followViewport` takes `expectKeyboard`. With it, the frame starts at `expectedHeight`: what the last keyboard left on a page this wide (`remembered`, in memory), or `KEYBOARD_GUESS`, half the page. The real height is taken when the visual viewport says the keyboard is up, and remembered. After `KEYBOARD_WAIT_MS`, one second, with no keyboard, the frame is the whole visible part. `touchScreen()` asks the browser for `pointer: coarse`.
+- `apps/web/src/App.svelte`: passes `expectKeyboard: touchScreen()`.
+- `apps/web/src/app.css`: `.app.framed .stack` and `.app.framed .slot` have no transition.
+- `apps/web/test/viewport.test.ts`: three tests.
+
+### Why
+
+Marco tried pull request 66 on his iPhone: "it fits. the animation is very weird and janky". The cause is in the order of things on an iPhone. The card opens and the field takes the focus. The keyboard starts to rise. The browser says nothing about the visible part until the keyboard has stopped. So for that half second the card was as tall as the whole page, with its field and Save under the rising keyboard; then the visual viewport reported, and the card jumped to half its height. The stack's own 220 ms change of width, and the back cards fading, ran on top of that.
+
+The page cannot ask where the keyboard will stop. It can guess, and it can remember.
+
+### How to verify
+
+1. `npm run check`: 573 tests.
+2. On an iPhone, staging: tap a card. It opens at about half the screen and the keyboard rises under it. Close it, open another: it opens at exactly the height of the first and does not move.
+3. On a laptop, and in a narrow desktop window: nothing is expected, the open card is as before.
+
+### Decisions made on the way
+
+- The first guess is low on purpose. A card that grows by a few pixels once the keyboard has settled reads better than one whose foot is cut and jumps up.
+- The strip under Save is kept from the start of the wait, so the last row does not move when the keyboard lands.
+- What a keyboard left is remembered by the page's width, in memory only: a phone on its side has another keyboard. Nothing is stored on the device.
+- A second's wait before believing there is no keyboard. A phone with a keyboard attached sees the card half high for that second.
+- No separate reviewer: the change is one function and three tests, and the judge of it is a phone.
+
+### Open questions
+
+- The first card opened after a page load still moves once, by the difference between the guess and the real height. Marco's phone will say whether that is small enough.
+- Android Chrome reports the visible part while the keyboard moves. The guess is replaced earlier there; not seen on a device.
