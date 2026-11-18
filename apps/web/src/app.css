@@ -976,7 +976,7 @@ textarea::placeholder {
    to that part once its own text is at its end. Learning note 13 explains the page and the
    keyboard.
 
-   Under 280 pixels of frame (`low` on the app; LOW_FRAME in lib/viewport.ts) the parts that
+   Under 260 pixels of frame (`low` on the app; LOW_FRAME in lib/viewport.ts) the parts that
    never move would fill the box by themselves. There the whole card scrolls, as it did under
    ADR 0023, and every part of it lets a finger drag.
 

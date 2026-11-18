@@ -32,11 +32,15 @@ export const KEYBOARD_MIN = 150;
 
 /**
  * Under this height the frame is too low for a head and a foot that stay in place (ADR 0025):
- * the close button, the counter, the row with "Save", the strip under it and the card's own
- * edges take about 195 pixels, and three lines of the field 78. A phone on its side with the
- * keyboard up leaves less than 200. There the whole card scrolls, as it did under ADR 0023.
+ * the close button, the row with "Save", the strip under it and the card's own edges take about
+ * 190 pixels, and a phone on its side with the keyboard up leaves less than 200. There the
+ * whole card scrolls, as it did under ADR 0023.
+ *
+ * The line is kept under 277: that is the first guess (`KEYBOARD_GUESS`) on a small phone whose
+ * page is 553 pixels tall, and such a phone leaves about 290 once its keyboard is up. A card
+ * must not open one way on the guess and settle the other way a moment later.
  */
-export const LOW_FRAME = 280;
+export const LOW_FRAME = 260;
 
 /** What the module reads of `window.visualViewport`; a test hands in a stand-in. */
 export interface ViewportLike {

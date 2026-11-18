@@ -2687,12 +2687,12 @@ The extra "in" was the last of the three slips reported with deck 0.5. Marco fix
 ### What
 
 - `apps/web/src/lib/page-lock.ts` (new): `lockPage(root)` holds the page and returns the function that lets it go. It listens to `touchstart` and `touchmove` on the document, the second with `passive: false`. A one-finger move goes through only when an element under the finger, up to the app's root, scrolls up and down and has more to show in the direction the finger went from where it went down. Otherwise it is cancelled, when it can be. How far sideways a move also went does not count; a move that is sideways only goes through when an element has more to show both ways. Two fingers are left alone. A finger the guard did not see go down is stopped at its first move and judged from there on. Both listeners are in the capture phase. The arithmetic is in `hasMore` and `stopsMove`, which take numbers.
-- `apps/web/src/App.svelte`: `framed` is now derived from `writing` (a phone, and a card open or the place to write shown) and from whether the browser has a visual viewport, so its class is on the root in the same render that shows the card. The page is locked while `framed`. `followViewport` still runs in an effect, and marks the root `low` while the frame is under 280 pixels (`LOW_FRAME`).
+- `apps/web/src/App.svelte`: `framed` is now derived from `writing` (a phone, and a card open or the place to write shown) and from whether the browser has a visual viewport, so its class is on the root in the same render that shows the card. The page is locked while `framed`. `followViewport` still runs in an effect, and marks the root `low` while the frame is under 260 pixels (`LOW_FRAME`).
 - `apps/web/src/components/Stack.svelte`: a new `.scrolls` element in the open card around the question, the rule, the field and the dictation hint. The hint now sits under the field, before the counter.
 - `apps/web/src/components/OwnCard.svelte`: the same `.scrolls` around the title and the hint, or the area and the question, and the field. The field takes the focus after `tick()`.
 - `apps/web/src/app.css`: while framed, the open card and the place to write do not scroll (`overflow: hidden`); `.scrolls` is a column that takes the space left (`flex: 1 1 0`, `min-height: 0`, `overflow-y: auto`, `overscroll-behavior: contain`); the field fills it (`flex: 1 1 0`, at least three lines) and scrolls its own text. The head, the counter, the row with the buttons and the scrim carry `touch-action: pinch-zoom`. The place to write fades in and out on a phone. Off the frame and on a laptop, `.scrolls` is `display: contents`. Under `low` the whole card, or the whole sheet, scrolls again and `.scrolls` is no box of its own. In the framed card the dictation hint is one row, its words beside "Got it", and the field may be two lines while it is open.
 - `apps/web/src/lib/viewport.ts`: `growField`, `keepEndInView` and `FIELD_TEXT` are gone; `hasVisualViewport` and `LOW_FRAME` are new.
-- Tests: `apps/web/test/page-lock.test.ts` (new, 17 tests); in `viewport.test.ts` the tests of the growing field go, and two focus tests and one of the low frame come; five stylesheet tests in `accessibility.test.ts`; `tiles.test.ts` waits for the focus. 617 tests in all.
+- Tests: `apps/web/test/page-lock.test.ts` (new, 17 tests); in `viewport.test.ts` the tests of the growing field go, and two focus tests and one of the low frame come; five stylesheet tests in `accessibility.test.ts`; `tiles.test.ts` waits for the focus. 618 tests in all.
 - `docs/learn/13-the-keyboard-and-the-page.md` (new), and its line in the learning notes' index. `docs/device-tests.md`: the steps of ADR 0025 in part 1 step 4 (iPhone) and part 3 step 3 (Android), a long question in part 7b, and no more "the field grows". `docs/screen-map.md`: the card and the place to write.
 
 ### Why
@@ -2705,7 +2705,7 @@ Why the blank card pushed the cards, read from the code: its sheet slid up from 
 
 ### How to verify
 
-1. `npm run check`: 617 tests, exit 0.
+1. `npm run check`: 618 tests, exit 0.
 2. On an iPhone, staging: `docs/device-tests.md`, part 1 step 4. With a card open and the keyboard up, drag the question, the "Save" row and the grey around the card: nothing moves. Type more lines than the field shows: the text scrolls in the field, the question and "Save" stay. Turn the phone on its side: the whole card scrolls, with "Save" at its end, and the page still does not move. Close the card, tap "Write your own story": it fades in and the cards do not move.
 3. On an Android: part 3 step 3, the same.
 4. On a laptop: nothing has changed.
@@ -2723,11 +2723,12 @@ Why the blank card pushed the cards, read from the code: its sheet slid up from 
 
 A separate reviewer read the pull request. The integrator looked at it at phone size, with the two custom properties set by hand to stand in for a keyboard. Changed before the merge:
 
-- **A very low box left a card nobody could scroll** (reviewer). On a phone on its side the close button and the row with "Save" fill the box, the part that scrolls gets no height, and the card cut "Save" off. Under 280 pixels the whole card scrolls again (`low`), and its parts let a finger drag. ADR 0025 says so now.
+- **A very low box left a card nobody could scroll** (reviewer). On a phone on its side the close button and the row with "Save" fill the box, the part that scrolls gets no height, and the card cut "Save" off. Under 260 pixels the whole card scrolls again (`low`), and its parts let a finger drag. ADR 0025 says so now. The line is under 277, the first guess on a phone whose page is 553 pixels tall, so that a card does not open one way and settle the other.
 - **The page was held where the card has no box** (reviewer). A browser with no visual viewport lays the card out the old way, and the page is all that scrolls there. The page is held only while `framed`.
 - **The sideways rule would have refused real scrolls** (integrator). An iPhone decides on the first move of a drag whether it may scroll, and that move is a pixel or two, often more sideways than not. The rule "more sideways than up or down is stopped" came from the brief and was wrong for this. The direction is still taken from where the finger went down, not from its last step as the reviewer proposed: one pixel back against a drag would let it through, and the page would follow.
 - **A finger the guard did not see go down** (reviewer) had a start point left over from another finger. It is now followed by its identifier.
 - **The claim that a pinch zooms on the card was not true** (reviewer). The card allows a finger only up and down, for the swipe, and always has. The record, the note and the device script no longer say it; nothing about pinching changed.
+- **A second read by the reviewer** of these changes found nothing to fix. Its notes: a drag on a long text that starts exactly sideways, at the top or the end of the text, is refused and has to be tried again (the device script has a step for it); and whether an iPhone follows later moves of a drag whose first move was refused is not known without a phone.
 - **On the first card the dictation hint was cut off at its button** (integrator, seen at 390 by 844 with 410 pixels left above the keyboard). The hint is one row in the framed card, and the field may be two lines while it is open.
 
 ### Open questions

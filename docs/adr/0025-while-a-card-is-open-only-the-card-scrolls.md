@@ -22,7 +22,7 @@ Why the blank card pushes the cards: its sheet slides up from the bottom of the 
 - **The open card is a fixed box**: the part of the screen above the keyboard, as in ADR 0023. The close button at its top and the row with "Save" at its bottom never move.
 - **The text scrolls inside the field.** The field takes the space between the question and the last row. It is never lower than three lines. It no longer grows with the text.
 - **When the question and three lines do not fit**, the question and the field scroll together, inside the card, between the close button and the row with "Save". This is for a long question on a small phone.
-- **When the box is too low even for that**, under 280 pixels, the whole card scrolls, as it did under ADR 0023. This is for a phone on its side with the keyboard up, where the close button and the row with "Save" alone would fill the box.
+- **When the box is too low even for that**, under 260 pixels, the whole card scrolls, as it did under ADR 0023. This is for a phone on its side with the keyboard up, where the close button and the row with "Save" alone would fill the box.
 - **The place to write follows the same rule.** Its title and hint, or the card's area and question, sit above the field. "Not now" and "Save" never move.
 - **The place to write appears where it will stand.** On a phone it fades in and out. It does not slide up from the bottom.
 - **A field takes the focus only once its box is in place**, so the browser has no reason to scroll the page for it.

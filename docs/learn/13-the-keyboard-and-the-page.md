@@ -41,11 +41,11 @@ Three details make this work on an iPhone.
 
 - The guard listens with `passive: false`: Safari treats a page's touch listeners as passive otherwise, and ignores a cancel from them.
 - An iPhone decides on the first move of a drag whether the drag may scroll. That first move is a pixel or two, often more sideways than not. So the guard never waits for a clearer direction, and never refuses a drag down a long text because it began a pixel to the side.
-- The parts of the card that never scroll (the head, the counter, the buttons, the grey around the place to write) carry `touch-action: pinch-zoom` in the stylesheet, so the browser knows ahead of time that a drag there moves nothing. That is not put on the card itself: a browser takes `touch-action` from every box around an element, and the field inside could then not be scrolled with a finger.
+- The parts of the card that never scroll (the head, the counter, the buttons, the grey around the place to write) carry `touch-action: pinch-zoom` in the stylesheet. By itself that leaves a pinch and no drag; the card around them allows a finger only up and down, for its swipe, so together nothing is left, and the browser knows ahead of time that a finger there moves nothing. That is not put on the card itself: a browser takes `touch-action` from every box around an element, and the field inside could then not be scrolled with a finger.
 
 ## When the box is very low
 
-A phone on its side with the keyboard up leaves less than 200 pixels. The close button and the row with "Save" would fill that by themselves, and the field would have no height. Under 280 pixels (`LOW_FRAME` in `viewport.ts`) the app marks the root `low`, and the stylesheet lets the whole card scroll instead, as it did before ADR 0025. The page is still held.
+A phone on its side with the keyboard up leaves less than 200 pixels. The close button and the row with "Save" would fill that by themselves, and the field would have no height. Under 260 pixels (`LOW_FRAME` in `viewport.ts`) the app marks the root `low`, and the stylesheet lets the whole card scroll instead, as it did before ADR 0025. The page is still held.
 
 ## Why the field takes the focus only once its box is in place
 

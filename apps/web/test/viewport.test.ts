@@ -288,6 +288,15 @@ describe('the open card on a phone', () => {
     expect(root().classList.contains('low')).toBe(false);
   });
 
+  it('the first guess on a small phone is not a low frame: a card does not open one way and settle the other', () => {
+    // A page 553 pixels tall (a phone of 667 with Safari's bars) leaves about 290 above its
+    // keyboard. The guess before the keyboard has settled must be on the same side of the line.
+    expect(expectedHeight(375, 553)).toBeGreaterThanOrEqual(LOW_FRAME);
+    expect(290).toBeGreaterThanOrEqual(LOW_FRAME);
+    // A phone on its side with the keyboard up leaves under 200.
+    expect(200).toBeLessThan(LOW_FRAME);
+  });
+
   it('without visualViewport the open card is laid out as before', async () => {
     vi.stubGlobal('visualViewport', undefined);
     const app = await onACard();
