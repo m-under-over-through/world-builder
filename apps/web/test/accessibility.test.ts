@@ -428,6 +428,39 @@ describe('headings', () => {
     }
   });
 
+  it('a tile that opens is a button with a name, at least 44 pixels to a finger; the focus goes into the field and comes back to the tile, or to the world pill on a phone; one h1, no level skipped', async () => {
+    // At least 44 pixels: a tile is a button, and its own rule keeps the height of every button.
+    expect(rule('button.tile')['min-height']).toBe('var(--tap)');
+    for (const r of rules.filter((r) => r.selectors.some((s) => s.includes('button.tile'))))
+      expect(r.body['max-height'], r.selectors.join(', ')).toBeUndefined();
+    for (const wide of [false, true]) {
+      const app = await onACard({ wide });
+      app.draft = 'A first answer';
+      await app.save();
+      const answered = app.world.tiles[0]!;
+      const user = userEvent.setup();
+      const { unmount } = renderApp(app);
+      if (!wide) await user.click(document.getElementById('world-pill')!);
+      const tile = await screen.findByRole('button', {
+        name: `${answered.area} ${answered.question} A first answer ${copy.item('Your world', 'open answer')}`,
+      });
+      expect(tile.classList.contains('tile')).toBe(true);
+      await user.click(tile);
+      const dialog = await screen.findByRole('dialog', { name: answered.question });
+      const field = within(dialog).getByRole('textbox', { name: answered.question });
+      await waitFor(() => expect(document.activeElement).toBe(field));
+      expectHeadingsInOrder(`a tile's place to write ${wide ? 'on a laptop' : 'on a phone'}`);
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      if (wide)
+        await waitFor(() =>
+          expect((document.activeElement as HTMLElement).dataset['tile']).toBe(answered.cardId),
+        );
+      else await waitFor(() => expect(document.activeElement?.id).toBe('world-pill'));
+      unmount();
+    }
+  });
+
   it('on every other screen the app name stays a line, not a heading', () => {
     renderApp(onAScreen({ screen: 'welcome' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(copy.text('Welcome: title'));

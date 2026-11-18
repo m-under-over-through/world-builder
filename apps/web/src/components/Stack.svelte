@@ -4,6 +4,8 @@
   export const COUNTER_NEAR = 3900;
   /** The id of "Write your own story", so the place to write can give the focus back to it (ADR 0022). */
   export const OWN_CARD_OPENER = 'own-card-open';
+  /** The id of the world pill on a phone, where the focus goes back from a tile's place to write (ADR 0024). */
+  export const WORLD_PILL = 'world-pill';
 </script>
 
 <script lang="ts">

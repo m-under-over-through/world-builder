@@ -310,9 +310,10 @@ describe('a session on the deck engine', () => {
       (e) => e.sessionId === app.live!.session.id,
     );
     expect(roundTwo.map((e) => `${e.kind}:${e.seq}`)).toEqual(['shown:0']);
-    // The world keeps round 1's answers; round 2 has nothing set aside yet.
+    // The world keeps round 1's answers, and the card set aside in round 1 stays among the cards
+    // set aside while it waits in round 2's queue (ADR 0024).
     expect(app.world.tiles).toHaveLength(3);
-    expect(app.world.aside).toEqual([]);
+    expect(app.world.aside.map((t) => t.cardId)).toEqual([first]);
 
     const again = await opened(`/${SLUG}/join/wave-1`);
     expect(again.screen).toBe('card');

@@ -4,11 +4,14 @@ import {
   currentCardId,
   deferredBefore,
   dismissedBefore,
+  firstAnswers,
+  latestAnswers,
   latestSession,
   mergeHistory,
   position,
   replaySession,
   sessionOver,
+  setAsideCards,
   withAnswer,
   withDismissal,
   withShown,
@@ -280,5 +283,48 @@ describe('the bookkeeping around the engine', () => {
     expect(
       latestSession({ sessions: [session(2), session(3), session(1)], events: [] })?.sessionNo,
     ).toBe(3);
+  });
+});
+
+describe('the latest answer (ADR 0024)', () => {
+  it('the latest answer to a card is the one from the highest round, then the highest place in the round', () => {
+    const one = session(1);
+    const two = session(2);
+    // Out of order on purpose: neither the order stored nor the event ids decide.
+    const laterInTwo = event(two, 5, 'answered', 'w-01');
+    const inOne = event(one, 9, 'answered', 'w-01');
+    const earlierInTwo = event(two, 2, 'answered', 'w-01');
+    const other = event(one, 1, 'answered', 'w-02');
+    const shown = event(two, 6, 'shown', 'w-01');
+    const history = {
+      sessions: [two, one],
+      events: [laterInTwo, inOne, shown, earlierInTwo, other],
+    };
+    const latest = latestAnswers(history);
+    expect(latest.get('w-01')).toBe(laterInTwo);
+    expect(latest.get('w-02')).toBe(other);
+    expect(latest.size).toBe(2);
+    // The first one, where the tile stands, by the same order.
+    expect(firstAnswers(history).get('w-01')).toBe(inOne);
+    // A round the history has no row for counts as before every round.
+    const orphan = event(session(7, 99), 50, 'answered', 'w-02');
+    const withOrphan = { ...history, events: [...history.events, orphan] };
+    expect(latestAnswers(withOrphan).get('w-02')).toBe(other);
+  });
+
+  it('the cards set aside are those of every round, oldest first, once each, and never one answered since', () => {
+    const one = session(1);
+    const two = session(2);
+    const history = {
+      sessions: [one, two],
+      events: [
+        event(two, 3, 'dismissed', 'w-03'),
+        event(one, 1, 'dismissed', 'w-02'),
+        event(one, 0, 'dismissed', 'w-01'),
+        event(two, 1, 'deferred', 'w-01'),
+        event(two, 2, 'answered', 'w-02'),
+      ],
+    };
+    expect(setAsideCards(history)).toEqual(['w-01', 'w-03']);
   });
 });

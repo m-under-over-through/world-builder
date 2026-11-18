@@ -267,6 +267,8 @@ export const COPY_LISTS = {
     'empty laptop',
     'written elsewhere',
     'close',
+    'open answer',
+    'open aside',
   ],
   'Privacy panel': [
     'cookies',

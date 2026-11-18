@@ -172,7 +172,7 @@ Thank you for your answers! You can always revisit previous answers.
 
 ## Your world (under 40 words each)
 
-<!-- "Your world so far": the answers given on this phone, one tile per answer (ADR 0014), and the cards set aside, as white tiles. On a phone, the pill at the foot of the card screen opens it as a sheet; on a laptop it is the right column. "pill label" is the spoken name of the pill, [n] the number of answers. "summary" is the line under the title: [answered] answers so far, [aside] cards set aside now. "answered so far" is the count in the top bar on a laptop, [n] shown large and the words after it small. A tile's label is its card's area, with no number (ADR 0019). "written elsewhere" stands in for the words on a tile when the answer was written on another phone, which keeps them. "close" is the spoken name of the × on the sheet. -->
+<!-- "Your world so far": the answers given on this phone, one tile per answer (ADR 0014), and the cards set aside, as white tiles. On a phone, the pill at the foot of the card screen opens it as a sheet; on a laptop it is the right column. "pill label" is the spoken name of the pill, [n] the number of answers. "summary" is the line under the title: [answered] answers so far, [aside] cards set aside now. "answered so far" is the count in the top bar on a laptop, [n] shown large and the words after it small. A tile's label is its card's area, with no number (ADR 0019). "written elsewhere" stands in for the words on a tile when the answer was written on another phone, which keeps them. "close" is the spoken name of the × on the sheet. A tile opens to answer the card or change the answer (ADR 0024): "open answer" and "open aside" are said after what a tile shows and stand for the small pen on it, on an answer and on a card set aside. -->
 
 [placeholder]
 
@@ -186,6 +186,8 @@ Thank you for your answers! You can always revisit previous answers.
 - empty laptop: Nothing here yet. Answer a card on the left and it lands here, one tile per question. The cards you set aside gather at the bottom.
 - written elsewhere: Written on another phone.
 - close: Close
+- open answer: Change your answer
+- open aside: Answer this card
 
 # About this app
 
