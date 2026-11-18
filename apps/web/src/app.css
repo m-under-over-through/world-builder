@@ -1167,6 +1167,49 @@ textarea::placeholder {
   background: var(--color-surface);
   border: 1.5px solid var(--color-ink);
 }
+/* a tile that opens (ADR 0024): the same tile as a button, no taller than before. The pen sits in
+   the top right corner, inside the tile's padding, so no line of the tile wraps for it. */
+.tile-item {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+button.tile {
+  position: relative;
+  width: 100%;
+  min-height: var(--tap);
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  border: 0;
+}
+button.tile.aside,
+button.tile.own {
+  border: 1.5px solid var(--color-line);
+}
+button.tile.own {
+  border-color: var(--color-ink);
+}
+button.tile:hover {
+  background: var(--tint);
+  filter: brightness(0.97);
+}
+button.tile.aside:hover,
+button.tile.own:hover {
+  background: var(--color-surface);
+}
+button.tile .pen {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  color: var(--color-ink-soft);
+}
 /* nothing answered yet: one notice the size of a tile, in the place of the first one */
 .world-empty {
   margin: 0;
@@ -1296,6 +1339,22 @@ textarea::placeholder {
   margin: 0;
   font-size: 26px;
   line-height: 1.05;
+}
+/* a card of the deck opened from its tile (ADR 0024): its area, then its question as the title */
+.own-card .own-label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+.own-card h2.own-question {
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 .own-card .own-hint {
   margin: 0;

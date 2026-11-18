@@ -83,6 +83,55 @@ function eventsBefore(history: History, session: Session): Event[] {
   });
 }
 
+/**
+ * The latest answer to each card (ADR 0024): of the `answered` events for one card id, the one
+ * from the round with the highest number, then the highest place (`seq`) in that round. Nothing
+ * stored is ever changed, so a changed answer is one more event, and this is the one that counts.
+ * An event whose round the history has no row for counts as from before every round, as
+ * `eventsBefore` treats it.
+ */
+export function latestAnswers(history: History): Map<string, Event> {
+  return pickAnswers(history, 1);
+}
+
+/** The first answer to each card, by the same order: where its tile stands (ADR 0024). */
+export function firstAnswers(history: History): Map<string, Event> {
+  return pickAnswers(history, -1);
+}
+
+function pickAnswers(history: History, side: 1 | -1): Map<string, Event> {
+  const numberOf = new Map(history.sessions.map((s) => [s.id, s.sessionNo]));
+  const no = (e: Event) => numberOf.get(e.sessionId) ?? 0;
+  // By the round's number, then the place in the round, then the event's id. The id decides
+  // nothing a person could see; it is there because two phones on one round can give two events
+  // the same place, and the device and the export must then pick the same one (ADR 0024).
+  const order = (a: Event, b: Event) =>
+    no(a) - no(b) || a.seq - b.seq || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const picked = new Map<string, Event>();
+  for (const e of history.events) {
+    if (e.kind !== 'answered') continue;
+    const held = picked.get(e.cardId);
+    if (!held || order(e, held) * side > 0) picked.set(e.cardId, e);
+  }
+  return picked;
+}
+
+/**
+ * Every card set aside (`dismissed` or `deferred`) in any round and never answered, oldest first
+ * by the round's number and then `seq` of its first set-aside (ADR 0024). Not only the round in
+ * progress: a participant does not see where one round ends, so a tile must not vanish there.
+ */
+export function setAsideCards(history: History): string[] {
+  const numberOf = new Map(history.sessions.map((s) => [s.id, s.sessionNo]));
+  const no = (e: Event) => numberOf.get(e.sessionId) ?? 0;
+  const answered = new Set(cardsOf(history.events, 'answered'));
+  return history.events
+    .filter((e) => (e.kind === 'dismissed' || e.kind === 'deferred') && !answered.has(e.cardId))
+    .sort((a, b) => no(a) - no(b) || a.seq - b.seq)
+    .map((e) => e.cardId)
+    .filter((id, i, ids) => ids.indexOf(id) === i);
+}
+
 const cardsOf = (events: Event[], kind: Event['kind']) =>
   events.filter((e) => e.kind === kind).map((e) => e.cardId);
 

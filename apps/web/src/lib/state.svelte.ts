@@ -27,12 +27,15 @@ import {
 import {
   cardNumber,
   currentCardId,
+  firstAnswers,
+  latestAnswers,
   latestSession,
   mergeHistory,
   planAsStarted,
   position,
   replaySession,
   sessionOver,
+  setAsideCards,
   withAnswer,
   withDismissal,
   withShown,
@@ -118,17 +121,26 @@ export interface WorldTile {
   answer: string | null;
   /** True for a blank card (ADR 0022): no question and no area; the tile shows its own label. */
   own?: boolean;
+  /** True when the tile opens in the place to write: this device holds its words (ADR 0024). */
+  opens: boolean;
 }
 
 /**
- * One card set aside in this round: a tile like an answered one, white with a line instead of
- * a tint, with its area and its question and no answer (ADR 0019).
+ * One card set aside in any round and not answered since: a tile like an answered one, white
+ * with a line instead of a tint, with its area and its question and no answer (ADR 0019). It
+ * always opens in the place to write, on any device (ADR 0024).
  */
 export interface AsideTile {
   cardId: string;
   area?: string;
   question: string;
 }
+
+/**
+ * The place to write open for a new blank card, rather than for the card of a tile (ADR 0022,
+ * ADR 0024). Empty, so it can never be a card id.
+ */
+export const NEW_OWN_CARD = '';
 
 /** How long the answered card takes to leave the stack. */
 export const EXIT_MS = 320;
@@ -174,7 +186,7 @@ export class AppState {
   }
   set screen(screen: Screen) {
     this.#screen = screen;
-    if (screen !== 'card') this.ownCardOpen = false;
+    if (screen !== 'card') this.putAway();
   }
   workshop = $state.raw<Workshop | undefined>(undefined);
   copy = $state.raw<Copy>(defaultCopy());
@@ -207,18 +219,35 @@ export class AppState {
    * The answer being written on the current card. It lives here, not in the card component, so
    * opening "About this app" and coming back finds it where it was (review of item 4). Closing
    * the card with × keeps it too; `drafts` holds the half-written answers of cards set aside,
-   * in memory only, so a card coming round again shows what was started (design/DESIGN.md).
+   * in memory only, so a card coming round again shows what was started (design/DESIGN.md). It
+   * also holds what "Not now" left in the place to write: one draft per card id (ADR 0024).
    */
   draft = $state('');
   private drafts = new Map<string, string>();
   /**
-   * The blank card (ADR 0022): whether the place to write it is open, its draft, and whether it
-   * is being saved. The draft lives in memory only, never in the store, so "Not now" keeps the
-   * words for the next time the place is opened in this open of the app, as a card keeps its draft.
+   * The place to write (ADR 0022, ADR 0024): which card it is open for, its words, and whether
+   * they are being saved. `writing` is null while it is closed, `NEW_OWN_CARD` for a new blank
+   * card, else the card id of the tile it was opened from: a card set aside, an answer, or a
+   * blank card already written. The words live in memory only, never in the store; "Not now"
+   * puts them in `drafts` under that id, so they are there the next time, as a card keeps its
+   * draft.
    */
-  ownCardOpen = $state(false);
+  writing = $state<string | null>(null);
   ownDraft = $state('');
   ownSaving = $state(false);
+  /** True while the place to write is open, for whichever card. */
+  get ownCardOpen(): boolean {
+    return this.writing !== null;
+  }
+  /**
+   * What the place to write shows on top: a card of the deck by its area and its question, or
+   * nothing for a blank card, new or written, which keeps its own title and hint (ADR 0024).
+   */
+  get writingCard(): Card | null {
+    const id = this.writing;
+    if (id === null || id === NEW_OWN_CARD || isOwnCardId(id)) return null;
+    return this.workshop?.deck.cards.find((c) => c.id === id) ?? null;
+  }
   /** True while a refused join waits out the server's Retry-After before its one retry. */
   retrying = $state(false);
   /** How the join waits; a test replaces it so the wait is instant. */
@@ -259,6 +288,8 @@ export class AppState {
   history = $state.raw<History>({ sessions: [], events: [] });
   /** The readable copies of the answers written on this device, by `answerKey` (ADR 0014). */
   copies = $state.raw<ReadonlyMap<string, string>>(new Map());
+  /** Which `answered` event each copy is the words of, by the same key (ADR 0024; lib/store.ts). */
+  copyEvents = $state.raw<ReadonlyMap<string, string>>(new Map());
   /** True on a screen 600 pixels or wider: the world is a column beside the stack, not a sheet. */
   wide = $state(false);
   /** The sheet "Your world so far" is open (phone). */
@@ -387,15 +418,20 @@ export class AppState {
   }
 
   /**
-   * "Your world so far" (ADR 0014, ADR 0015): one tile per answer in the history, session by
-   * session and in card order within a session, with the words where this device wrote them;
-   * and the cards set aside in this round, as white tiles (ADR 0019). No count of the cards
-   * still to come: rounds follow one another, so there is no end to count down to.
+   * "Your world so far" (ADR 0014, ADR 0015, ADR 0024): one tile per card that has an answer,
+   * session by session and in card order within a session, standing where its first answer put
+   * it and showing the words of its latest answer (`latestAnswers`) where this device wrote them;
+   * then the cards set aside in any round and never answered, oldest first, as white tiles (ADR
+   * 0019, ADR 0024). Each tile says whether it opens in the place to write: a card set aside
+   * always, an answer only where this device holds the words of its latest version. No count of
+   * the cards still to come: rounds follow one another, so there is no end to count down to.
    */
   get world(): { tiles: WorldTile[]; aside: AsideTile[] } {
     if (!this.workshop) return { tiles: [], aside: [] };
     const { deck, config } = this.workshop;
     const cards = new Map(deck.cards.map((c) => [c.id, c]));
+    const first = firstAnswers(this.history);
+    const latest = latestAnswers(this.history);
     const tiles: WorldTile[] = [];
     const sessions = [...this.history.sessions].sort((a, b) => a.sessionNo - b.sessionNo);
     for (const session of sessions) {
@@ -403,24 +439,41 @@ export class AppState {
         this.live?.session.id === session.id
           ? this.live.queueAsPlanned
           : planAsStarted(deck, config, session, this.history).queue;
-      const ofSession = this.history.events.filter(
-        (e) => e.kind === 'answered' && e.sessionId === session.id,
-      );
+      // The first answers of this round: one per card, so a card answered twice is one tile.
+      const ofSession = [...first.values()].filter((e) => e.sessionId === session.id);
+      // The words of the latest answer, if this device wrote that very answer (ADR 0024). The
+      // copy is keyed by round and card, and a second phone can answer the card again in the
+      // same round: this phone's copy would then be of the earlier answer. So the copy must be
+      // of the latest event. A copy from before copies named their event counts only when the
+      // round holds one answer to the card.
+      const words = (cardId: string) => {
+        const last = latest.get(cardId)!;
+        const key = answerKey(last.sessionId, cardId);
+        const text = this.copies.get(key);
+        if (text === undefined) return null;
+        const of = this.copyEvents.get(key);
+        if (of !== undefined) return of === last.id ? text : null;
+        const inRound = this.history.events.filter(
+          (e) => e.kind === 'answered' && e.sessionId === last.sessionId && e.cardId === cardId,
+        ).length;
+        return inRound === 1 ? text : null;
+      };
       const answered = ofSession
         .filter((e) => cards.has(e.cardId))
         .map((e) => ({ cardId: e.cardId, n: cardNumber(queue, e.cardId) }))
         .sort((a, b) => a.n - b.n);
       for (const { cardId, n } of answered) {
         const card = cards.get(cardId)!;
-        const key = answerKey(session.id, cardId);
+        const answer = words(cardId);
         tiles.push({
-          key,
+          key: answerKey(session.id, cardId),
           cardId,
           sessionNo: session.sessionNo,
           n,
           ...(card.area === undefined ? {} : { area: card.area }),
           question: card.text,
-          answer: this.copies.get(key) ?? null,
+          answer,
+          opens: answer !== null,
         });
       }
       // A blank card is in no deck, so the line above leaves it out; it is a tile all the same,
@@ -428,35 +481,30 @@ export class AppState {
       // so `n` is 0 and the tile does not take a tint from it.
       const own = ofSession.filter((e) => isOwnCardId(e.cardId)).sort((a, b) => a.seq - b.seq);
       for (const { cardId } of own) {
-        const key = answerKey(session.id, cardId);
+        const answer = words(cardId);
         tiles.push({
-          key,
+          key: answerKey(session.id, cardId),
           cardId,
           sessionNo: session.sessionNo,
           n: 0,
           question: '',
-          answer: this.copies.get(key) ?? null,
+          answer,
           own: true,
+          opens: answer !== null,
         });
       }
     }
     const aside: AsideTile[] = [];
-    if (this.live) {
-      // From the round's own record of what was set aside, the dismissed cards first and then the
-      // deferred ones, each in the order recorded, and never
-      // from the queue: a card set aside may leave the queue (the deck engine decides where it
-      // comes back), and the list must keep it all the same.
-      const { answered, dismissed, deferred } = this.live;
-      const ids = new Set([...dismissed, ...deferred]);
-      for (const id of ids) {
-        const card = cards.get(id);
-        if (!card || answered.has(id)) continue;
-        aside.push({
-          cardId: id,
-          ...(card.area === undefined ? {} : { area: card.area }),
-          question: card.text,
-        });
-      }
+    // From the history, never from the queue: a card set aside may leave the queue (the deck
+    // engine decides where it comes back), and the list must keep it all the same.
+    for (const id of setAsideCards(this.history)) {
+      const card = cards.get(id);
+      if (!card) continue;
+      aside.push({
+        cardId: id,
+        ...(card.area === undefined ? {} : { area: card.area }),
+        question: card.text,
+      });
     }
     return { tiles, aside };
   }
@@ -733,7 +781,11 @@ export class AppState {
     const { deck, config } = this.workshop;
     const history = mergeHistory(await this.store.history(), this.me);
     this.history = history;
-    this.copies = new Map((await this.store.answers()).map((a) => [a.key, a.text]));
+    const held = await this.store.answers();
+    this.copies = new Map(held.map((a) => [a.key, a.text]));
+    this.copyEvents = new Map(
+      held.flatMap((a) => (a.eventId === undefined ? [] : [[a.key, a.eventId] as const])),
+    );
     const latest = latestSession(history);
     const replayed = latest ? replaySession(deck, config, latest, history) : null;
     if (replayed && !roundDone(replayed)) this.live = replayed;
@@ -895,8 +947,12 @@ export class AppState {
    * One event, as the contract spells it, with this session's next seq; the engine names the kind.
    * For the front card unless a card id is given: a blank card's (ADR 0022).
    */
-  private async record(kind: EventKind, body?: string, cardId = this.card?.id): Promise<void> {
-    if (!this.store || !this.workshop || !this.live || cardId === undefined) return;
+  private async record(
+    kind: EventKind,
+    body?: string,
+    cardId = this.card?.id,
+  ): Promise<Event | undefined> {
+    if (!this.store || !this.workshop || !this.live || cardId === undefined) return undefined;
     const event: Event = {
       id: crypto.randomUUID(),
       sessionId: this.live.session.id,
@@ -909,6 +965,27 @@ export class AppState {
     };
     await this.store.putEvent({ ...event, synced: 0 });
     this.history = { ...this.history, events: [...this.history.events, event] };
+    return event;
+  }
+
+  /** Keep the readable words of an answer just recorded, with the event they belong to. */
+  private async keepCopy(
+    key: string,
+    sessionId: string,
+    cardId: string,
+    text: string,
+    event: Event | undefined,
+  ): Promise<void> {
+    if (!this.store) return;
+    await this.store.putAnswer({
+      key,
+      sessionId,
+      cardId,
+      text,
+      ...(event === undefined ? {} : { eventId: event.id }),
+    });
+    this.copies = new Map(this.copies).set(key, text);
+    if (event !== undefined) this.copyEvents = new Map(this.copyEvents).set(key, event.id);
   }
 
   /** Tap, click or Enter on the front card: it opens with the field (`answering`). */
@@ -963,12 +1040,11 @@ export class AppState {
     const card = this.card;
     const session = this.live.session;
     const n = this.cardNo;
-    await this.record('answered', sealed);
+    const event = await this.record('answered', sealed);
     // The readable copy goes next to the outbox, never into it: the event above carries the
     // sealed text only, and `putAnswer` writes a table no sync ever reads (lib/store.ts).
     const key = answerKey(session.id, card.id);
-    await this.store.putAnswer({ key, sessionId: session.id, cardId: card.id, text });
-    this.copies = new Map(this.copies).set(key, text);
+    await this.keepCopy(key, session.id, card.id, text, event);
     this.live = withAnswer(this.live, card.id);
     this.drafts.delete(card.id);
     this.draft = '';
@@ -1013,28 +1089,93 @@ export class AppState {
   openOwnCard(): void {
     if (!this.ownCardOffered || this.cardState !== 'fresh') return;
     this.error = '';
-    this.ownCardOpen = true;
-  }
-
-  /** "Not now", Esc: the place closes; the draft stays in memory for the next time. */
-  closeOwnCard(): void {
-    if (this.ownSaving) return;
-    this.error = '';
-    this.ownCardOpen = false;
+    this.ownDraft = this.drafts.get(NEW_OWN_CARD) ?? '';
+    this.writing = NEW_OWN_CARD;
   }
 
   /**
-   * Save a blank card (ADR 0022), as `save` does for a card, with a fresh id from `newOwnCardId`:
-   * cut to the limit by code points, sealed before anything is written, one `answered` event on
-   * the live round through the same outbox, the readable copy next to it (ADR 0014), then the
-   * sync in the background. The round is left as it was: the front card, its draft, the queue
-   * and the stack do not move, and no `shown` is recorded. An empty text, or spaces only, is not
-   * saved. Returns whether it was taken.
+   * A tap on a tile in "Your world so far" (ADR 0024): the place to write opens for that card.
+   * A card set aside opens empty, or with the words it was set aside with; an answer, or a blank
+   * card, opens with the words of its latest version, or with what "Not now" left there. Only a
+   * tile that opens: an answer whose latest words are not on this device has nothing to change.
+   * On a phone the sheet closes first. A card open in the stack is closed, keeping its draft.
+   */
+  openTile(cardId: string): void {
+    if (!this.ownCardOffered || this.cardState === 'saving' || this.ownSaving) return;
+    if (!this.tileOpens(cardId)) return;
+    if (this.cardState === 'answering') this.closeCard();
+    this.error = '';
+    this.worldOpen = false;
+    this.ownDraft = this.draftOf(cardId);
+    this.writing = cardId;
+  }
+
+  /** Whether the tile of this card opens: a card set aside always, an answer when its words are here. */
+  private tileOpens(cardId: string): boolean {
+    const { tiles, aside } = this.world;
+    return (
+      aside.some((t) => t.cardId === cardId) || tiles.some((t) => t.cardId === cardId && t.opens)
+    );
+  }
+
+  /**
+   * The words a card opens with in the place to write. One draft per card id: the front card's
+   * is the stack's own (`draft`), any other card's waits in `drafts`; with none, an answer opens
+   * with the words of its latest version, a card set aside empty.
+   */
+  private draftOf(cardId: string): string {
+    if (this.card?.id === cardId) return this.draft;
+    const kept = this.drafts.get(cardId);
+    if (kept !== undefined) return kept;
+    return this.world.tiles.find((t) => t.cardId === cardId)?.answer ?? '';
+  }
+
+  /**
+   * The place to write closes and its words are kept for the next time, under its card id. The
+   * words of an answer left as they were are not a draft: the next time opens with the answer.
+   */
+  private putAway(): void {
+    const key = this.writing;
+    if (key === null) return;
+    const text = this.ownDraft;
+    const answer =
+      key === NEW_OWN_CARD ? undefined : this.world.tiles.find((t) => t.cardId === key)?.answer;
+    const keep = text.trim() !== '' && text !== answer;
+    // The front card's draft is the stack's own: what was written here is what the card shows.
+    if (key !== NEW_OWN_CARD && this.card?.id === key) this.draft = text;
+    else if (keep) this.drafts.set(key, text);
+    else this.drafts.delete(key);
+    this.writing = null;
+  }
+
+  /** "Not now", Esc, the scrim: the place closes; the words stay in memory for the next time. */
+  closeOwnCard(): void {
+    if (this.ownSaving) return;
+    this.error = '';
+    this.putAway();
+  }
+
+  /**
+   * Save in the place to write, as `save` does for the front card: cut to the limit by code
+   * points, sealed before anything is written, one `answered` event on the live round through the
+   * same outbox, the readable copy next to it under this round's key (ADR 0014), then the sync in
+   * the background. An empty text, or spaces only, is not saved. Returns whether it was taken.
+   *
+   * Which card: a fresh id from `newOwnCardId` for a new blank card (ADR 0022), and called with
+   * nothing open; else the card of the tile (ADR 0024). Nothing stored is changed: an answer
+   * changed is one more event for the same card id, and the latest one is the answer.
+   *
+   * The round is replayed from its events afterwards, so it is the round a reload would find. A
+   * changed answer or a blank card leaves it as it was: the front card, its draft, the queue and
+   * the stack do not move, and no `shown` is recorded. A card set aside is answered for good: if
+   * it was the front card, the next card comes forward, as after any answer.
    */
   async saveOwnCard(answer = this.ownDraft): Promise<boolean> {
     if (!this.workshop || !this.live || !this.store || this.ownSaving || !this.ownCardOffered)
       return false;
     if (!answer.trim()) return false;
+    const target = this.writing;
+    if (target !== null && target !== NEW_OWN_CARD && !this.tileOpens(target)) return false;
     this.error = '';
     const text = truncateCodePoints(answer, MAX_ANSWER_CHARS);
     let sealed: string;
@@ -1046,28 +1187,29 @@ export class AppState {
       return false;
     }
     this.ownSaving = true;
+    let front = false;
     try {
-      const cardId = newOwnCardId();
+      const cardId = target === null || target === NEW_OWN_CARD ? newOwnCardId() : target;
       const session = this.live.session;
-      await this.record('answered', sealed, cardId);
+      front = this.card?.id === cardId;
+      const event = await this.record('answered', sealed, cardId);
       // The readable copy goes to the table no sync reads, never into the event (lib/store.ts).
       const key = answerKey(session.id, cardId);
-      await this.store.putAnswer({ key, sessionId: session.id, cardId, text });
-      this.copies = new Map(this.copies).set(key, text);
-      // The seq moves on; the id joins the round's answered ids, which the deck engine ignores
-      // for a card it does not hold, as a replay of the round would do. Not `withAnswer`: a blank
-      // card is not a touch of the round, so the first card keeps its hints (lib/session.ts).
-      this.live = {
-        ...this.live,
-        answered: new Set([...this.live.answered, cardId]),
-        nextSeq: this.live.nextSeq + 1,
-      };
+      await this.keepCopy(key, session.id, cardId, text, event);
+      // The round as a reload would replay it (ADR 0024): the card joins the round's answered
+      // ids, which the deck engine ignores for a card not in the queue, and a blank card is not
+      // a touch of the round, so the first card keeps its hints (lib/session.ts).
+      this.live = replaySession(this.workshop.deck, this.workshop.config, session, this.history);
+      this.drafts.delete(target ?? NEW_OWN_CARD);
+      if (front) this.draft = '';
       this.ownDraft = '';
-      this.ownCardOpen = false;
+      this.writing = null;
       this.announce('saved');
     } finally {
       this.ownSaving = false;
     }
+    // The front card was the one answered: the next one comes forward, as after any answer.
+    if (front) await this.showCard();
     await this.requestSync();
     return true;
   }
@@ -1180,6 +1322,7 @@ export class AppState {
     await this.store.wipe();
     // The readable copies went with the database (ADR 0014); nothing of them stays in memory either.
     this.copies = new Map();
+    this.copyEvents = new Map();
     this.history = { sessions: [], events: [] };
     this.live = null;
     try {

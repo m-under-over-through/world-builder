@@ -1,7 +1,14 @@
 // Export a workshop's answers, readable, onto the operator's machine. The only place answers are
 // ever opened (ADR 0003).
 //
-//   node tools/workshop/export.ts <slug> --key .secrets/<file>.private-key [--db <url>] [--out <dir>] [--overwrite]
+//   node tools/workshop/export.ts <slug> --key .secrets/<file>.private-key [--db <url>] [--out <dir>] [--overwrite] [--all-versions]
+//
+// One row per participant and card for the answers: the latest answer, by the round's number and
+// then by its place in the round (ADR 0024). A participant can change an answer; nothing stored is
+// changed, so a change is one more `answered` event, and the earlier versions are left out of the
+// file. The summary says how many were left out. The other events (shown, set aside) are all kept.
+// --all-versions keeps every answer too, with a last column `latest`: "yes" on the answer that
+// counts, "no" on an earlier version, and empty on a row that is not an answer.
 //
 // --db defaults to the local development database (pglite://.secrets/local-db). For staging or
 // production, pass the connection string from the vault, never from a chat.
@@ -24,7 +31,7 @@ import { connect } from '../../packages/db/src/connect.ts';
 import { events, participants, sessions, workshops } from '../../packages/db/src/index.ts';
 
 const USAGE =
-  'usage: node tools/workshop/export.ts <slug> --key <private-key-file> [--db <url>] [--out <dir>] [--overwrite]';
+  'usage: node tools/workshop/export.ts <slug> --key <private-key-file> [--db <url>] [--out <dir>] [--overwrite] [--all-versions]';
 function fail(message: string, code: number): never {
   console.error(message);
   process.exit(code);
@@ -39,12 +46,14 @@ let keyFile: string | undefined;
 let dbUrl = 'pglite://' + join(root, '.secrets/local-db');
 let outDir = join(root, '.secrets/exports');
 let overwrite = false;
+let allVersions = false;
 while (args.length > 0) {
   const flag = args.shift();
   if (flag === '--key' && args.length > 0) keyFile = resolve(args.shift()!);
   else if (flag === '--db' && args.length > 0) dbUrl = args.shift()!;
   else if (flag === '--out' && args.length > 0) outDir = resolve(args.shift()!);
   else if (flag === '--overwrite') overwrite = true;
+  else if (flag === '--all-versions') allVersions = true;
   else fail(`unknown argument "${flag}"\n${USAGE}`, 2);
 }
 if (!slug || !slugLikeSchema.min(3).safeParse(slug).success || !keyFile) fail(USAGE, 2);
@@ -78,6 +87,7 @@ try {
 const rows = await db
   .select({
     participantId: participants.id,
+    eventId: events.id,
     createdDay: participants.createdDay,
     wave: participants.wave,
     sessionNo: sessions.sessionNo,
@@ -109,8 +119,21 @@ rows.sort(
   (a, b) =>
     pseudonym(a.participantId).localeCompare(pseudonym(b.participantId)) ||
     a.sessionNo - b.sessionNo ||
-    a.seq - b.seq,
+    a.seq - b.seq ||
+    // Two phones on one round can give two events the same place. The id settles it, the same
+    // way the client does (apps/web/src/lib/session.ts), so the file and the phone agree.
+    (a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0),
 );
+
+// ---- the latest answer per participant and card (ADR 0024) ----
+// The rows are sorted by participant, round and seq, so the last answer met for a participant and
+// a card is the latest one. Earlier versions are left out unless --all-versions asks for them.
+const latestRow = new Map<string, (typeof rows)[number]>();
+for (const r of rows) if (r.kind === 'answered') latestRow.set(`${r.participantId} ${r.cardId}`, r);
+const isLatest = (r: (typeof rows)[number]) =>
+  latestRow.get(`${r.participantId} ${r.cardId}`) === r;
+const earlier = rows.filter((r) => r.kind === 'answered' && !isLatest(r)).length;
+const written = allVersions ? rows : rows.filter((r) => r.kind !== 'answered' || isLatest(r));
 
 let opened = 0;
 let failed = 0;
@@ -127,9 +150,10 @@ const csv = [
     'event_day',
     'deck',
     'answer',
+    ...(allVersions ? ['latest'] : []),
   ].join(','),
 ];
-for (const r of rows) {
+for (const r of written) {
   let answer = '';
   if (r.kind === 'answered' && r.body) {
     try {
@@ -154,6 +178,7 @@ for (const r of rows) {
       r.eventDay,
       r.deckVersion,
       answer,
+      ...(allVersions ? [r.kind === 'answered' ? (isLatest(r) ? 'yes' : 'no') : ''] : []),
     ]
       .map((v) => `"${String(v).replaceAll('"', '""')}"`)
       .join(','),
@@ -185,7 +210,12 @@ chmodSync(outFile, 0o600);
 console.log(`workshop:      ${slug} (${workshop!.name})`);
 console.log(`participants:  ${pseudonyms.size}`);
 console.log(
-  `events:        ${rows.length} (${opened} answers opened${failed ? `, ${failed} could not be opened` : ''})`,
+  `events:        ${written.length} (${opened} answers opened${failed ? `, ${failed} could not be opened` : ''})`,
+);
+console.log(
+  allVersions
+    ? `versions:      ${earlier} earlier versions of an answer kept, marked latest=no`
+    : `versions:      ${earlier} earlier versions of an answer left out; --all-versions keeps them`,
 );
 console.log(`written to:    ${outFile}`);
 process.exit(0);

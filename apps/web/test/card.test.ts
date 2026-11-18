@@ -458,17 +458,20 @@ describe('your world so far', () => {
     expect(tiles[1]!.textContent).toContain(copy.item('Your world', 'written elsewhere'));
     expect(tiles[1]!.textContent).not.toContain('QQQQ');
     expect(tintOfSlot('.tile')).toBe('var(--tint-sun)');
-    // The card set aside: a tile of the same kind, white, its area and its question, no answer, no button.
+    // The card set aside: a tile of the same kind, white, its area and its question, no answer;
+    // since ADR 0024 a button that opens it, and the tile written here is one too.
     const aside = dialog.querySelector('.world-section.aside')!;
     expect(aside.querySelector('.section-label')!.textContent).toBe(
       copy.item('Your world', 'set aside'),
     );
-    const asideTile = aside.querySelector('li.tile.aside')!;
+    const asideTile = aside.querySelector('button.tile.aside')!;
     expect(asideTile.querySelector('.label')?.textContent ?? undefined).toBe(card(c!).area);
     expect(asideTile.querySelector('.q')!.textContent).toBe(card(c!).text);
     expect(asideTile.querySelector('.a')).toBeNull();
     expect(asideTile.getAttribute('style') ?? '').not.toContain('--tint');
-    expect(aside.querySelectorAll('button')).toHaveLength(0);
+    expect(aside.querySelectorAll('button')).toHaveLength(1);
+    expect(tiles[0]!.tagName).toBe('BUTTON');
+    expect(tiles[1]!.tagName).toBe('LI');
     expect(dialog.querySelector('.chip, .chips')).toBeNull();
     // After the answers, as in the laptop's column.
     expect(

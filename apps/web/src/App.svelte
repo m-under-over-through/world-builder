@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import Invitations from './components/Invitations.svelte';
   import OwnCard from './components/OwnCard.svelte';
+  import { WORLD_PILL } from './components/Stack.svelte';
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
   import { AppState } from './lib/state.svelte.ts';
@@ -232,6 +233,7 @@
       <button
         type="button"
         class="pill world"
+        id={WORLD_PILL}
         bind:this={worldPill}
         aria-label={fill(app.copy.item('Your world', 'pill label'), {
           n: app.world.tiles.length,

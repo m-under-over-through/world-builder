@@ -28,6 +28,19 @@ Value: `marco-iphone-safari-01`. Second device: the laptop.
 12. On the laptop, reload the page. The welcome says "The link this phone remembered is not in use any more. Open the link from your email again."
 13. Settings, Accessibility, Motion, Reduce Motion on. Open the link again (it starts you over), tap "I understand", "Got it", then "Set aside": the card fades where it is, it does not fly. Turn Reduce Motion off.
 
+## 1b. iPhone, Safari: tiles open (ADR 0024)
+
+Value: `marco-iphone-tiles-01`. Second device: the laptop.
+
+1. Open the staging link with this value, "I understand", "Got it". Answer the first card ("First words"), set the next one aside, and with "Write your own story" save a blank card ("My story").
+2. Tap "Your world so far". Each tile, the white one too, has a small pen in its top right corner. The tiles are no taller than before.
+3. Tap the white tile under "Set aside". The sheet closes and the place to write opens: the card's area and its question on top, the field empty, the keyboard up, "Not now" and "Save" above it with the strip under them. Type a few words and tap "Not now": you are back on the cards. Open the sheet and tap the same tile: your words are there. Tap "Save": you are on the cards. Open the sheet: the white tile is gone, the card is a tinted tile with your words, and the summary reads "3 answered · 0 set aside".
+4. In the sheet, tap the tile with "First words". The question on top and "First words" in the field. Change them and tap "Save". Open the sheet: the tile is in the same place, with the new words. The pill still reads 3.
+5. Tap the blank card's tile: "Your own card", the hint, "My story" in the field. Delete everything in the field: "Save" is greyed out. Type new words, "Save": still one blank card tile, with the new words.
+6. The front card has not moved through any of this. Reload the page: the same front card, the same tiles, the same words.
+7. On the laptop, open the same link with the same value. The tiles show "Written on another phone." and are not buttons: a click does nothing and the pointer is an arrow. A card set aside on the iPhone and not answered would still open there.
+8. Set aside the front card, answer cards until it comes round again in front, then open its white tile from the sheet and save it: the next card comes forward.
+
 ## 2. iPhone, the Gmail app's built-in browser
 
 Value: `marco-iphone-gmail-01`. Second device: the laptop.
@@ -79,6 +92,12 @@ Value: `marco-laptop-chrome-01`. Second device: the iPhone. This section uses th
 10. On the iPhone, open the same link: the cards, your laptop answer as "Written on another phone."
 11. On the laptop: delete everything ("Yes, delete everything"). On the iPhone, reload: "The link this phone remembered is not in use any more...".
 
+## 4b. Laptop, Chrome: tiles open with the keyboard (ADR 0024)
+
+1. With an answer and a card set aside on the right, Tab until a tile has the ring: it is a button. Press Enter. A card over the desk: the area, the question, the field with the cursor in it (empty for a card set aside, holding the words for an answer).
+2. Press Esc: it closes, and the ring is back on the same tile. Press Enter again, change the words, Tab to "Save", Enter. The tile shows the new words in the same place; "n answered" in the top bar has not changed.
+3. Open the card in front (Enter on it), then click a tile with the mouse: the card in front closes, keeping its words, and the tile's place to write opens.
+
 ## 5. Laptop, Safari
 
 Value: `marco-laptop-safari-01`. Second device: the Android.
@@ -118,7 +137,7 @@ Turn VoiceOver on and off: Settings, Accessibility, Accessibility Shortcut, choo
 4. Double-tap. You hear the question as the field's name, then "text field". Dictate a sentence (two-finger double-tap). Swipe right to "Save, button" (before you write it says "dimmed"); double-tap. You hear "Saved", and VoiceOver is on the next card.
 5. Swipe to "Set aside, button", double-tap. You hear "Set aside".
 6. Rotor on Headings, swipe down: the only heading on the card screen is "World Builder".
-7. Swipe to "Your world so far, 1 answered, button", double-tap. VoiceOver is on "Close, button". Swipe right: "Your world so far, heading level 2", "1 answered · 1 set aside", "Answered, heading level 3", your tile (area, question, words), "Set aside, heading level 3", the set-aside tile, the "Come back whenever..." line, "Remind me, link". Swipe right again: VoiceOver stays in the sheet; nothing from the cards behind. Swipe back to "Close, button", double-tap: the sheet closes and VoiceOver is on the pill.
+7. Swipe to "Your world so far, 1 answered, button", double-tap. VoiceOver is on "Close, button". Swipe right: "Your world so far, heading level 2", "1 answered · 1 set aside", "Answered, heading level 3", your tile (area, question, words), "Set aside, heading level 3", the set-aside tile, the "Come back whenever..." line, "Remind me, link". Swipe right again: VoiceOver stays in the sheet; nothing from the cards behind. Swipe back to "Close, button", double-tap: the sheet closes and VoiceOver is on the pill. Open the sheet again and swipe to your tile: it reads as a button, its area, question and words, then "Change your answer"; the set-aside tile ends with "Answer this card". Double-tap the set-aside tile: VoiceOver is in the field, named by the question. Swipe to "Not now, button", double-tap: VoiceOver is on the pill.
 8. Swipe back to "About this app, button", just after the organizer, double-tap. You hear "About this app, heading level 1". Swipe right to "The technical details" (it says collapsed, or a button); double-tap: it says expanded; swipe right: "How your answers are protected, heading level 2".
 9. Find "Delete everything and start over, button", double-tap. VoiceOver reads the question, "Delete everything you sent, from this phone and from our server? It cannot be brought back." Swipe right: "Yes, delete everything, button", "Keep my answers, button". Double-tap Keep: VoiceOver is back on the delete button.
 10. Swipe left until "Back, button" at the top, double-tap: "World Builder, heading level 1" again.

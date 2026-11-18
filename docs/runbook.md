@@ -119,6 +119,10 @@ Meaning: the deploy context has no `DATABASE_URL`, or one that is not a `postgre
 
 A row of the export whose `card` starts with `own-` is a blank card: a text the participant wrote under no question (ADR 0022). The rest of the id is random and means nothing. Every other `card` value is an id from the deck of the row's `deck` version.
 
+## Reading the export: changed answers
+
+A participant can change an answer, and can answer a card set aside, from its tile (ADR 0024). Nothing stored is edited: a change is one more `answered` event for the same card. The export gives one row for each participant and card, the latest answer, and prints how many earlier versions it left out. `--all-versions` gives every row, with a last column `latest`. The status command counts events, so a changed answer counts as two answers there.
+
 ## Client error codes
 
 ### CLIENT_STORAGE_UNAVAILABLE

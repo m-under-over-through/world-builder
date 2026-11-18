@@ -106,8 +106,49 @@ async function sealedFixture(answers: string[]) {
     out: join(dir, 'out'),
     participantIds: ids,
     keyFingerprint: fingerprint(kp.publicKey),
+    publicKey: kp.publicKey,
   };
 }
+
+/**
+ * Changed answers (ADR 0024): for the first participant, a second round in which w-01 is
+ * answered twice more, and w-03 once, as a participant who opened the tile and saved again
+ * would. Their round-one answer to w-01 comes first, so it is the earliest version.
+ */
+async function withChangedAnswers(f: Awaited<ReturnType<typeof sealedFixture>>) {
+  const db = await connect(f.dbUrl);
+  const sessionId = crypto.randomUUID();
+  await db.insert(sessions).values({
+    id: sessionId,
+    participantId: f.participantIds[0]!,
+    sessionNo: 2,
+    startedDay: '2026-11-18',
+    deckVersion: deck.version,
+    seed: 'seed-2',
+  });
+  const answered = (seq: number, cardId: string, words: string) => ({
+    id: crypto.randomUUID(),
+    sessionId,
+    cardId,
+    seq,
+    kind: 'answered' as const,
+    body: sealAnswer(f.publicKey, words),
+    createdDay: '2026-11-18',
+    deckVersion: deck.version,
+  });
+  // Stored out of order: the export orders by round and place, never by the order of storing.
+  await db
+    .insert(events)
+    .values([
+      answered(4, 'w-01', 'the latest words'),
+      answered(1, 'w-01', 'a middle version'),
+      answered(2, 'w-03', 'only once'),
+    ]);
+  await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
+}
+
+/** The pseudonym of the participant whose answer reads "the latest words". */
+const latest = (rows: string[][]) => rows.find((row) => row[10] === 'the latest words')![0];
 
 function run(args: string[]) {
   return spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
@@ -254,6 +295,105 @@ describe('workshop export', () => {
     expect(exported(f.out)).toBeUndefined();
   });
 
+  it('one row per participant and card, the latest answer; the summary counts the earlier versions', async () => {
+    const f = await sealedFixture(['first words', 'another participant']);
+    await withChangedAnswers(f);
+    const r = run(['rural-manufacturing', '--key', f.keyFile, '--db', f.dbUrl, '--out', f.out]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain('events:        5 (3 answers opened)');
+    expect(r.stdout).toContain('versions:      2 earlier versions of an answer left out');
+    const [header, ...rows] = parseCsv(readFileSync(exported(f.out)!, 'utf8'));
+    expect(header).toEqual(COLUMNS);
+    const answers = rows.filter((row) => row[7] === 'answered');
+    const pairs = answers.map((row) => `${row[0]} ${row[6]}`);
+    expect(new Set(pairs).size).toBe(answers.length);
+    expect(answers.map((row) => row[10]).sort()).toEqual(
+      ['another participant', 'only once', 'the latest words'].sort(),
+    );
+    const latest = answers.find((row) => row[10] === 'the latest words')!;
+    expect([latest[3], latest[5]]).toEqual(['2', '4']);
+    // The other events stay: each participant's card set aside.
+    expect(rows.filter((row) => row[7] === 'dismissed')).toHaveLength(2);
+  });
+
+  it('two answers at the same place in the same round: the event id decides which is the latest, as on the phone', async () => {
+    // Two phones on one round can each give an answer the same place. The file must pick the one
+    // the phone picks (apps/web/src/lib/session.ts), and the same one on every run.
+    const f = await sealedFixture(['first words', 'another participant']);
+    const db = await connect(f.dbUrl);
+    const sessionId = crypto.randomUUID();
+    await db.insert(sessions).values({
+      id: sessionId,
+      participantId: f.participantIds[0]!,
+      sessionNo: 2,
+      startedDay: '2026-11-18',
+      deckVersion: deck.version,
+      seed: 'seed-2',
+    });
+    const tied = (id: string, words: string) => ({
+      id,
+      sessionId,
+      cardId: 'w-01',
+      seq: 4,
+      kind: 'answered' as const,
+      body: sealAnswer(f.publicKey, words),
+      createdDay: '2026-11-18',
+      deckVersion: deck.version,
+    });
+    // The higher id is stored first, so the order of storing cannot be what decides.
+    await db
+      .insert(events)
+      .values([
+        tied('00000000-0000-4000-8000-0000000000bb', 'from the higher id'),
+        tied('00000000-0000-4000-8000-0000000000aa', 'from the lower id'),
+      ]);
+    await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
+    const r = run(['rural-manufacturing', '--key', f.keyFile, '--db', f.dbUrl, '--out', f.out]);
+    expect(r.status, r.stderr).toBe(0);
+    const [, ...rows] = parseCsv(readFileSync(exported(f.out)!, 'utf8'));
+    const words = rows.filter((row) => row[7] === 'answered').map((row) => row[10]);
+    expect(words).toContain('from the higher id');
+    expect(words).not.toContain('from the lower id');
+    expect(words).not.toContain('first words');
+  });
+
+  it('with --all-versions every row, with the latest marked', async () => {
+    const f = await sealedFixture(['first words', 'another participant']);
+    await withChangedAnswers(f);
+    const r = run([
+      'rural-manufacturing',
+      '--key',
+      f.keyFile,
+      '--db',
+      f.dbUrl,
+      '--out',
+      f.out,
+      '--all-versions',
+    ]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain('events:        7 (5 answers opened)');
+    expect(r.stdout).toContain('versions:      2 earlier versions of an answer kept');
+    const [header, ...rows] = parseCsv(readFileSync(exported(f.out)!, 'utf8'));
+    expect(header).toEqual([...COLUMNS, 'latest']);
+    expect(rows).toHaveLength(7);
+    const byWords = new Map(rows.map((row) => [row[10], row[11]]));
+    expect(byWords.get('first words')).toBe('no');
+    expect(byWords.get('a middle version')).toBe('no');
+    expect(byWords.get('the latest words')).toBe('yes');
+    expect(byWords.get('only once')).toBe('yes');
+    expect(byWords.get('another participant')).toBe('yes');
+    for (const row of rows.filter((row) => row[7] !== 'answered')) expect(row[11]).toBe('');
+    // In the file's order, round by round, the earlier versions of w-01 come first.
+    const w01 = rows.filter(
+      (row) => row[7] === 'answered' && row[6] === 'w-01' && row[0] === latest(rows),
+    );
+    expect(w01.map((row) => row[10])).toEqual([
+      'first words',
+      'a middle version',
+      'the latest words',
+    ]);
+  });
+
   it('rejects an unknown flag, a bad slug, a missing key or a missing key file before touching anything', () => {
     const out = mkdtempSync(join(tmpdir(), 'wb-export-args-'));
     const keyFile = join(out, 'k.private-key');
@@ -261,6 +401,8 @@ describe('workshop export', () => {
     for (const args of [
       ['rural-manufacturing', '--key', keyFile, '--Overwrite', '--out', out],
       ['rural-manufacturing', '--key', keyFile, '--overwrite=yes', '--out', out],
+      ['rural-manufacturing', '--key', keyFile, '--all-version', '--out', out],
+      ['rural-manufacturing', '--key', keyFile, '--latest', '--out', out],
       ['rural-manufacturing', '--key', keyFile, '--out'],
       ['Rural-Manufacturing', '--key', keyFile, '--out', out],
       ['rural-manufacturing', '--out', out],

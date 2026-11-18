@@ -2,21 +2,24 @@
   import { MAX_ANSWER_CHARS } from '@wb/contracts';
   import { onMount, tick } from 'svelte';
   import { fill } from '../lib/copy.ts';
-  import type { AppState } from '../lib/state.svelte.ts';
+  import { NEW_OWN_CARD, type AppState } from '../lib/state.svelte.ts';
   import { reducedMotion } from '../lib/swipe.ts';
   import { codePoints, truncateCodePoints } from '../lib/text.ts';
   import { growField, keepEndInView } from '../lib/viewport.ts';
-  import { COUNTER_FROM, COUNTER_NEAR, OWN_CARD_OPENER } from './Stack.svelte';
+  import { COUNTER_FROM, COUNTER_NEAR, OWN_CARD_OPENER, WORLD_PILL } from './Stack.svelte';
 
   /**
    * The place to write a blank card (ADR 0022): a card with no question, which the participant
-   * writes. Over the card screen as a modal dialog: on a phone a sheet, built the way
+   * writes. Since ADR 0024 also the place a tile opens in: a card set aside, its area and its
+   * question on top and the field empty; an answer, the same with its words in the field; a blank
+   * card already written, with its title and hint and its words. Which card is `app.writing`. Over the card screen as a modal dialog: on a phone a sheet, built the way
    * WorldSheet.svelte is; on a laptop (`app.wide`) a wide card over the desk, with the same
    * content. The title, the hint, a large field with its own name for a
    * screen reader, the counter near the limit as on a card, then "Not now" and "Save".
    *
    * Focus goes into the field when it opens and stays inside; Esc, "Not now" and a tap on the
-   * scrim close it, and the focus goes back to "Write your own story" (Stack.svelte). The page
+   * scrim close it, and the focus goes back to "Write your own story" (Stack.svelte), or to the
+   * tile it was opened from (the world pill on a phone). The page
    * behind is `inert` meanwhile (App.svelte). Closing keeps the words in memory (`app.ownDraft`).
    *
    * On a phone the sheet is framed by what the keyboard leaves visible, as the open card is (ADR
@@ -40,6 +43,9 @@
       : '',
   );
 
+  /** The card of the tile this was opened from (ADR 0024): its area and question go on top. */
+  const card = $derived(app.writingCard);
+
   onMount(() => {
     // A phone turned on its side wraps the text anew, so the field is measured again (ADR 0023).
     const regrow = () => {
@@ -50,11 +56,23 @@
     window.addEventListener('resize', regrow);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    // Where the focus goes back to: "Write your own story" for a new blank card; for a tile, the
+    // tile on a laptop and the world pill on a phone, whose sheet closed when the tile opened.
+    const from = app.writing;
+    const wide = app.wide;
     return () => {
       window.removeEventListener('resize', regrow);
       document.body.style.overflow = overflow;
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
-      void tick().then(() => document.getElementById(OWN_CARD_OPENER)?.focus());
+      void tick().then(() => {
+        if (from === NEW_OWN_CARD || from === null)
+          return document.getElementById(OWN_CARD_OPENER)?.focus();
+        if (!wide) return document.getElementById(WORLD_PILL)?.focus();
+        const tile = [...document.querySelectorAll<HTMLElement>('[data-tile]')].find(
+          (el) => el.dataset['tile'] === from,
+        );
+        tile?.focus();
+      });
     };
   });
 
@@ -104,7 +122,7 @@
   }
 
   const described = $derived(
-    ['own-hint', 'own-count', ...(app.error ? ['own-error'] : [])].join(' '),
+    [...(card ? [] : ['own-hint']), 'own-count', ...(app.error ? ['own-error'] : [])].join(' '),
   );
 </script>
 
@@ -122,14 +140,21 @@
   bind:this={dialog}
   onkeydown={onKey}
 >
-  <h2 id="own-title">{app.copy.text('Own card: title')}</h2>
-  <p class="own-hint" id="own-hint">{app.copy.text('Own card: hint')}</p>
+  {#if card}
+    <!-- A card of the deck, set aside or answered (ADR 0024): its area, then its question as
+         the title and the name of the field, as on the open card. -->
+    {#if card.area}<span class="own-label">{card.area}</span>{/if}
+    <h2 id="own-title" class="own-question">{card.text}</h2>
+  {:else}
+    <h2 id="own-title">{app.copy.text('Own card: title')}</h2>
+    <p class="own-hint" id="own-hint">{app.copy.text('Own card: hint')}</p>
+  {/if}
   <textarea
     bind:this={field}
     value={app.ownDraft}
     oninput={onInput}
     disabled={busy}
-    aria-label={app.copy.text('Own card: field')}
+    aria-label={card ? card.text : app.copy.text('Own card: field')}
     aria-describedby={described}></textarea>
   <div class="own-meta">
     <span id="own-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span>
