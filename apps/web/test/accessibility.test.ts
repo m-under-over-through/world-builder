@@ -162,7 +162,7 @@ describe('the stylesheet: what a test DOM cannot see', () => {
       expect(r.body['color'], r.selectors.join(', ')).not.toBe('var(--color-muted)');
   });
 
-  it('an answer opened from its tile is on the tint of its tile: a rule under the question, no box around the field, and nothing in muted (ADR 0024)', () => {
+  it('a card of the deck opened from its tile is on its tint: a rule under the question, no box around the field, and nothing in muted (ADR 0024)', () => {
     expect(rule('.own-card.tinted')['background']).toBe('var(--tint)');
     expect(rule('.own-card.tinted .rule')['background']).toBe('var(--rule-on-tint)');
     const field = rule('.own-card.tinted textarea');

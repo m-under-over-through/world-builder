@@ -5,7 +5,7 @@ import { isOwnCardId, type Event, type Session } from '@wb/contracts';
 import App from '../src/App.svelte';
 import { fill } from '../src/lib/copy.ts';
 import { replaySession } from '../src/lib/session.ts';
-import { AppState } from '../src/lib/state.svelte.ts';
+import { AppState, tintOf } from '../src/lib/state.svelte.ts';
 import { answerKey, WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import { freshIndexedDb, stubRoutes } from './helpers.ts';
@@ -154,6 +154,7 @@ describe('a card set aside', () => {
   it('a card set aside twice opens and can be answered, and never comes round again', async () => {
     const app = await started();
     const id = await setAsideUntilBack(app);
+    const inTheStack = tintOf(app.cardNo);
     await app.setAside();
     const kinds = (await db(app).events.toArray())
       .filter((e) => e.cardId === id)
@@ -163,13 +164,34 @@ describe('a card set aside', () => {
     app.openTile(id);
     expect(app.writing).toBe(id);
     expect(app.ownDraft).toBe('');
+    // Set aside for the second time in this round: it opens on the tint it had in the stack of
+    // this round, and its tile takes the same one when it is answered.
+    const tint = app.writingTint;
+    expect(tint).toBe(inTheStack);
     expect(await app.saveOwnCard('At last')).toBe(true);
     expect(await answersFor(app, id)).toHaveLength(1);
     expect(app.world.aside.map((t) => t.cardId)).not.toContain(id);
+    expect(tintOf(app.world.tiles.find((t) => t.cardId === id)!.n)).toBe(tint);
     for (let i = 0; i < 16; i++) {
       expect(app.card?.id).not.toBe(id);
       await answerFront(app, `Later ${i}`);
     }
+  });
+
+  it('a card set aside in an earlier round that this round does not plan opens on the tint of number 0, and its tile takes the same', async () => {
+    const app = await started();
+    const id = await setAsideUntilBack(app);
+    // Set aside a second time, it is out of the rounds for good (ADR 0020).
+    await app.setAside();
+    for (let i = 0; i < 40 && app.live!.queueAsPlanned.includes(id); i++)
+      await answerFront(app, `Later ${i}`);
+    // A later round, which does not plan it: its tile is still there, and it has no number here.
+    expect(app.live!.queueAsPlanned).not.toContain(id);
+    expect(app.world.aside.map((t) => t.cardId)).toContain(id);
+    app.openTile(id);
+    expect(app.writingTint).toBe(tintOf(0));
+    expect(await app.saveOwnCard('At last')).toBe(true);
+    expect(tintOf(app.world.tiles.find((t) => t.cardId === id)!.n)).toBe(tintOf(0));
   });
 
   it('answering the front card from its own set-aside tile brings the next card forward', async () => {
@@ -242,11 +264,13 @@ describe('an answer', () => {
     );
   });
 
-  it('an answer opens on the tint of its tile; a card set aside and a blank card open white, as their tiles are', async () => {
+  it('an answer opens on the tint of its tile, a card set aside in this round on the tint it had in the stack, and a blank card white', async () => {
     const app = await started();
     const first = await answerFront(app, 'First words');
     const second = await answerFront(app, 'Second words');
     const aside = app.card!.id;
+    // The tint of the card in front of the stack, before it is set aside.
+    const inTheStack = `var(--tint-${tintOf(app.cardNo)})`;
     await app.setAside();
     expect(await app.saveOwnCard('My story')).toBe(true);
     app.wide = true;
@@ -270,32 +294,45 @@ describe('an answer', () => {
       await user.keyboard('{Escape}');
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     }
-    // Two cards one after the other in a round never share a tint.
-    expect(tints[0]).not.toBe(tints[1]);
-    for (const name of [question(aside), copy.text('Own card: tile')]) {
-      await user.click(tileButton(name));
-      const dialog = await screen.findByRole('dialog');
-      expect(dialog.classList.contains('tinted')).toBe(false);
-      expect(dialog.style.getPropertyValue('--tint')).toBe('');
-      expect(dialog.querySelector('.rule')).toBeNull();
-      await user.keyboard('{Escape}');
-      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    }
-    // "Write your own story" opens white too.
+    // A card set aside in this round: its tile is white, and it opens on the tint it had in the stack.
+    const whiteTile = tileButton(question(aside));
+    expect(whiteTile.style.getPropertyValue('--tint')).toBe('');
+    await user.click(whiteTile);
+    const setAside = await placeToWrite(question(aside));
+    expect(setAside.classList.contains('tinted')).toBe(true);
+    expect(setAside.style.getPropertyValue('--tint')).toBe(inTheStack);
+    expect(setAside.querySelector('.rule')).not.toBeNull();
+    tints.push(inTheStack);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Three cards one after the other in a round: three tints.
+    expect(new Set(tints).size).toBe(3);
+    // A blank card, written or new, is white: it is in no deck and has no number.
+    await user.click(tileButton(copy.text('Own card: tile')));
+    const written = await placeToWrite(copy.text('Own card: title'));
+    expect(written.classList.contains('tinted')).toBe(false);
+    expect(written.style.getPropertyValue('--tint')).toBe('');
+    expect(written.querySelector('.rule')).toBeNull();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     app.openOwnCard();
     const blank = await placeToWrite(copy.text('Own card: title'));
     expect(blank.classList.contains('tinted')).toBe(false);
   });
 
-  it('a card set aside stays white while its answer is saved, though its tile is tinted from the moment the answer is recorded', async () => {
+  it('a card set aside keeps its tint while its answer is saved, and its tile then has the same tint', async () => {
     const app = await started();
+    await answerFront(app, 'First words');
     const aside = app.card!.id;
+    const inTheStack = `var(--tint-${tintOf(app.cardNo)})`;
     await app.setAside();
     app.wide = true;
     const user = userEvent.setup();
     renderApp(app);
     await user.click(tileButton(question(aside)));
     const dialog = await placeToWrite(question(aside));
+    const tint = dialog.style.getPropertyValue('--tint');
+    expect(tint).toBe(inTheStack);
     await user.type(within(dialog).getByRole('textbox'), 'Answered from its tile');
     // Hold the write of the readable copy, the step after the event is recorded.
     const store = db(app);
@@ -310,14 +347,13 @@ describe('an answer', () => {
       within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'save') }),
     );
     await waitFor(() => expect(app.world.tiles.some((t) => t.cardId === aside)).toBe(true));
-    // The card is a tinted tile already, and the place to write is still open on it: white.
+    // The card is a tile already and the place to write is still open on it: the same tint.
     expect(app.writing).toBe(aside);
-    expect(app.writingTint).not.toBeNull();
     expect(screen.getByRole('dialog')).toBe(dialog);
-    expect(dialog.classList.contains('tinted')).toBe(false);
-    expect(dialog.style.getPropertyValue('--tint')).toBe('');
+    expect(dialog.style.getPropertyValue('--tint')).toBe(tint);
     release();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(tileButton('Answered from its tile').style.getPropertyValue('--tint')).toBe(tint);
   });
 
   it('changing an answer leaves the round as it was: the same front card, the same draft, the same queue', async () => {
