@@ -2736,3 +2736,51 @@ A separate reviewer read the pull request. The integrator looked at it at phone 
 - Only a real iPhone can show whether Safari keeps the page still with the guard, whether a drag in the field at the end of its text hands on to the part around it, whether the caret stays in sight while typing in a field that scrolls, and whether Safari still scrolls the page when the field takes the focus in its box.
 - Selecting text in the field by dragging, and moving the caret by holding the space bar, were not tried with the guard. Neither should be a `touchmove` the page sees, but only a phone can tell.
 - Android Chrome cancels touches the same way, by the standard, but it was not tried.
+
+## 2026-11-18, Wednesday night. An answer reopened from its tile keeps its colour (pull request 71)
+
+### What
+
+- `apps/web/src/lib/state.svelte.ts`: `writingTint`, the tint of the tile the place to write was opened from. An answer has the tint of its tile. A card set aside and a blank card have none.
+- `apps/web/src/components/OwnCard.svelte`: the place to write takes that tint as the class `tinted` and the property `--tint`, and shows a rule under the question. It asks for the tint once for each card opened.
+- `apps/web/src/app.css`: five rules for `.own-card.tinted`, and one for its field in the framed box. On a tint the place to write is drawn as the open card is: the question, a rule, the words, no box around the field. The counter is in soft ink there.
+- Tests: two in `tiles.test.ts`, one in `accessibility.test.ts`. 621 tests in all.
+- `docs/adr/0024-tiles-open.md` gains a line. `docs/screen-map.md` and `docs/device-tests.md` (part 1b step 4, part 4b step 1) say what to see.
+
+### Why
+
+Marco reopened a saved card on his phone: "It loses the original color. all saved cards open to white now."
+
+A tile opens in the place to write that was built for the blank card (ADR 0024, pull request 67). The blank card is white, so the place was white, and nothing told it which tile it was opened from beyond the card's id. It was so from the first day tiles opened. Pull request 70 did not cause it.
+
+A card keeps its tint everywhere it appears: in the stack, as it leaves, and on its tile. The place to write was the one spot where it did not.
+
+### How to verify
+
+1. `npm run check`: 621 tests, exit 0.
+2. On a phone, staging: answer two cards, tap "Your world so far", tap a tile. The place to write has the colour of that tile, a thin line under the question, and no box around the words.
+3. Tap a white tile under "Set aside": white, with the boxed field, as before. Save it: its tile is now tinted.
+4. On a laptop: click a tile on the right. The card over the desk has the tile's colour.
+
+### Decisions made on the way
+
+- **The colour is that of the tile tapped, not of the card in the stack.** For an answer the two are the same. A card set aside has a tint in the stack and a white tile; it opens white, so nothing changes colour under the finger. Marco can turn this round: it is one condition in `writingTint`.
+- **On a tint the field has no box.** The boxed field is ground grey with a light line, made for white paper. On yellow or lilac it would be a grey patch. The open card already has a way to draw a field on a tint (a rule, then the words), so the place to write uses it, and a reopened answer looks like the card that was answered.
+- **The tint is asked once, when the place opens.** A card set aside becomes a tinted tile the moment its answer is recorded, and the place closes a moment later, after the readable copy is written. Asked again in between, the place would flash from white to a tint as it closes. A test holds the write of the copy and checks the place is still white.
+- **Muted is never drawn on a tint** (an older rule of the stylesheet tests: under 4.5:1 on mint, sky and lilac). The counter of the place to write is muted on white and soft ink on a tint. A test checks that every muted rule of the place to write has its soft-ink twin.
+- **No new decision record.** ADR 0024 decided that tiles open in the place to write and did not say in what colour. It gains the line, with its date.
+
+### Seen before the pull request
+
+At 375 by 553 and at 1280 by 800, against a local server: an answer in mint on the phone and in sky on the laptop; a text of fourteen lines scrolling inside the field with the question and "Save" in place; a card set aside in white with its boxed field. The focus ring could not be seen there: the browser pane does not hold the focus, so no ring is drawn. Its distance is the open card's, and a stylesheet test ties the two.
+
+### Review
+
+A separate reviewer read the pull request and ran the two test files. Verdict: merge, nothing to fix. It traced each case by hand: an answer from an earlier round changed now, an answer written on another phone, a blank card, a card set aside and answered later, the front card that is also a white tile, one tile opened after another, and the moment of the save. It worked out the contrast of each colour on the four tints: ink is at least 10.2 to 1, soft ink at least 6.2, and muted fails on three of them, which is why it is not used. Its one note is in the open questions below. Its list of what no test covers: the tint of an answer from an earlier round, and the tint on the phone's sheet (the test opens the laptop's card; the component is the same).
+
+### Open questions
+
+- Whether a card set aside should open on the tint it had in the stack. It opens white now, as its tile is.
+- From the review: while "Save" is working the field is disabled, and Safari draws the words of a disabled field in its own grey. On a tint that grey was not measured. It lasts as long as two writes to the phone's own store, and the open card has always done the same. Left as it is.
+- The focus ring of the field on a tint, on a real phone and with a keyboard on a laptop.
+- Closed here: the first open question of pull request 70. Marco tried it on his iPhone on 18 November: with a card open, the page behind holds.

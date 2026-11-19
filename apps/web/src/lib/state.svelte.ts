@@ -248,6 +248,17 @@ export class AppState {
     if (id === null || id === NEW_OWN_CARD || isOwnCardId(id)) return null;
     return this.workshop?.deck.cards.find((c) => c.id === id) ?? null;
   }
+  /**
+   * The tint of the tile the place to write was opened from (ADR 0024): an answer keeps the tint
+   * its tile has in "Your world so far", which is the one its card had in the stack. None for a
+   * card set aside and for a blank card: their tiles are white, and so is their place to write.
+   */
+  get writingTint(): Tint | null {
+    const id = this.writing;
+    if (id === null || id === NEW_OWN_CARD) return null;
+    const tile = this.world.tiles.find((t) => t.cardId === id);
+    return tile && !tile.own ? tintOf(tile.n) : null;
+  }
   /** True while a refused join waits out the server's Retry-After before its one retry. */
   retrying = $state(false);
   /** How the join waits; a test replaces it so the wait is instant. */
