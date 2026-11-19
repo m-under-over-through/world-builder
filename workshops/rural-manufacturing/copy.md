@@ -95,7 +95,7 @@ Open a card to answer. Swipe it away to set it aside.
 
 ## Card labels
 
-<!-- The words on a card. The label at the top of a card is its area from the deck, and nothing for a card without one: no numbers (ADR 0019). "demo label" is the label of the onboarding card. "write an answer" is the line with the pen at the foot of the front card, on every device. "counter" shows near the limit: [n] is how many characters were written, [max] the limit. "close without saving" is the spoken name of the × on an open card. -->
+<!-- The words on a card. The label at the top of a card is its area from the deck, and nothing for a card without one: no numbers (ADR 0019). "demo label" is the label of the onboarding card. "write an answer" is the line with the pen at the foot of the front card, on every device; the same words are the name a screen reader says for the field of an open card, which is never named by the question (ADR 0027). "counter" shows near the limit: [n] is how many characters were written, [max] the limit. "close without saving" is the spoken name of the × on an open card. -->
 
 - write an answer: Write an answer
 - close without saving: Close without saving
@@ -108,7 +108,7 @@ Open a card to answer. Swipe it away to set it aside.
 
 ## Dictation hint (under 25 words, per platform)
 
-<!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
+<!-- Shown above the button "Prefer to talk?" (Buttons, prefer to talk), which is its title on the screen, so the lines do not repeat it. "Titles, dictation hint" is the hint's name for a screen reader only. -->
 
 - iPhone and iPad: Tap the microphone on your keyboard.
 - Android: Tap the microphone on your keyboard.

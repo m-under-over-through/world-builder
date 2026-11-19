@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import About from '../src/screens/About.svelte';
 import OpenCard from '../src/components/OpenCard.svelte';
 import Card from '../src/screens/Card.svelte';
@@ -178,7 +178,7 @@ describe('the screens render the words of copy.md', () => {
     expect(document.querySelectorAll('.card.back[aria-hidden="true"]')).toHaveLength(2);
   });
 
-  it('the card in front, open: a dialog named by its question, on its tint, the area and × in its head, the question as the name of the field, the counter alone under it and described, "Prefer to talk?" and Save', () => {
+  it('the card in front, open: a dialog named by its question, on its tint, the area and × in its head, the field named "Write an answer" and not by the question, with the switches that ask a browser not to fill it in, the counter alone under it and described, "Prefer to talk?" and Save', () => {
     const app = openFront({ platform: 'iPhone and iPad' });
     const dialog = screen.getByRole('dialog', { name: app.card!.text });
     expect(dialog.getAttribute('aria-modal')).toBe('true');
@@ -197,8 +197,24 @@ describe('the screens render the words of copy.md', () => {
     expect(head.querySelector('button')!.getAttribute('aria-label')).toBe(
       copy.item('Card labels', 'close without saving'),
     );
-    const field = screen.getByRole('textbox', { name: app.card!.text });
+    // The question names the dialog, never the field: a phone reads a field's name to guess
+    // what to fill it with, and a question can hold a word like "street" (see OpenCard.svelte).
+    expect(screen.queryByRole('textbox', { name: app.card!.text })).toBeNull();
+    const field = screen.getByRole('textbox', {
+      name: copy.item('Card labels', 'write an answer'),
+    });
+    expect(field.getAttribute('aria-label')).not.toContain(app.card!.text);
+    expect(field.getAttribute('autocomplete')).toBe('off');
+    expect(field.hasAttribute('data-1p-ignore')).toBe(true);
+    expect(field.getAttribute('data-lpignore')).toBe('true');
+    // Nothing else may tie the question, or any name of a contact field, to the field.
+    for (const attribute of ['name', 'id', 'placeholder', 'title', 'aria-labelledby'])
+      expect(field.hasAttribute(attribute), attribute).toBe(false);
+    expect(field.closest('label')).toBeNull();
+    expect(dialog.querySelector('label')).toBeNull();
     expect(field.getAttribute('aria-describedby')).toBe('open-count');
+    for (const id of field.getAttribute('aria-describedby')!.split(' '))
+      expect(document.getElementById(id)?.textContent ?? '', id).not.toContain(app.card!.text);
     // The nudge left the open card (ADR 0019): the row under the field holds the counter only.
     const meta = dialog.querySelector('.meta')!;
     expect([...meta.children].map((c) => c.id)).toEqual(['open-count']);
@@ -280,24 +296,32 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeTruthy();
   });
 
-  it('the open card with the dictation hint open: its title once, the line for this platform, and "Got it"', () => {
+  it('the open card with the dictation hint open: the line for this platform and "Got it", and "Prefer to talk?" still in its place, said once on the screen, as the button that opened it', () => {
     openFront({ platform: 'Windows', hintOpen: true });
-    expect(
-      screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
-    ).toBeTruthy();
-    expect(screen.getAllByText(copy.item('Titles', 'dictation hint'))).toHaveLength(1);
-    expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
-    expect(
-      screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
-    ).toBeNull();
+    const hint = screen.getByRole('group', {
+      name: copy.item('Titles', 'dictation hint'),
+    });
+    expect(hint.querySelector('h1, h2, h3')).toBeNull();
+    expect(within(hint).getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+    expect(within(hint).getByRole('button', { name: copy.item('Buttons', 'got it') })).toBeTruthy();
+    // The button does not go away when its hint opens: it says the hint is open.
+    const talk = screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') });
+    expect(talk.getAttribute('aria-expanded')).toBe('true');
+    expect(talk.getAttribute('aria-controls')).toBe(hint.id);
+    // The focus goes to the field when the hint opens, so the field's description carries the
+    // hint's words to a screen reader; never the question.
+    const field = screen.getByRole('textbox');
+    expect(field.getAttribute('aria-describedby')!.split(' ')).toContain(hint.id);
+    expect(screen.getAllByText(copy.item('Buttons', 'prefer to talk'))).toHaveLength(1);
   });
 
-  it('the open card with the hint closed: "Prefer to talk?" on a platform that has dictation', () => {
+  it('the open card with the hint closed: "Prefer to talk?" on a platform that has dictation, saying its hint is closed', () => {
     openFront({ platform: 'Android', hintOpen: false });
-    expect(
-      screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
-    ).toBeTruthy();
+    const talk = screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') });
+    expect(talk.getAttribute('aria-expanded')).toBe('false');
+    // Closed, the hint is not in the page, and nothing points at it.
+    expect(talk.hasAttribute('aria-controls')).toBe(false);
+    expect(screen.getByRole('textbox').getAttribute('aria-describedby')).toBe('open-count');
     expect(screen.queryByText(copy.item('Dictation hint', 'Android'))).toBeNull();
   });
 

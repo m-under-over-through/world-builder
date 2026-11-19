@@ -40,6 +40,9 @@ So the same act, writing on a card, looked and moved differently by where the ca
 - **Focus.** It goes into the field as the card opens. When the card closes it goes back to what was lifted: the card in front, the tile on a laptop, the pill on a phone, or "Write your own story" for a new blank card. After a save from the stack it goes to the new card in front.
 - **For a screen reader** every open card is a dialog named by its question, or by "Your own card". "Saved" is said as before.
 - **On a laptop a tile can no longer be clicked while a card is open.** The page behind an open card cannot be reached. The stack's card used to leave it reachable.
+- **Added on 18 November, after Marco tried the open card on his iPhone.** Two things.
+  - _The field is named "Write an answer", not by the question._ Under "What does the street smell like?" Safari offered to fill the field with his home address. Safari reads the words that label a field to guess what belongs in it, and it ignores `autocomplete="off"` (Apple's documentation says so). The question stays the name of the dialog, which is what a screen reader hears first. The field also carries `autocomplete="off"`, for the browsers that honour it, and the marks two password managers look for.
+  - _"Prefer to talk?" stays in its place while its hint is open_, and a second press closes the hint. It used to give way to the hint, and Marco read that as the button disappearing. The hint has no title of its own on the screen any more: the button is its title.
 - **In two pull requests.** First the one open card, with fades. Then the motions. The first can be tried by itself.
 - **Glossary.** "Open card" is added.
 

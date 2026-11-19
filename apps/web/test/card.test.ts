@@ -163,14 +163,14 @@ describe('the states of the card', () => {
     );
   });
 
-  it("the open card's field is empty: no hint text in it, and its name is the card's question", async () => {
+  it('the open card\'s field is empty: no hint text in it, and its name is "Write an answer"', async () => {
     const app = await onACard();
     const user = userEvent.setup();
     renderApp(app);
     await user.click(frontCard());
     // Marco, 18 November 2026: no hint is more elegant, and the keyboard is already open.
     const field = (await screen.findByRole('textbox', {
-      name: app.card!.text,
+      name: copy.item('Card labels', 'write an answer'),
     })) as HTMLTextAreaElement;
     expect(field.getAttribute('placeholder')).toBeNull();
     expect(field.value).toBe('');
@@ -758,14 +758,19 @@ describe('one open card for every card (ADR 0027)', () => {
     await user.click(frontCard());
     await screen.findByRole('dialog', { name: app.card!.text });
     expect(hint()).toBeTruthy();
-    expect(
-      screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
-    ).toBeNull();
+    // The button stays in its place while its hint is open, and says so.
+    expect(talk().getAttribute('aria-expanded')).toBe('true');
     await escape(user);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // A blank card: closed, and "Prefer to talk?" opens it.
     await user.click(screen.getByRole('button', { name: copy.text('Own card: button') }));
     await screen.findByRole('dialog', { name: copy.text('Own card: title') });
+    expect(hint()).toBeNull();
+    expect(talk().getAttribute('aria-expanded')).toBe('false');
+    await user.click(talk());
+    expect(hint()).toBeTruthy();
+    // A second press closes the hint; the button never goes away.
+    await user.click(talk());
     expect(hint()).toBeNull();
     await user.click(talk());
     expect(hint()).toBeTruthy();
