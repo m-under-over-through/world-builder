@@ -3160,6 +3160,17 @@ Whether Safari now keeps quiet. There is no iPhone and no simulator on this mach
 
 Nine of the 120 questions hold a word a contact card has: street (twice), job (three times), home, company, neighbors, and "too old for the job".
 
+### Review, and what the integrator changed before the merge
+
+The reviewer of the open card read this one. Verdict: merge after fixes.
+
+- **Two sentences in the docs were left untrue** (reviewer): the screen map's row for the open card, and TalkBack's step in the device script, still said the field is named by the question.
+- **The hint was never read out when "Prefer to talk?" opened it** (reviewer). The press sends the focus to the field at once. The hint is now part of the field's description while it is open, so a screen reader says it after the field's name. It was so before this change too; a button that stays made it plain.
+- **The hint is a named group, not a landmark** (reviewer). A landmark inside a dialog is noise for a screen reader.
+- **The button points at its hint only while the hint is in the page.**
+- **The test that pins the rule is wider** (reviewer): the field has no name, id, title, placeholder or label, and nothing it is described by holds the question.
+- **Not done, and why.** The reviewer offered to put the question into the field's description, so a screen reader is sure to say it. That would tie the question to the field again, which is what Safari may read. Whether VoiceOver and TalkBack say the dialog's name when the focus lands in the field is for the phone test; the device script now asks to note it.
+
 ### Open questions
 
 - Marco's phone, for the check above.

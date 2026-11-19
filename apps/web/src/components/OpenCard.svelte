@@ -156,8 +156,19 @@
     field?.focus();
   }
 
+  /**
+   * What a screen reader says after the field's name. The dictation hint is among it while it
+   * is open: "Prefer to talk?" sends the focus to the field at once, so the hint would not be
+   * heard any other way. The question is never among it: it must not be on the field in any
+   * form (see the note on the field, below).
+   */
   const described = $derived(
-    [...(card ? [] : ['own-hint']), 'open-count', ...(app.error ? ['open-error'] : [])].join(' '),
+    [
+      ...(card ? [] : ['own-hint']),
+      ...(app.platform && app.hintOpen ? ['dictation-hint'] : []),
+      'open-count',
+      ...(app.error ? ['open-error'] : []),
+    ].join(' '),
   );
 </script>
 
@@ -241,16 +252,17 @@
       <!-- The hint has no title of its own on the screen: "Prefer to talk?" is the button
            under it, which stays in its place, so the words are there once. The title is the
            hint's name for a screen reader. -->
-      <aside
+      <div
         class="hint"
         id="dictation-hint"
+        role="group"
         aria-label={app.copy.item('Titles', 'dictation hint')}
       >
         <p>{app.copy.item('Dictation hint', app.platform)}</p>
         <button type="button" onclick={() => showHint(false)}
           >{app.copy.item('Buttons', 'got it')}</button
         >
-      </aside>
+      </div>
     {/if}
   </div>
   <div class="meta">
@@ -272,7 +284,7 @@
         type="button"
         class="talk"
         aria-expanded={app.hintOpen}
-        aria-controls="dictation-hint"
+        aria-controls={app.hintOpen ? 'dictation-hint' : undefined}
         onclick={() => showHint(!app.hintOpen)}
       >
         <svg
