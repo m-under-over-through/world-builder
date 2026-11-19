@@ -78,7 +78,6 @@ describe('the screens render the words of copy.md', () => {
     const fan = document.querySelector('.fan')!;
     expect(fan.getAttribute('aria-hidden')).toBe('true');
     expect(fan.children).toHaveLength(4);
-    expect(screen.queryByText(copy.text('Welcome: your link'))).toBeNull();
     expect(screen.queryByText(copy.text('Welcome: no link'))).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
@@ -90,11 +89,18 @@ describe('the screens render the words of copy.md', () => {
     expect(screen.getByText(copy.text('Welcome: purpose'))).toBeTruthy();
   });
 
-  it('welcome, arrived through a link with a value: "This link is yours" under the paragraph, and "I understand"', () => {
+  it('welcome, arrived through a link with a value: the same page as through a link without one, "I understand", and no line about the link', () => {
+    const { unmount } = render(Welcome, { app: state({ arrival: { wave: 'wave-1' } }) });
+    const without = document.querySelector('.welcome .words')!.textContent;
+    unmount();
     render(Welcome, { app: state({ linkCode: CODE }) });
-    expect(screen.getByText(copy.text('Welcome: your link'))).toBeTruthy();
+    expect(document.querySelector('.welcome .words')!.textContent).toBe(without);
+    // Under the paragraph there is no line: neither "This link is yours" (gone on 18 November
+    // 2026) nor the one for a phone without a link.
+    expect(document.querySelectorAll('.welcome .line')).toHaveLength(0);
     expect(iUnderstand()).toBeTruthy();
     expect(document.body.textContent).not.toContain(CODE);
+    expect(document.body.textContent).not.toContain('This link is yours');
   });
 
   it('welcome, arrived through an invite: "I understand" as well', () => {

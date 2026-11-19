@@ -14,7 +14,7 @@ The script Marco runs on real hardware in week 3 (design plan, 9 to 13 November 
 
 Value: `marco-iphone-safari-01`. Second device: the laptop.
 
-1. In Safari, open `https://staging--worldbuilder-uot.netlify.app/rural-manufacturing/join/wave-1#p=marco-iphone-safari-01`. You see the welcome: the fanned cards, "The future of local production in America", the paragraph, "This link is yours...", and one black button, "I understand". The address bar ends in `/join/wave-1`, without the `#` part.
+1. In Safari, open `https://staging--worldbuilder-uot.netlify.app/rural-manufacturing/join/wave-1#p=marco-iphone-safari-01`. You see the welcome: the fanned cards, "The future of local production in America", the paragraph, and one black button, "I understand". The address bar ends in `/join/wave-1`, without the `#` part.
 2. Tap "I understand". The stack: in front, a card labelled "Try a card" that says "Open a card to answer. Swipe it away to set it aside.", with "Got it".
 3. Tap "Got it". The first card comes forward: its area at the top, the question, a pen with "Write an answer".
 4. Tap the card. It opens, the keyboard rises, the cursor is in the field. From the top of what is left above the keyboard: the ×, the question, the field, then Save, greyed out. On this first card the tip "Prefer to talk?" sits under the field, its words beside "Got it", and the field is two lines tall or more; tap "Got it" and the field takes the room, three lines or more, with "Prefer to talk?" as a link beside Save. "World Builder" and the "?" are hidden behind the open card. Under Save there is a strip of empty space, about a finger wide, where Safari's address bar floats: the bar must not cover Save. Nothing slides out at the top. **Then only the card scrolls (ADR 0025)**, with the card open and the keyboard up:
@@ -53,15 +53,15 @@ Value: `marco-iphone-gmail-01`. Second device: the laptop.
 
 Before: from the laptop, email yourself the link with this value, as a link. In the Gmail app on the iPhone, check in Gmail's settings (Default apps) that links open inside Gmail, not in Safari.
 
-1. In the Gmail app, tap the link. The page opens inside Gmail, with Gmail's bar around it. The welcome says "This link is yours...". If it does not, the `#` part was lost on the way: stop here and note it. This is the newsletter's risk (ADR 0018), and the most important line of this section.
+1. In the Gmail app, tap the link. The page opens inside Gmail, with Gmail's bar around it. The welcome shows, with "I understand". Nothing on it says whether the `#` part arrived: the welcome looks the same with and without it. Step 8 is the check, and the most important line of this section (the newsletter's risk, ADR 0018).
 2. Tap "I understand", then "Got it", then the first card. The keyboard rises; the ×, the question, the field and Save stay above it, and Gmail's own bar does not cover Save.
 3. Write a sentence and tap Save. The next card comes forward; the pill reads 1.
 4. Tap "Set aside". The card leaves.
 5. Tap "Your world so far": the sheet, your tile, one set-aside tile. Tap ×: it closes.
 6. Tap "Remind me" in the sheet. Note what happens: inside Gmail the calendar may not open. That is Gmail's choice, not a failure, as long as the page itself still works after it.
 7. Tap the "?" at the top right, open the fold, tap Back.
-8. Close the in-app browser and tap the link in the email again. Note which of the two you see: the cards where you left them, or the welcome with "This link is yours...". Both are right; on the welcome, "I understand" must land on your cards, with your answer as "Written on another phone." if Gmail kept nothing.
-9. From the in-app browser's menu, choose "Open in Safari". Expected today: Safari shows the welcome **without** "This link is yours", because the page had already dropped the `#` part from its address. Do not tap "I understand". Note it: a participant who moves to Safari this way starts over unless they open the email's link in Safari.
+8. Close the in-app browser and tap the link in the email again. Note which of the two you see: the cards where you left them, or the welcome. Both are right; on the welcome, "I understand" must land on your cards, with your answer as "Written on another phone." if Gmail kept nothing. If it lands on a first card with nothing answered, the `#` part was lost on the way: stop here and note it.
+9. From the in-app browser's menu, choose "Open in Safari". Expected today: Safari shows the welcome as for a new person, because the page had already dropped the `#` part from its address. Do not tap "I understand". Note it: a participant who moves to Safari this way starts over unless they open the email's link in Safari.
 10. On the laptop, open the same link with the same value: the cards, your iPhone answer as "Written on another phone."
 11. Back in Gmail's browser: the "?", "Delete everything and start over", "Yes, delete everything". The welcome. Reload on the laptop: "The link this phone remembered is not in use any more...".
 
@@ -69,7 +69,7 @@ Before: from the laptop, email yourself the link with this value, as a link. In 
 
 Value: `marco-android-chrome-01`. Second device: the iPhone.
 
-1. In Chrome, open the staging link with this value. The welcome with "This link is yours..." and "I understand"; the address bar without the `#` part.
+1. In Chrome, open the staging link with this value. The welcome with "I understand"; the address bar without the `#` part.
 2. Tap "I understand": "Try a card". Tap "Got it": the first card, with its area, the question and "Write an answer".
 3. Tap the card. The keyboard rises. The card shrinks to fit above it: the ×, the question, the field and Save all show, and the page does not jump. "Prefer to talk?" sits in the card with "Tap the microphone on your keyboard." There is no empty strip under Save here: Chrome has no floating bar. **Then only the card scrolls (ADR 0025)**, with the card open and the keyboard up:
    1. Drag the question, the row with Save, and the grey around the card, up and down. Nothing moves and nothing flickers.
@@ -143,7 +143,7 @@ Turn VoiceOver on and off: Settings, Accessibility, Accessibility Shortcut, choo
 | Three-finger swipe up / down                               | scrolls                                       |
 | Two-finger double-tap, in a text field                     | starts and stops dictation                    |
 
-1. Open the link. Swipe right from the top. You hear: "World Builder", the organizer line ("Under Over Through x Mechanism" for this workshop), "The future of local production in America, heading level 1", the purpose line, the paragraphs, "This link is yours...", "I understand, button". The fanned cards say nothing.
+1. Open the link. Swipe right from the top. You hear: "World Builder", the organizer line ("Under Over Through x Mechanism" for this workshop), "The future of local production in America, heading level 1", the purpose line, the paragraphs, "I understand, button". The fanned cards say nothing.
 2. Double-tap "I understand". VoiceOver lands on "World Builder, heading level 1". Swipe right: the organizer, "About this app, button" (the "?"), "Try a card", "Open a card to answer. Swipe it away to set it aside.", "Got it, button", "Set aside, button", "or swipe the card away", "Your world so far, 0 answered, button". The cards behind say nothing.
 3. Double-tap "Got it". VoiceOver lands on the first card: its area, its question, "Write an answer, button".
 4. Double-tap. You hear the question as the field's name, then "text field". Dictate a sentence (two-finger double-tap). Swipe right to "Save, button" (before you write it says "dimmed"); double-tap. You hear "Saved", and VoiceOver is on the next card.
@@ -169,7 +169,7 @@ Turn TalkBack on and off: Settings, Accessibility, TalkBack. Once the shortcut i
 | Reading controls: swipe up or down (older TalkBack), or three-finger swipe up or down (TalkBack 12 and later), until it says Headings | then swipe down / up: next / previous heading |
 | Swipe down then left, or the Back button                                                                                              | Back                                          |
 
-1. Open the link. Swipe right from the top. You hear the app's name, the organizer, "The future of local production in America, heading 1", the paragraphs, "This link is yours...", "I understand, button". The fanned cards say nothing.
+1. Open the link. Swipe right from the top. You hear the app's name, the organizer, "The future of local production in America, heading 1", the paragraphs, "I understand, button". The fanned cards say nothing.
 2. Double-tap "I understand". TalkBack lands on "World Builder, heading 1". Swipe right: the organizer, "About this app, button" (the "?"), "Try a card", its words, "Got it, button", "Set aside, button", the swipe hint, "Your world so far, 0 answered, button".
 3. Double-tap "Got it": TalkBack is on the first card, read as one button with its area, its question and "Write an answer".
 4. Double-tap. TalkBack says the question as the field's name and "edit box". Type or dictate a sentence. Swipe to "Save, button", double-tap: you hear "Saved", and TalkBack is on the next card.

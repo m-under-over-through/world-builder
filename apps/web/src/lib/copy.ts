@@ -162,7 +162,6 @@ export const COPY_TEXT = [
   'Demo card',
   'Remind me',
   'Not a workshop',
-  'Welcome: your link',
   'Welcome: no link',
   'Welcome: link not accepted',
   'Closed',
