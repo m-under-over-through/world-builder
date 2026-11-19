@@ -24,6 +24,7 @@ import {
   type Arrival,
   type Page,
 } from './route.ts';
+import { leaveStartOver, takeStartOver } from './start-over.ts';
 import {
   cardNumber,
   currentCardId,
@@ -572,6 +573,9 @@ export class AppState {
     this.store = await this.openStore(route.slug);
     const saved = await this.store.get('code');
     const stored = parseArrival(await this.store.get('arrival'));
+    // What "Delete everything" left for this load, in this tab (ADR 0026). Taken at once, so it
+    // is erased whatever this open turns out to be.
+    const startOver = takeStartOver(route.slug);
     this.home = pageHref(route.slug);
     if (route.wave) {
       // A wave is not a secret, so the address stays as it is: a copied address, the share sheet
@@ -613,6 +617,15 @@ export class AppState {
         this.linkCode = fromLink;
         await this.store.set(LINK_CODE, fromLink);
       }
+    } else if (startOver && !fromLink && !route.wave && !route.invite) {
+      // Everything was deleted a moment ago, in this tab, and the person is still here (ADR
+      // 0026): the welcome offers "I understand" again, and the join starts the same link over,
+      // as opening the email's link again would. In memory only: nothing goes back into the
+      // store, so a reload or a closed tab forgets it. A link opened just now wins over the note.
+      // Only at an address that names no wave and no invite, as the home the delete loads does:
+      // a wave link or an invite opened in this tab instead is a new arrival, and joins as one.
+      this.linkCode = startOver.code;
+      if (!this.arrival.wave && !this.arrival.invite) this.arrival = { wave: startOver.wave };
     }
     if (route.page === 'terms' || route.page === 'privacy') {
       this.openPage(route.page);
@@ -1323,12 +1336,23 @@ export class AppState {
     this.confirmingDelete = false;
   }
 
-  /** The second step: DELETE /me, then the device wiped, then the workshop's home. */
+  /**
+   * The second step: DELETE /me, then the device wiped, then the workshop's home, loaded afresh
+   * so nothing of the participant stays in memory. One note goes to that load, in the tab's
+   * session storage: the code and the wave, so the welcome can start the same link over without
+   * the email (ADR 0026; lib/start-over.ts). It is left only once the server has deleted and the
+   * device is wiped.
+   */
   async deleteMe(): Promise<void> {
     if (!this.store || !this.workshop || !this.confirmingDelete) return;
+    const code = this.code;
+    // The wave the server recorded for this participant, when it has said (GET /me): none for
+    // one who came through an invite. Only when it has not said, the wave this device last
+    // arrived through, which is the same unless it opened another wave's link since it joined.
+    const wave = this.me ? (this.me.participant.wave ?? undefined) : this.arrival.wave;
     const res = await api(`/${this.workshop.config.slug}/me`, {
       method: 'DELETE',
-      code: this.code,
+      code,
     });
     if (!res.ok) {
       this.fail(res.error);
@@ -1345,6 +1369,7 @@ export class AppState {
     } catch {
       /* nothing to remove where storage is refused */
     }
+    leaveStartOver(this.workshop.config.slug, code, wave);
     this.go(pageHref(this.workshop.config.slug));
   }
 

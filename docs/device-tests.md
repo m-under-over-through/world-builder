@@ -30,7 +30,7 @@ Value: `marco-iphone-safari-01`. Second device: the laptop.
 8. Tap "Your world so far". A white sheet rises: "1 answered · 2 set aside", your answer's tile with your words, two white tiles under "Set aside", and at the foot "Come back whenever you like..." with "Remind me". Tap "Remind me": the Calendar offers the event; cancel it. Drag the sheet down by its top: it closes.
 9. Tap the round "?" at the top right. Back at the top, the title, "The technical details" folded; no "?" on this page. Tap the fold: it opens. Tap Back: you are on the cards where you left them.
 10. On the laptop, open the same link with the same value. No welcome: the cards. In "Your world so far", your iPhone answer shows its question and "Written on another phone." instead of the words.
-11. On the iPhone: the "?", then "Delete everything and start over". The question "Delete everything you sent...?" with "Yes, delete everything" and "Keep my answers". Tap "Keep my answers": the question goes. Tap the delete button again, then "Yes, delete everything". You are on the welcome.
+11. On the iPhone: the "?", then "Delete everything and start over". The question "Delete everything you sent...?" with "Yes, delete everything" and "Keep my answers". Tap "Keep my answers": the question goes. Tap the delete button again, then "Yes, delete everything". You are on the welcome, with "I understand" under it (ADR 0026). Tap it: the first card with "Got it" comes first again, and "Your world so far" is empty. Then delete once more and reload the welcome: "I understand" is gone and the page says "To start, open the link you were sent." That is right: a reload forgets.
 12. On the laptop, reload the page. The welcome says "The link this phone remembered is not in use any more. Open the link from your email again."
 13. Settings, Accessibility, Motion, Reduce Motion on. Open the link again (it starts you over), tap "I understand", "Got it", then "Set aside": the card fades where it is, it does not fly. Turn Reduce Motion off.
 
@@ -63,7 +63,7 @@ Before: from the laptop, email yourself the link with this value, as a link. In 
 8. Close the in-app browser and tap the link in the email again. Note which of the two you see: the cards where you left them, or the welcome. Both are right; on the welcome, "I understand" must land on your cards, with your answer as "Written on another phone." if Gmail kept nothing. If it lands on a first card with nothing answered, the `#` part was lost on the way: stop here and note it. Landing on your cards does not yet prove the link arrived: if Gmail kept its storage, the cards come back from the phone itself. Step 10 is the other half.
 9. From the in-app browser's menu, choose "Open in Safari". Expected today: Safari shows the welcome as for a new person, because the page had already dropped the `#` part from its address. Do not tap "I understand". Note it: a participant who moves to Safari this way starts over unless they open the email's link in Safari.
 10. On the laptop, open the same link with the same value: the cards, your iPhone answer as "Written on another phone." If the laptop shows the welcome instead of the cards, the `#` part never reached the page in Gmail: the phone joined under a code of its own, and the server has not met this link. Stop here and note it.
-11. Back in Gmail's browser: the "?", "Delete everything and start over", "Yes, delete everything". The welcome. Reload on the laptop: "The link this phone remembered is not in use any more...".
+11. Back in Gmail's browser: the "?", "Delete everything and start over", "Yes, delete everything". The welcome, with "I understand". Do not tap it. Reload on the laptop: "The link this phone remembered is not in use any more...".
 
 ## 3. Android, Chrome
 
@@ -85,7 +85,7 @@ Value: `marco-android-chrome-01`. Second device: the iPhone.
 8. Open the sheet and tap "Remind me": the calendar app offers the event, or Chrome downloads `reminder.ics`. Note which. Close the sheet with ×.
 9. The "?" at the top right: the title, the fold opens and closes, Back returns to the card.
 10. On the iPhone, in Safari, open the same link with the same value: the cards, your Android answer as "Written on another phone."
-11. On the Android: the "?", "Delete everything and start over", "Keep my answers" (the question goes), delete again, "Yes, delete everything": the welcome.
+11. On the Android: the "?", "Delete everything and start over", "Keep my answers" (the question goes), delete again, "Yes, delete everything": the welcome, with "I understand". Tap it: the first card again.
 12. On the iPhone, reload: "The link this phone remembered is not in use any more...".
 
 ## 4. Laptop, Chrome

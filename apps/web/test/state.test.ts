@@ -485,7 +485,7 @@ describe('identity by the link (ADR 0018)', () => {
     },
   });
 
-  it('a link with a value: the fragment leaves the address, the welcome says the link is theirs, and the join carries the code the value makes', async () => {
+  it('a link with a value: the fragment leaves the address, the welcome is shown, and the join carries the code the value makes', async () => {
     const calls = stubRoutes({ [`/api/${SLUG}/me`]: [UNKNOWN], [`/api/${SLUG}/join`]: [JOINED] });
     const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     expect(location.hash).toBe('');

@@ -17,3 +17,4 @@ Explainers for the ideas in this codebase, written for the operator: someone who
 | `11-the-calendar-file.md`         | The iCalendar format, a repeating event with an alarm in floating time; why a file for everyone and not a service; how the build writes it       |
 | `12-unique-without-a-list.md`     | Drawing values at random instead of keeping a list; why 32 characters and not 36; the birthday sum for values and for codes                      |
 | `13-the-keyboard-and-the-page.md` | The page and the visible part of it; what a phone's keyboard does to each; how the app holds the page and which touches it stops                 |
+| `14-what-a-tab-remembers.md`      | Memory, session storage, local storage, IndexedDB and how long each lasts; the note "Delete everything" leaves for the next page load            |
