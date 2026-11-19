@@ -3057,14 +3057,14 @@ The brief asked for the differences between the stack's `save()` and `saveOwnCar
 | "Saved" for a screen reader | through `leave()`                          | directly                                          | directly                                                               |
 | The next card and its shown | `showCard()`                               | `showCard()` only when it was the card in front   | `showCard()` when it was the card in front, before the open card fades |
 | A store that throws         | `cardState` stuck on `saving`              | `ownSaving` reset in `finally`                    | `saving` reset in `finally`                                            |
-| The sync                    | in the background                          | the same                                          | the same                                                               |
+| The sync                    | in the background                          | the same                                          | the same: it starts before the open card fades                         |
 | The answered card           | drawn flying off (`exiting`)               | none                                              | none: the open card fades                                              |
 
 Why `replaySession` gives the same round as `withAnswer`: both add the card to the answered set and move the seq on by one; a card of the queue is a touch of the round either way; and `deckDone`, which `withAnswer` carries over and the replay works out again, can only differ when the deck is done, and then the round is over too and the next one is replayed from scratch.
 
 ### How to verify
 
-1. `npm run check`: 645 tests, exit 0.
+1. `npm run check`: 653 tests, exit 0.
 2. `npx vitest run apps/web/test/state.test.ts -t withAnswer`: the round after each save equals what `withAnswer` gave.
 3. On a laptop at 1280 by 800: Tab to the card in front, Enter. The open card is in the centre over the dimmed page, the card's slot is empty. Esc: the ring is back on the card. Enter, type, Save: the next card has the ring and the tile is on the right.
 4. On a phone (staging, not a preview): tap the card in front. It opens in the same framed box as a tile's card, the area and × at the top. `docs/device-tests.md` parts 1, 1b, 3, 4, 4b, 6 and 7b have the steps.
@@ -3082,8 +3082,34 @@ Why `replaySession` gives the same round as `withAnswer`: both add the card to t
 
 A local development server with no API, a code written into the browser's storage by hand, the browser pane's emulation (which counts as a touch phone below 768 pixels): the card in front open at 375 by 667, at 375 by 553 with the hint open, at 1280 by 800 with the hint open, and a blank card at 390 by 844. The layout is as described above. A desktop browser has no keyboard, so nothing here says how it sits above a real one. Marco's phone is the proof.
 
+### Review, and what the integrator changed before the merge
+
+A separate reviewer read the pull request against ADR 0027 and the brief, and compared the one save line by line with both saves on `main`. Verdict: merge after fixes; the one save is sound. The integrator looked at it in a browser against a local server at 1280 by 800 and at 375 by 553: on the laptop every kind of card (the card in front, an answer, a card set aside, a blank card) opened in the same box in the centre with × and "Save", and ×, Esc and the dimmed page each closed it and kept the words.
+
+Changed before the merge:
+
+- **The field was switched off while a card faded** (reviewer). A field that is switched off loses the focus. On a phone the keyboard would have gone down under the card as it faded, and the frame would have jumped. The field is never switched off now; what is typed during a save or a fade is not taken. × and "Save" are off meanwhile.
+- **Esc and Tab stopped working after "Prefer to talk?"** (builder and reviewer). The button takes itself off the card when pressed, the focus fell to the page, and the keys were heard on the card only. Now "Prefer to talk?" and "Got it" put the focus in the field in the same press, which also keeps a phone's keyboard up, and the keys are heard on the window: Esc closes from anywhere and Tab comes back into the card.
+- **The sync started after the fade** (reviewer), 280 milliseconds later than on `main`. It starts before the fade again.
+- **A card set aside that has come round was drawn twice** (reviewer) when opened from its tile: in the open card and in the stack. What is lifted is now decided by which card is open, not by where it was opened from, so the tile and the card in front are both lifted. After a save from the stack this also means the next card is drawn at once, behind the open card as it fades, and no longer pops in after it.
+- **A tap during a set-aside could undo it** (reviewer). While the card in front is on its way out, a card opened on a laptop left the set-aside unrecorded. Nothing opens during that third of a second now.
+- **A save that failed half-way left the card standing** (reviewer). Once the event is written the card is answered, and the open card goes whatever happens after; left standing, a second "Save" would have recorded the answer twice.
+- **A blank card could keep its words as a draft** (reviewer) when the screen changed under its save. The words of a card being saved are never kept for the next time.
+- **The thank-you card's focus** (reviewer). Saved from a tile, the last card of the deck left the focus on the tile. The thank-you card takes it, from the stack and from a tile alike.
+- **A test's name said more than it showed** (reviewer): "the same round" is checked for every card of a round but its last, whose save starts the next round. The name says so.
+- Eight tests added for the above, and one corrected. 653 tests in all.
+- Comments in `lib/viewport.ts`, `lib/page-lock.ts` and three editor's notes in the copy file said "place to write". They say "open card".
+
+After the fixes the integrator tried them in the same browser: "Prefer to talk?" and "Got it" left the cursor in the field; Esc closed the card with the focus on nothing; and during the fade after "Save" the field was still on, the next card was already drawn in the stack, and the focus then landed on it.
+
+Left as they are, and named here so nobody has to find them again:
+
+- **× on the card in front now takes 280 milliseconds**, the length of the fade. It was instant. And "Saving…" stays on the button through the fade.
+- **On an Android phone a tap on × or "Save" takes the focus from the field**, as a tap on any button does there, so the keyboard goes down as the card fades. It did before this change too. Only a phone can show how it looks.
+- **Nothing was seen with a real keyboard.** The rules of ADR 0025 for the framed box rest on the stylesheet tests and on the reviewer's reading.
+
 ### Open questions
 
-- **"Prefer to talk?" loses the focus.** The button goes when the hint opens, and the focus falls to the page. It did on the stack's card too. Moving the focus to "Got it", or to the field, would fix it; which one is a choice for a phone.
-- **`lib/viewport.ts` and `lib/page-lock.ts` still say "the place to write"** in a comment. They were not in this brief.
-- **`design/DESIGN.md`** still describes the stack's own open card and the answered card flying off.
+- **`design/DESIGN.md`** still describes the stack's own open card and the answered card flying off. It is an export of the design canvas and is not edited here.
+- **The sizes of the open card are the stack's for every card now**: the question at 27 or 28 pixels where a tile's card had 24, the area at 12 where it had 11. For Marco's eye.
+- **The motions of ADR 0027** are the second pull request: opening from what was tapped, closing back to it, and a saved card going to "Your world so far".
