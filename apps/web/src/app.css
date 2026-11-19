@@ -1497,6 +1497,31 @@ button.tile .pen {
 .own-card .own-actions .save.busy {
   opacity: 0.6;
 }
+/* An answer opened from its tile keeps the tint of its tile (ADR 0024): the place to write is
+   then the card as it was answered, its question, a rule and the words on the tint, with no box
+   around the field. The ring of the field stands 6 out, as on the open card, since the words
+   have no padding of their own. Muted is never drawn on a tint, so the counter is in soft ink. */
+.own-card.tinted {
+  background: var(--tint);
+}
+.own-card.tinted .rule {
+  flex: none;
+  height: 1px;
+  background: var(--rule-on-tint);
+}
+.own-card.tinted textarea {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.own-card.tinted textarea:focus-visible {
+  outline-offset: 6px;
+}
+.own-card.tinted .own-meta {
+  color: var(--color-ink-soft);
+}
 /* The place to write on a phone, framed as the open card is (ADR 0023, ADR 0025): from 8 under
    the top of what is visible to its bottom, the same strip free while the keyboard is up. A
    fixed box: the counter and the row with "Not now" and Save never move; the title and the hint,
@@ -1540,6 +1565,10 @@ button.tile .pen {
   flex: 1 1 0;
   min-height: calc(3lh + 27px);
   overflow-y: auto;
+}
+/* on a tint the field has no padding and no border: three lines are three lines */
+.app.framed .own-card.sheet.tinted textarea {
+  min-height: 3lh;
 }
 /* a frame too low for a foot that stays: the whole sheet scrolls, as the open card does */
 .app.framed.low .own-card.sheet {

@@ -41,7 +41,7 @@ Value: `marco-iphone-tiles-01`. Second device: the laptop.
 1. Open the staging link with this value, "I understand", "Got it". Answer the first card ("First words"), set the next one aside, and with "Write your own story" save a blank card ("My story").
 2. Tap "Your world so far". Each tile, the white one too, has a small pen in its top right corner. The tiles are no taller than before.
 3. Tap the white tile under "Set aside". The sheet closes and the place to write opens: the card's area and its question on top, the field empty, the keyboard up, "Not now" and "Save" above it with the strip under them. Type a few words and tap "Not now": you are back on the cards. Open the sheet and tap the same tile: your words are there. Tap "Save": you are on the cards. Open the sheet: the white tile is gone, the card is a tinted tile with your words, and the summary reads "3 answered · 0 set aside".
-4. In the sheet, tap the tile with "First words". The question on top and "First words" in the field. Change them and tap "Save". Open the sheet: the tile is in the same place, with the new words. The pill still reads 3.
+4. In the sheet, tap the tile with "First words". The place to write has the colour of the tile you tapped, a thin line under the question and no box around the words. The question on top and "First words" in the field. Change them and tap "Save". Open the sheet: the tile is in the same place, with the new words. The pill still reads 3.
 5. Tap the blank card's tile: "Your own card", the hint, "My story" in the field. Delete everything in the field: "Save" is greyed out. Type new words, "Save": still one blank card tile, with the new words.
 6. The front card has not moved through any of this. Reload the page: the same front card, the same tiles, the same words.
 7. On the laptop, open the same link with the same value. The tiles show "Written on another phone." and are not buttons: a click does nothing and the pointer is an arrow. A card set aside on the iPhone and not answered would still open there.
@@ -106,7 +106,7 @@ Value: `marco-laptop-chrome-01`. Second device: the iPhone. This section uses th
 
 ## 4b. Laptop, Chrome: tiles open with the keyboard (ADR 0024)
 
-1. With an answer and a card set aside on the right, Tab until a tile has the ring: it is a button. Press Enter. A card over the desk: the area, the question, the field with the cursor in it (empty for a card set aside, holding the words for an answer).
+1. With an answer and a card set aside on the right, Tab until a tile has the ring: it is a button. Press Enter. A card over the desk: the area, the question, the field with the cursor in it (empty for a card set aside, holding the words for an answer). The card of an answer has the colour of its tile; the card of a card set aside is white.
 2. Press Esc: it closes, and the ring is back on the same tile. Press Enter again, change the words, Tab to "Save", Enter. The tile shows the new words in the same place; "n answered" in the top bar has not changed.
 3. Open the card in front (Enter on it), then click a tile with the mouse: the card in front closes, keeping its words, and the tile's place to write opens.
 

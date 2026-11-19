@@ -242,6 +242,84 @@ describe('an answer', () => {
     );
   });
 
+  it('an answer opens on the tint of its tile; a card set aside and a blank card open white, as their tiles are', async () => {
+    const app = await started();
+    const first = await answerFront(app, 'First words');
+    const second = await answerFront(app, 'Second words');
+    const aside = app.card!.id;
+    await app.setAside();
+    expect(await app.saveOwnCard('My story')).toBe(true);
+    app.wide = true;
+    const user = userEvent.setup();
+    renderApp(app);
+    const tints: string[] = [];
+    for (const [id, words] of [
+      [first, 'First words'],
+      [second, 'Second words'],
+    ] as const) {
+      const tile = tileButton(words);
+      await user.click(tile);
+      const dialog = await placeToWrite(question(id));
+      const tint = dialog.style.getPropertyValue('--tint');
+      expect(tint).toMatch(/^var\(--tint-(sun|mint|sky|lilac)\)$/);
+      expect(tint).toBe(tile.style.getPropertyValue('--tint'));
+      expect(dialog.classList.contains('tinted')).toBe(true);
+      // No box around the field on a tint: a rule under the question, as on the open card.
+      expect(dialog.querySelector('.rule')).not.toBeNull();
+      tints.push(tint);
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    }
+    // Two cards one after the other in a round never share a tint.
+    expect(tints[0]).not.toBe(tints[1]);
+    for (const name of [question(aside), copy.text('Own card: tile')]) {
+      await user.click(tileButton(name));
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog.classList.contains('tinted')).toBe(false);
+      expect(dialog.style.getPropertyValue('--tint')).toBe('');
+      expect(dialog.querySelector('.rule')).toBeNull();
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    }
+    // "Write your own story" opens white too.
+    app.openOwnCard();
+    const blank = await placeToWrite(copy.text('Own card: title'));
+    expect(blank.classList.contains('tinted')).toBe(false);
+  });
+
+  it('a card set aside stays white while its answer is saved, though its tile is tinted from the moment the answer is recorded', async () => {
+    const app = await started();
+    const aside = app.card!.id;
+    await app.setAside();
+    app.wide = true;
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(tileButton(question(aside)));
+    const dialog = await placeToWrite(question(aside));
+    await user.type(within(dialog).getByRole('textbox'), 'Answered from its tile');
+    // Hold the write of the readable copy, the step after the event is recorded.
+    const store = db(app);
+    const putAnswer = store.putAnswer.bind(store);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    store.putAnswer = async (row) => {
+      await held;
+      return putAnswer(row);
+    };
+    await user.click(
+      within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'save') }),
+    );
+    await waitFor(() => expect(app.world.tiles.some((t) => t.cardId === aside)).toBe(true));
+    // The card is a tinted tile already, and the place to write is still open on it: white.
+    expect(app.writing).toBe(aside);
+    expect(app.writingTint).not.toBeNull();
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(dialog.classList.contains('tinted')).toBe(false);
+    expect(dialog.style.getPropertyValue('--tint')).toBe('');
+    release();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('changing an answer leaves the round as it was: the same front card, the same draft, the same queue', async () => {
     const app = await started();
     const answered = await answerFront(app, 'Kept for now');

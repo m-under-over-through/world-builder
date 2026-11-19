@@ -162,6 +162,33 @@ describe('the stylesheet: what a test DOM cannot see', () => {
       expect(r.body['color'], r.selectors.join(', ')).not.toBe('var(--color-muted)');
   });
 
+  it('an answer opened from its tile is on the tint of its tile: a rule under the question, no box around the field, and nothing in muted (ADR 0024)', () => {
+    expect(rule('.own-card.tinted')['background']).toBe('var(--tint)');
+    expect(rule('.own-card.tinted .rule')['background']).toBe('var(--rule-on-tint)');
+    const field = rule('.own-card.tinted textarea');
+    expect(field['background']).toBe('transparent');
+    expect(field['border']).toBe('0');
+    expect(field['padding']).toBe('0');
+    // The words have no padding of their own, so the ring stands as far out as on the open card.
+    expect(rule('.own-card.tinted textarea:focus-visible')['outline-offset']).toBe(
+      rule('.card.open textarea:focus-visible')['outline-offset'],
+    );
+    // With no padding and no border, three lines are three lines.
+    expect(rule('.app.framed .own-card.sheet.tinted textarea')['min-height']).toBe('3lh');
+    // Muted is under 4.5:1 on a tint: whatever the place to write draws in muted is in soft ink there.
+    const inMuted = rules.filter(
+      (r) =>
+        r.selectors.some((s) => s.includes('.own-card')) &&
+        r.body['color'] === 'var(--color-muted)',
+    );
+    expect(inMuted.length).toBeGreaterThan(0);
+    for (const r of inMuted)
+      for (const s of r.selectors) {
+        const onATint = s.replace('.own-card', '.own-card.tinted');
+        expect(rule(onATint)['color'], onATint).toBe('var(--color-ink-soft)');
+      }
+  });
+
   it('every control keeps its focus ring: 2px of ink, 3px out, and no rule takes the outline away', () => {
     const ring = rule(':focus-visible');
     expect(ring['outline']).toBe('2px solid var(--color-ink)');
