@@ -2,6 +2,7 @@ import { mount } from 'svelte';
 import { registerSW } from 'virtual:pwa-register';
 import './app.css';
 import App from './App.svelte';
+import { startApp } from './lib/boot.ts';
 import { manifestHref, pointManifest } from './lib/install.ts';
 import { parseRoute } from './lib/route.ts';
 import { findWorkshop } from './lib/workshops.ts';
@@ -12,7 +13,10 @@ import { findWorkshop } from './lib/workshops.ts';
 const slug = parseRoute(location.pathname)?.slug;
 if (!import.meta.env.DEV && slug && findWorkshop(slug)) pointManifest(document, manifestHref(slug));
 
-mount(App, { target: document.getElementById('app')! });
+// The page carries its own first screen until the app takes over (ADR 0028; lib/boot.ts): taken
+// away just before the mount, and put back if the mount throws.
+const target = document.getElementById('app')!;
+startApp(target, () => mount(App, { target }));
 
 // The service worker keeps the client's files for an installed app (apps/web/pwa.ts); a new
 // deploy replaces them on the next open. Registered here, from a module file, because an inline

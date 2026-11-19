@@ -486,6 +486,12 @@ Could not reach the server. Your answers are saved on this device and will sync 
 
 The text could not be copied. Select it and copy it by hand.
 
+## Error: CLIENT_NOT_STARTED (one line)
+
+<!-- Shown by the page itself, not by the app, when the app has not started after fifteen seconds (ADR 0028). The words say "if it stays like this": on a slow line the app may still be on its way. The same words are written in apps/web/index.html; change both together, or the check fails. -->
+
+This is taking longer than it should. If it stays like this, reload the page or open your link again.
+
 # Your own card
 
 <!-- The blank card (ADR 0022): a card with no question, which the participant writes. Its button sits under the stack, with "Set aside", on the card screen; it opens in the open card, as every card does (ADR 0027). Saved, it is a tile in "Your world so far". -->

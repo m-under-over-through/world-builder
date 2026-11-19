@@ -22,21 +22,47 @@ export function parseRetryAfter(header: string | null): number | undefined {
   return Math.min(MAX_RETRY_AFTER_SECONDS, Math.max(1, Number(header.trim())));
 }
 
+/**
+ * How long a request may take, answer and body included, before it is stopped (ADR 0028, point
+ * 3). Fifteen seconds: far longer than any answer of this API takes on a working line, and short
+ * enough that "Loading" on the first screen ends, where a browser left to itself waits about a
+ * minute (Safari) or several.
+ */
+export const REQUEST_TIMEOUT_MS = 15_000;
+/**
+ * The limit for the sync request that carries the outbox (lib/sync.ts). Sixty seconds: its body
+ * can be up to MAX_REQUEST_BYTES, and a small phone line must be allowed to finish sending it.
+ */
+export const SYNC_TIMEOUT_MS = 60_000;
+
+/**
+ * A request over its limit is stopped and comes back as one the network refused:
+ * CLIENT_SYNC_FAILED with status 0, which every caller handles already. The limit is kept with an
+ * AbortController and a timer, not AbortSignal.timeout, which older Safari lacks.
+ */
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: unknown; code?: string } = {},
+  init: { method?: string; body?: unknown; code?: string; timeoutMs?: number } = {},
 ): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};
   if (init.body !== undefined) headers['content-type'] = 'application/json';
   if (init.code) headers['authorization'] = `${AUTH_SCHEME} ${init.code}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), init.timeoutMs ?? REQUEST_TIMEOUT_MS);
   try {
     const request: RequestInit = {
       method: init.method ?? (init.body !== undefined ? 'POST' : 'GET'),
       headers,
+      signal: controller.signal,
     };
     if (init.body !== undefined) request.body = JSON.stringify(init.body);
     const res = await fetch(`/api${path}`, request);
-    const data = (await res.json().catch(() => null)) as T | { error?: string } | null;
+    // A body that is not JSON reads as no body; a body stopped by the limit is the request
+    // stopped, and goes to the catch below.
+    const data = (await res.json().catch((error: unknown) => {
+      if (controller.signal.aborted) throw error;
+      return null;
+    })) as T | { error?: string } | null;
     if (res.ok) return { ok: true, data: data as T };
     const code = (data as { error?: string } | null)?.error;
     const retryAfter =
@@ -49,5 +75,7 @@ export async function api<T>(
     };
   } catch {
     return { ok: false, error: 'CLIENT_SYNC_FAILED', status: 0 };
+  } finally {
+    clearTimeout(timer);
   }
 }

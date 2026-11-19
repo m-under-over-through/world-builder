@@ -121,6 +121,8 @@ export const CLIENT_ERROR_CODES = {
     'The last sync attempt failed; events wait in the outbox and the app retries.',
   CLIENT_COPY_FAILED:
     'The browser refused the clipboard on the invitation page; the text stays on the screen to be copied by hand.',
+  CLIENT_NOT_STARTED:
+    'The page arrived but the app did not start: its script failed to load, stalled, or stopped before the first screen. The page shows its own line (ADR 0028) and reloads itself once when the script failed to load.',
 } as const;
 export type ClientErrorCode = keyof typeof CLIENT_ERROR_CODES;
 

@@ -3252,3 +3252,94 @@ The reviewer of the open card read this one. Verdict: merge after fixes.
 - Marco's phone, for the check above.
 - A person can still turn the suggestion on or off for themselves: Settings, Safari, AutoFill, "Use Contact Info". The app cannot.
 - The reading pass that removes names before anyone reads the answers (the privacy policy, "Who sees what") is the last line of defence, and stays.
+
+## 2026-11-19, Thursday. The page is never empty, and no request waits for good (pull request 80)
+
+### What and why
+
+On 19 November the first open of a production link on Marco's phone gave a page with nothing on it until he reloaded. Once the app's script runs, the page always shows the header and "Loading", so the script did not run. The page as served had nothing in it until then: an empty `#app` and one script. If that script failed, stalled or threw, nothing showed, nothing said so, and nothing tried again. The cause is still not known. ADR 0028 makes the next one visible, and in the commonest case lets it mend itself. Learning note 16 explains the browser's side: [what a page shows before its script](learn/16-what-a-page-shows-before-its-script.md).
+
+A second gap was found by reading: `api()` had no time limit, so "Loading" could stay as long as the browser waited.
+
+### What exists now
+
+- **The page's own first screen**, in `apps/web/index.html`, inside `#app`: `div.app.boot`, with `header.topbar`, `.lines` and `span.name` ("World Builder"), and `main.text` with `p.muted`, "Loading…", as the app's own loading screen draws it, and a second paragraph, `p.muted.late`, the text of `CLIENT_NOT_STARTED`. (Since the review: "Loading" and the second paragraph are new; at first there was one line, hidden eight seconds.) Only `div`, `header`, `main`, `span` and `p`. No inline script, no `style`, no `on...`.
+- **The late line waits fifteen seconds** (eight before the review), by the stylesheet alone (`apps/web/src/app.css`): `visibility: hidden`, and an animation that starts after 15 seconds and ends on `visibility: visible`. A screen reader does not read the late line before it shows. The reduced-motion block leaves it alone on purpose: a delay is not motion. "Loading" shows from the start.
+- **The name does not move.** The page's header uses the app's classes. Two rules more: on a phone the room of the organizer's line is kept empty, since the app's first frame at a workshop's address has the organizer under the name and the header centres its lines; from 600 pixels the laptop header, which the app switches to before its first paint, with the room of the laptop's larger organizer.
+- **`apps/web/public/boot.js`**, loaded `<script async src="/boot.js">`. At the window's `load` (or at once, if the page has already loaded) it looks for `.boot` in `#app`. Gone: the app started. Still there: if the tab's session storage has no `wb:reloaded`, it sets it and calls `location.reload()`. Storage refused on read or write: no reload. It asks the network for nothing and logs nothing.
+- **`apps/web/src/lib/boot.ts`**, called by `main.ts`: takes the page's screen out of `#app`, mounts the app, then forgets `wb:reloaded`. If the mount throws, `#app` is put back as the page had it, the mark is kept, and the error goes on: `boot.js` then still finds the screen at `load`, and the reload happens once and not in a loop.
+- **A time limit on every request**, `apps/web/src/lib/api.ts`: `REQUEST_TIMEOUT_MS` (15 seconds), with an `AbortController` and a timer, cleared once the body has been read. The sync request that carries the outbox passes `SYNC_TIMEOUT_MS` (60 seconds), for its body of up to `MAX_REQUEST_BYTES` on a small phone line. A request over its limit returns `CLIENT_SYNC_FAILED` with status 0, exactly as a request the network refused.
+- **The new client code** `CLIENT_NOT_STARTED` (in `packages/contracts`, from the integrator), with its line in `copy.md` and its entry in `docs/runbook.md`. `CLIENT_SYNC_FAILED` in the runbook names the limits.
+- **"Delete everything" after a lost answer** (from the review): `AUTH_CODE_UNKNOWN` on the delete wipes the device as a delete that worked does, in `deleteMe`, `apps/web/src/lib/state.svelte.ts`.
+- 32 tests more, 720 in all: `apps/web/test/boot.test.ts` (the page, the stylesheet read as text, `boot.js` run against a stand-in window, the module, `main.ts` read as text), five in `api.test.ts`, two in `sync.test.ts`, six in `start-over.test.ts`. No existing test changed.
+
+### How to verify by hand
+
+1. `npm run check`: 720 tests, exit 0.
+2. `VITE_WB_ENV=staging npm run build --workspace=apps/web`. In `apps/web/dist/index.html` the module script is in the head, the page's screen in `#app`, and `<script async src="/boot.js"></script>` at the end of the body. `dist/boot.js` is the file in `public/` as it is, and `dist/sw.js` lists `boot.js` in its precache.
+3. On staging, in Chrome on a laptop: `docs/device-tests.md`, part 9. Block the app's script in the developer tools and reload: the name and "Loading", one more load of the page, then the line after fifteen seconds.
+4. On a phone: an ordinary open looks as before (part 9, the first two steps).
+
+### What the builder saw on the built page
+
+A throwaway static server (not in the repository) served `apps/web/dist` with the single-page fallback and the site's Content Security Policy, and could answer the app's script with the page itself, with a 404, or never. Chrome without a window was driven over its debugging protocol. No warning of the policy in any run.
+
+- **The script answered with the page once, then normally**: the page was asked for twice, then the app started (the welcome); the second load kept `#p=...` in the address until the app read it; the mark was gone after the start. The same with a 404 in place of the page.
+- **The script answered with the page every time**: the page was asked for exactly twice, never a third time. The name alone; the line hidden at 7.5 seconds and shown at 10. The mark set, the address still with its `#p=...`.
+- **The script never answered**: the page was asked for once and did not reload, since `load` never came. The line hidden at 7.5 seconds and shown at 10.
+- **An ordinary open**: the page loaded once, the welcome.
+- **The name's place**, measured on the page's screen and on the app's "Loading" (an API held open): 24 by 19.4 at 375 and 390 wide, 36 by 22 at 756 wide, the same on both. Before the organizer's room was kept, the name sat 7.6 pixels lower on a phone than in the app.
+- **A request held open**: "Loading" for 15 seconds, then the browser closed the request and the app went on to the welcome.
+- **Blocking the script in the developer tools**, with the service worker already installed: one reload, then the line. So part 9 of the device tests works on a laptop that has opened staging before.
+
+### Decisions made on the way
+
+- **The organizer's room is kept on a phone.** The brief asked for no organizer line and a name that does not move. On a phone the two disagreed: the header centres its lines, and the app's first frame at a workshop's address has two. The page keeps the second line's room empty, with padding; no tag and no word added. At an address that is not a workshop the name moves the other way, by the same amount; that page has no organizer, and no participant link goes there.
+- **The laptop header from 600 pixels**, for the same reason: the app is the laptop page before its first paint.
+- **A body stopped by the limit is the request stopped.** A body that is not JSON still reads as no body, as before; only a read the limit stopped goes to the failure. A stub that ignores the signal, as the tests' stubs do, is never failed by a timer, so no existing test changed meaning.
+- **The new section of `copy.md` carries a draft mark**, `[placeholder]`, as the file's own rules say for words that are still a draft, and an editor's note that the words are in `index.html` too. Marco deletes the mark when the words are final. (He approved the words of the review round on 19 November 2026, "Yes, final", and the mark is gone; see below.)
+- **The build log entry is at the bottom**, as this log's own first lines say ("Newest entry at the bottom"); the brief said the top.
+
+### Open questions
+
+From ADR 0028, "What this does not do":
+
+- A stylesheet that stalls: nothing is drawn until it arrives. A stylesheet that fails shows the page unstyled, with the line at once (seen on the built page, with the stylesheet answered 404 and the script failing).
+- A script that stalls without failing: no reload; the line after fifteen seconds.
+- A browser that draws nothing at all. From now on, a blank page without the app's name means that.
+- A device store that never answers: `openStore` still waits with no limit.
+- The service worker's reload a moment after a deploy: unchanged.
+
+And from here:
+
+- **"Loading", the sum.** The open waits for its requests before the first screen (`syncOnOpen` in `lib/sync.ts`): a queued join (15 seconds), then GET /me (15), then each batch of the outbox (60 each), one after the other. On a line that answers each just inside its limit that is 15 + 15 + 60 for one batch, 90 seconds of "Loading", and 60 more for each further batch. On a line that answers nothing it is less, since a failure stops the rest: a queued join that fails ends the open's requests at 15 seconds; without one, GET /me fails at 15 and the first batch is still tried, so 75 seconds with an outbox waiting, 15 without. Open: whether the open should give the outbox a short first try, or send it after the first screen.
+- The cause of the blank page of 19 November is still not known.
+
+### Review, and what changed before the merge
+
+An independent reviewer read the pull request, and the integrator looked at all three failure cases and two ordinary opens in a browser: they behaved as reported.
+
+- **Nothing tied `main.ts` to `startApp`** (reviewer). With a plain `mount(App, { target })` every test still passed, and the built app would then have sat beside the page's screen and reloaded on every open. A test now reads `main.ts` as text: it imports `startApp`, mounts the app inside it, and calls `mount(` nowhere else. Tried with the plain mount put back: the test failed. Put back as it was: it passes.
+- **Eight seconds was too short** (reviewer). The app's script is about 400 kB before compression; on a weak rural line it can take more than eight seconds while nothing is wrong, and a line that says "reload" then makes people throw away a download about to finish. The late line now waits fifteen seconds and its words are conditional: "This is taking longer than it should. If it stays like this, reload the page or open your link again." `docs/device-tests.md` says that on a very slow line the line can still show while the app arrives, and that this is expected.
+- **A bare name for many seconds** (integrator). On a weak line the page showed the name alone. The page's screen now carries "Loading…" too, from the start, in the place and with the classes of the app's own loading line, and its words are held equal to "loading" under "App labels" in every workshop's `copy.md`. The page's screen and the app's loading screen are now the same picture. The late line is a second paragraph with a class of its own, `late`, so nothing hides "Loading".
+- **From 600 pixels the page's header was 1.2 pixels shorter** than the app's (integrator): the organizer there is 12 pixels, not 11. The wide rule keeps its own room, and the stylesheet test reads both sizes from the organizer's rules.
+- **The delete and the new time limit** (reviewer). If the server deleted the participant and the answer was lost or cut off at fifteen seconds, the person saw `CLIENT_SYNC_FAILED`; pressed again, the server answered `AUTH_CODE_UNKNOWN` for a code it no longer knows, that was shown, and the device was never wiped. In the API, `DELETE /me` goes through the same check as every authenticated route: a code that matches no participant of the workshop gets 401 `AUTH_CODE_UNKNOWN` before anything else (or 429 `RATE_LIMITED` once the workshop's minute budget for unknown codes is spent), and the open-workshop check comes after it. So `AUTH_CODE_UNKNOWN` on the delete means the server holds nothing for this code: deleted a moment ago, or never met because the join is still queued on the device. That is what the person asked for, so the device now goes on as after a delete that worked: wipe, forget the workshop, leave the start-over note, load the home. Every other failure shows its line and wipes nothing. The runbook's `AUTH_CODE_UNKNOWN` and the screen map's failure list say so.
+- The build log entry has its number, 80.
+- **The words are final.** Marco read the new line on 19 November 2026 and approved it: "Yes, final". The draft mark in `copy.md` is gone, the words exactly as above; `grep -c '^\[placeholder\]'` on the copy file gives 0 again.
+
+### What the builder saw after the review
+
+The rebuilt page, the same throwaway server and Chrome without a window.
+
+- **The name and "Loading" do not move** when the app takes over. Measured on the page's screen (the app's script held) and on the app's own loading screen (GET /me held): at 375 wide the name at 24 by 19.4 and "Loading" at 28 by 68 on both; at 800 wide the name at 36 by 22 and "Loading" at 122 by 73.6 on both.
+- **An ordinary open** loads the page once, then the welcome.
+- **The script held**: one request for the page, no reload. The late line hidden at 14 seconds and shown at 16. "Loading" shown throughout.
+- **The script answered with the page every time**: the page asked for exactly twice. The late line hidden at 14 seconds and shown at 16.
+
+### The second read, the integrator's own look, and Marco's devices
+
+- **The second independent read** (after the fixes): nothing to fix before the merge. Each fix was taken out once in a copy and a test noticed each time: `main.ts` without `startApp`, the delete without its new condition, the late line's rule and its fifteen seconds. On the delete it looked for a case where the device is wiped while the server still holds the answers and found one: a changed or mistyped pepper, which makes every code unknown. The runbook's `AUTH_CODE_UNKNOWN` entry says so now. The list of participant texts no longer calls the line a draft.
+- **The integrator's look**, in the desktop app's browser against the built page and a throwaway server that can fail the app's script. The first version: the script failing every time, the page asked for exactly twice, the link's value kept, the name shown, the line shown after its wait; the script failing once, one reload and then the welcome, with GET /me sent under the code the link's value makes; the script never answering, no reload. An ordinary open, first and later: one load, no reload. After the fixes, at 375 wide with the script held: the name at 24 by 19.4, "Loading…" shown, the late line hidden with a delay of 15000. One thing learned about the tool: a browser pane that is not shown draws no frames, and a stylesheet animation does not advance without frames, so the wait had to be read after a screenshot had forced one.
+- **On staging** (the branch pushed to `staging` before the merge, since `main` now deploys to production): the operations repository's scan passes on the served page, with two scripts and six addresses.
+- **Marco, on staging, 19 November.** His first report: "it loads, but it still does the second jump. both on laptop and phone". Then, opening again: iPhone Safari, private and not, no jump; laptop Chrome, no jump; laptop Safari private, no jump; laptop Safari not private, a jump. That is the service worker's update: a device that has opened the app before reloads the page once on its first open after a deploy (ADR 0028, "What this does not do"), and every test of his came minutes after a deploy. The devices that had already taken the update did not jump again; the one that had not, did. No open without an earlier copy jumped, so the page's own reload did not fire on a page whose app started.
+- **Open, and asked of Marco the same day:** make that update quiet, so that the new version waits for the next open and no page is reloaded under someone who is writing. A draft is kept in memory only, so on a slow line the reload can take a half-written answer with it.

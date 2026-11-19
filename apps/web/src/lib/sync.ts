@@ -5,7 +5,7 @@ import {
   type JoinRequest,
   type MeResponse,
 } from '@wb/contracts';
-import { api, type ApiResult } from './api.ts';
+import { api, SYNC_TIMEOUT_MS, type ApiResult } from './api.ts';
 import { makeBatches } from './batches.ts';
 import { localDay, type Store } from './store.ts';
 
@@ -126,7 +126,12 @@ export async function syncNow(store: Store, slug: string, code: string): Promise
 async function pushOutbox(store: Store, slug: string, code: string): Promise<SyncStatus> {
   const { sessions, events } = await store.pending();
   for (const batch of makeBatches(sessions, events)) {
-    const res = await api<unknown>(`/${slug}/sync`, { body: batch, code });
+    // The one request with a large body has the longer limit (lib/api.ts, ADR 0028).
+    const res = await api<unknown>(`/${slug}/sync`, {
+      body: batch,
+      code,
+      timeoutMs: SYNC_TIMEOUT_MS,
+    });
     if (!res.ok) return failed(store, res);
     // An answer of another shape than the contract's marks nothing as accepted: the batch stays
     // in the outbox and is sent again, which the server takes without duplicating.

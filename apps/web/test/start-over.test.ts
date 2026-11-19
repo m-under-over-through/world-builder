@@ -4,7 +4,7 @@ import Welcome from '../src/screens/Welcome.svelte';
 import { leaveStartOver, START_OVER, takeStartOver } from '../src/lib/start-over.ts';
 import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
-import { pendingJoin } from '../src/lib/sync.ts';
+import { pendingJoin, queueJoin } from '../src/lib/sync.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import { freshIndexedDb, JOINED, stubRoutes, type Answer } from './helpers.ts';
 
@@ -240,6 +240,79 @@ describe('when no note is left', () => {
     expect(app.linkCode).toBe('');
     expect(sessionStorage.getItem(START_OVER)).toBeNull();
   });
+});
+
+describe('a delete whose answer did not come back (ADR 0028: a request has a time limit)', () => {
+  /** What the device's store holds for this workshop now, read afresh. */
+  async function storedCode(): Promise<string | undefined> {
+    const store = new WorkshopStore(SLUG);
+    const code = await store.get('code');
+    store.close();
+    return code;
+  }
+
+  it('a delete whose answer was lost and is pressed again wipes the device: the server answers AUTH_CODE_UNKNOWN, since it deleted the participant the first time', async () => {
+    stubRoutes({ [me]: [ME, OFFLINE, UNKNOWN] });
+    const app = await joined();
+    expect(await deleteEverything(app)).toBe('');
+    expect(app.error).toBe('CLIENT_SYNC_FAILED');
+    expect(await app.store!.get('code')).toBe(CODE);
+
+    const wentTo = await deleteEverything(app);
+    expect(wentTo).toBe(`/${SLUG}/`);
+    expect(await storedCode()).toBeUndefined();
+    expect(localStorage.getItem('wb:lastWorkshop')).toBeNull();
+    // As after any delete: the same tab can start the same link over.
+    expect(JSON.parse(sessionStorage.getItem(START_OVER)!)).toEqual({
+      slug: SLUG,
+      code: CODE,
+      wave: 'wave-1',
+    });
+  });
+
+  it('a delete on a device whose join never reached the server wipes the device, the queued join with it', async () => {
+    const store = new WorkshopStore(SLUG);
+    await store.set('code', CODE);
+    await store.set('arrival', JSON.stringify({ wave: 'wave-1' }));
+    await store.set('demoSeen', '2026-11-16');
+    await queueJoin(store, { code: CODE, wave: 'wave-1' });
+    store.close();
+    // The open tries the queued join first and gets no answer; the delete meets a code the
+    // server has never seen.
+    const calls = stubRoutes({ [join]: [OFFLINE], [me]: [UNKNOWN] });
+    const app = await opened(`/${SLUG}/`);
+    expect(await pendingJoin(app.store!)).toEqual({ code: CODE, wave: 'wave-1' });
+    const wentTo = await deleteEverything(app);
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([`POST ${join}`, `DELETE ${me}`]);
+    expect(wentTo).toBe(`/${SLUG}/`);
+    expect(await storedCode()).toBeUndefined();
+    const again = new WorkshopStore(SLUG);
+    expect(await pendingJoin(again)).toBeNull();
+    again.close();
+  });
+
+  for (const [what, answer, error] of [
+    ['no answer at all', OFFLINE, 'CLIENT_SYNC_FAILED'],
+    ['a server error', REFUSED, 'SERVER_ERROR'],
+    [
+      'a closed workshop',
+      (): Answer => ({ status: 403, body: { error: 'WORKSHOP_CLOSED' } }),
+      'WORKSHOP_CLOSED',
+    ],
+    [
+      "the minute's budget spent",
+      (): Answer => ({ status: 429, body: { error: 'RATE_LIMITED' } }),
+      'RATE_LIMITED',
+    ],
+  ] as const)
+    it(`any other failure still shows its line and wipes nothing: ${what}`, async () => {
+      stubRoutes({ [me]: [ME, answer] });
+      const app = await joined();
+      expect(await deleteEverything(app)).toBe('');
+      expect(app.error).toBe(error);
+      expect(await storedCode()).toBe(CODE);
+      expect(sessionStorage.getItem(START_OVER)).toBeNull();
+    });
 });
 
 describe('the note itself', () => {

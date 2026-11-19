@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { REQUEST_TIMEOUT_MS, SYNC_TIMEOUT_MS } from '../src/lib/api.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import {
   pendingJoin,
@@ -37,7 +38,10 @@ const event = {
   synced: 0 as const,
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe('a join made offline is sent before the first sync', () => {
   it('posts the queued join first, then the outbox, and forgets the join once accepted', async () => {
@@ -258,5 +262,72 @@ describe('a refusal that sending again cannot change', () => {
     ] as const)
       expect(refusedForGood(failedWith(status, code)), `${status} ${code}`).toBe(false);
     expect(refusedForGood({ lastResult: 'ok', outboxSize: 0, outboxSessions: 0 })).toBe(false);
+  });
+});
+
+describe('the time limits of the sync (ADR 0028)', () => {
+  /**
+   * A fetch that never answers, and is stopped as a browser stops it when its signal aborts. Each
+   * request's signal is kept by path, and `started` resolves when a path is first asked for.
+   */
+  function stubSilentApi() {
+    const signals = new Map<string, AbortSignal>();
+    const waiting = new Map<string, () => void>();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request, init: RequestInit = {}) => {
+        const path = String(input);
+        signals.set(path, init.signal!);
+        waiting.get(path)?.();
+        return new Promise<Response>((_, reject) =>
+          init.signal!.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          ),
+        );
+      }),
+    );
+    const started = (path: string) =>
+      signals.has(path)
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => waiting.set(path, resolve));
+    return { signals, started };
+  }
+
+  it('the sync request passes the longer limit: it is not stopped at fifteen seconds, it is at sixty, and the outbox waits', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await store.events.put(event);
+    const api = stubSilentApi();
+    // Only the timers api() uses are held; the device store keeps running on its own.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const status = syncNow(store, 'rural-manufacturing', CODE);
+    await api.started('/api/rural-manufacturing/sync');
+    const signal = api.signals.get('/api/rural-manufacturing/sync')!;
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(SYNC_TIMEOUT_MS - REQUEST_TIMEOUT_MS - 1);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signal.aborted).toBe(true);
+    expect(await status).toEqual({
+      lastResult: 'offline',
+      lastError: 'CLIENT_SYNC_FAILED',
+      outboxSize: 1,
+      outboxSessions: 0,
+    });
+  });
+
+  it('a queued join that gets no answer is stopped at fifteen seconds, and nothing else is sent', async () => {
+    const store = new WorkshopStore(`t-${Math.random()}`);
+    await queueJoin(store, { code: CODE, wave: 'wave-1' });
+    await store.events.put(event);
+    const api = stubSilentApi();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const status = syncNow(store, 'rural-manufacturing', CODE);
+    await api.started('/api/rural-manufacturing/join');
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    expect(api.signals.get('/api/rural-manufacturing/join')!.aborted).toBe(true);
+    expect((await status).lastResult).toBe('offline');
+    expect([...api.signals.keys()]).toEqual(['/api/rural-manufacturing/join']);
+    expect(await pendingJoin(store)).toEqual({ code: CODE, wave: 'wave-1' });
   });
 });
