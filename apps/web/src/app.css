@@ -133,6 +133,12 @@ body {
   margin: 0;
   min-height: 100%;
 }
+/* Where a scrollbar takes room (Windows, Linux), the room is kept when the page stops scrolling
+   under an open card. Without it the page grows 15 pixels wider as a card opens and shrinks
+   again as it closes, and a card on its way lands beside its place (ADR 0027). */
+html {
+  scrollbar-gutter: stable;
+}
 body {
   background-color: var(--color-ground);
   background-image: radial-gradient(var(--color-ground-dot) 1px, transparent 1.3px);
@@ -1099,10 +1105,10 @@ button.tile .pen {
 }
 .open-card.sheet {
   padding: 18px 20px calc(16px + var(--space-safe-bottom));
-  animation: fade-in 280ms var(--ease-sheet);
+  animation: open-in 280ms linear;
 }
 .open-card.sheet.closing {
-  animation: fade-out 280ms var(--ease-sheet) forwards;
+  animation: open-out 280ms linear forwards;
 }
 /* the head: the card's area on the left, × on the right; a blank card has the × only */
 .open-card .head {
@@ -1431,10 +1437,10 @@ button.tile .pen {
   border-radius: 26px;
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
-  animation: fade-in 280ms var(--ease-sheet);
+  animation: open-in 280ms linear;
 }
 .open-desk.closing {
-  animation: fade-out 280ms var(--ease-sheet) forwards;
+  animation: open-out 280ms linear forwards;
 }
 .open-desk h2,
 .open-desk .question {
@@ -1639,6 +1645,28 @@ button.tile .pen {
     opacity: 0;
   }
 }
+/* The open card comes in late and goes early (ADR 0027). Opening, it is clear for the first part
+   of its time, while the travelling card under it goes from what was tapped to its place; then
+   its words come in over the card that has arrived. Closing, its words go first, and the card is
+   seen on its way back. Opacity only: the open card never moves. */
+@keyframes open-in {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes open-out {
+  0% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0;
+  }
+}
 
 /* reduced motion: the fades stay, the movement goes */
 @media (prefers-reduced-motion: reduce) {
@@ -1658,6 +1686,15 @@ button.tile .pen {
     animation-name: fade-in;
   }
   .sheet.closing {
+    animation-name: fade-out;
+  }
+  /* nothing travels, so the open card has nothing to wait for: it fades at once */
+  .open-card.sheet,
+  .open-desk {
+    animation-name: fade-in;
+  }
+  .open-card.sheet.closing,
+  .open-desk.closing {
     animation-name: fade-out;
   }
   .pill:hover,

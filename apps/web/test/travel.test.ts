@@ -5,7 +5,7 @@ import type { Session } from '@wb/contracts';
 import App from '../src/App.svelte';
 import { currentCardId, replaySession } from '../src/lib/session.ts';
 import { AppState, CLOSE_MS } from '../src/lib/state.svelte.ts';
-import { opacityOf, routeOf, travelOf, type Rect } from '../src/lib/travel.ts';
+import { opacityOf, routeOf, TRAVEL_EASING, travelOf, type Rect } from '../src/lib/travel.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import { answerFront, freshIndexedDb, stubRoutes } from './helpers.ts';
@@ -89,19 +89,47 @@ describe('which place to which (lib/travel.ts)', () => {
     expect(travelOf(route, { open: OPEN, tile: TILE }, false)).not.toBeNull();
   });
 
-  it('it lands on the open card as that fades in, whole on a card or a tile, and fades into the pill, which is not a card', () => {
+  it('it is whole from its first frame on every way: it fades only at the end of an opening and into the pill, and lands whole on a card or a tile', () => {
     expect(routeOf('open', 'front', true)!.fade).toBe('out');
-    expect(routeOf('close', 'front', false)!.fade).toBe('in');
-    expect(routeOf('save', 'front', true)!.fade).toBe('in');
+    expect(routeOf('close', 'front', false)!.fade).toBe('whole');
+    expect(routeOf('save', 'front', true)!.fade).toBe('whole');
     expect(routeOf('save', 'front', false)!.fade).toBe('through');
     expect(routeOf('close', 'tile', false)!.fade).toBe('through');
-    const ends = (fade: 'in' | 'out' | 'through') => {
+    for (const fade of ['out', 'whole', 'through'] as const) {
       const frames = opacityOf(fade);
-      return [frames[0]!.opacity, frames.at(-1)!.opacity, frames[0]!.offset, frames.at(-1)!.offset];
-    };
-    expect(ends('out')).toEqual([1, 0, 0, 1]);
-    expect(ends('in')).toEqual([0, 1, 0, 1]);
-    expect(ends('through')).toEqual([0, 0, 0, 1]);
+      // From the start of its time to the end, and whole at the start: what it left is hidden
+      // from that moment, so a card that came up slowly would leave the card nowhere.
+      expect([frames[0]!.offset, frames.at(-1)!.offset], fade).toEqual([0, 1]);
+      expect(frames[0]!.opacity, fade).toBe(1);
+      // Never brighter then dimmer then brighter: it does not blink.
+      const values = frames.map((f) => f.opacity);
+      expect(
+        [...values].sort((a, b) => b - a),
+        fade,
+      ).toEqual(values);
+    }
+    expect(opacityOf('whole').at(-1)!.opacity).toBe(1);
+    expect(opacityOf('out').at(-1)!.opacity).toBe(0);
+    expect(opacityOf('through').at(-1)!.opacity).toBe(0);
+    // It is whole for more than half of its way before it starts to fade.
+    expect(opacityOf('out')[1]).toEqual({ offset: 0.6, opacity: 1 });
+    expect(opacityOf('through')[1]).toEqual({ offset: 0.55, opacity: 1 });
+  });
+
+  it('a place wholly off the screen means nothing travels: a tile under the fold, a card above the top', () => {
+    const route = routeOf('save', 'front', true);
+    const screen = { width: 1280, height: 800 };
+    expect(travelOf(route, { open: OPEN, tile: TILE }, false, screen)).not.toBeNull();
+    // Under the fold, to the right of the window, above the top, to the left.
+    for (const tile of [R(700, 800, 240, 150), R(1280, 140, 240, 150), R(700, -150, 240, 150)])
+      expect(travelOf(route, { open: OPEN, tile }, false, screen), JSON.stringify(tile)).toBeNull();
+    expect(travelOf(route, { open: R(-640, 100, 640, 600), tile: TILE }, false, screen)).toBeNull();
+    // A place that is partly on the screen is a place to go to.
+    expect(
+      travelOf(route, { open: OPEN, tile: R(700, 760, 240, 150) }, false, screen),
+    ).not.toBeNull();
+    // With no screen given, nothing is ruled out on that count.
+    expect(travelOf(route, { open: OPEN, tile: R(700, 5000, 240, 150) }, false)).not.toBeNull();
   });
 });
 
@@ -250,8 +278,9 @@ describe('the travelling card in the page (ADR 0027)', () => {
     const { from, to, way } = lastWay();
     expect(from).toEqual(px(FRONT));
     expect(to).toEqual(px(OPEN));
-    // In the length of the fade, with the fade's easing.
+    // In the length of the fade, with an easing of its own that spreads the way over that time.
     expect(way.options.duration).toBe(CLOSE_MS);
+    expect(way.options.easing).toBe(TRAVEL_EASING);
     // The field took the focus as it does without the box, and keeps it while the box travels.
     await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole('textbox')));
     way.finish();

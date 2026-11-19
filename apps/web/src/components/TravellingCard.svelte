@@ -4,6 +4,7 @@
   import { reducedMotion } from '../lib/swipe.ts';
   import {
     opacityOf,
+    TRAVEL_EASING,
     routeOf,
     travelOf,
     type Moment,
@@ -28,7 +29,8 @@
    * while it travels.
    *
    * Nothing waits for it. It runs inside the wait the state already makes for the fade
-   * (`CLOSE_MS`), with the fade's easing, so it arrives as the fade ends. Under reduced motion,
+   * (`CLOSE_MS`), so it arrives as the fade ends. The open card comes in late and goes early
+   * (the stylesheet's `open-in` and `open-out`), so the travelling card is seen on its way. Under reduced motion,
    * where a browser cannot animate, or where a rectangle cannot be measured, nothing travels and
    * the fade stands alone.
    *
@@ -109,7 +111,10 @@
     rects: Partial<Record<Place, Rect | null>>,
     radii: [string, string],
   ) {
-    const travel = travelOf(route, rects, reducedMotion() || !canAnimate());
+    const travel = travelOf(route, rects, reducedMotion() || !canAnimate(), {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
     flight = travel ? { ...travel, n: ++flights, tint: app.writingTint, radius: radii } : null;
   }
 
@@ -166,11 +171,12 @@
     });
   });
 
-  /** The way itself: position and size, and the fade, in the length and easing of the fade. */
+  /**
+   * The way itself: position and size in the length of the fade, with an easing of its own
+   * (`TRAVEL_EASING`) that spreads the way over that time, and the fade of lib/travel.ts.
+   */
   function fly(node: HTMLElement, f: Flight) {
-    const easing =
-      getComputedStyle(document.documentElement).getPropertyValue('--ease-sheet').trim() ||
-      'ease-out';
+    const easing = TRAVEL_EASING;
     const box = (r: Rect, radius: string) => ({
       left: `${r.left}px`,
       top: `${r.top}px`,

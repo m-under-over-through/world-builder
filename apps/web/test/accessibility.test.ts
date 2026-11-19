@@ -390,11 +390,29 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(css).not.toContain('--field-text');
   });
 
-  it('the open card fades in and out where it stands, on a phone and on a laptop, and does not slide up or grow (ADR 0025, ADR 0027)', () => {
-    expect(rule('.open-card.sheet')['animation']).toMatch(/^fade-in /);
-    expect(rule('.open-card.sheet.closing')['animation']).toMatch(/^fade-out /);
-    expect(rule('.open-desk')['animation']).toMatch(/^fade-in /);
-    expect(rule('.open-desk.closing')['animation']).toMatch(/^fade-out /);
+  it('the open card fades in and out where it stands, on a phone and on a laptop, and does not slide up or grow; it comes in late and goes early, so the travelling card is seen on its way (ADR 0025, ADR 0027)', () => {
+    expect(rule('.open-card.sheet')['animation']).toBe('open-in 280ms linear');
+    expect(rule('.open-card.sheet.closing')['animation']).toBe('open-out 280ms linear forwards');
+    expect(rule('.open-desk')['animation']).toBe('open-in 280ms linear');
+    expect(rule('.open-desk.closing')['animation']).toBe('open-out 280ms linear forwards');
+    // The two keyframes change the opacity and nothing else, and say when: clear for the first
+    // 45 hundredths of an opening, gone after the first 40 of a closing.
+    const keyframes = (name: string) =>
+      css.slice(css.indexOf(`@keyframes ${name} {`)).split(/\n}\n/)[0]!;
+    for (const name of ['open-in', 'open-out']) {
+      const properties = [...keyframes(name).matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1]);
+      expect(properties.length, name).toBeGreaterThan(1);
+      expect(new Set(properties), name).toEqual(new Set(['opacity']));
+    }
+    expect(keyframes('open-in').replace(/\s+/g, ' ')).toContain('0%, 45% { opacity: 0; }');
+    expect(keyframes('open-out').replace(/\s+/g, ' ')).toContain('40%, 100% { opacity: 0; }');
+    // With reduced motion nothing travels, so the open card does not wait: the plain fades.
+    const reducedRule = (selector: string) =>
+      reduced.find((r) => r.selectors.includes(selector))?.body['animation-name'];
+    expect(reducedRule('.open-desk')).toBe('fade-in');
+    expect(reducedRule('.open-card.sheet')).toBe('fade-in');
+    expect(reducedRule('.open-desk.closing')).toBe('fade-out');
+    expect(reducedRule('.open-card.sheet.closing')).toBe('fade-out');
     // The open card on a phone is also a .sheet, whose rise it must not take: its own rules come
     // later and weigh as much.
     const at = (selector: string) => topLevel.findIndex((r) => r.selectors.includes(selector));
@@ -432,7 +450,9 @@ describe('the stylesheet: what a test DOM cannot see', () => {
       const names = (r.body['animation'] ?? r.body['animation-name'] ?? '')
         .split(/\s+/)
         .filter((w) => /^[a-z]+-[a-z-]+$/.test(w));
-      for (const name of names) expect(['fade-in', 'fade-out'], where).toContain(name);
+      // The fades, and the open card's own two, which the test above shows to be fades too.
+      for (const name of names)
+        expect(['fade-in', 'fade-out', 'open-in', 'open-out'], where).toContain(name);
     }
   });
 

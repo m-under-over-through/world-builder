@@ -9,6 +9,7 @@ These are the words. Code, docs, tests and conversations use them exactly. A new
 - **round**: the word code and docs use for a session as it follows the last one without a pause.
 - **blank card**: a card with no question, which the participant writes. An `answered` event like any other, with a card id that starts with `own-` and is in no deck (ADR 0022).
 - **open card**: a card opened to write on. There is one, for every card: the card in front of the stack, a card set aside, an answer and a blank card open in it, in the centre of a laptop's page and above the keyboard on a phone (ADR 0027).
+- **travelling card**: the plain card, with the card's colour and nothing in it, that is drawn going from one place to another while a card opens, closes or is saved: from the stack or a tile to the open card, back again, or to "Your world so far". The open card itself never moves (ADR 0027).
 - **tile**: one card in "Your world so far": an answer with its words, or a card set aside, in white. A tile is a button: it opens the card to answer it or to change the answer (ADR 0024).
 - **latest answer**: when a card has more than one `answered` event, the one from the highest round, then the highest place in the round. It is the answer; the earlier ones stay stored and are not used.
 - **participant**: one anonymous code. Not a person: a person with two codes is two participants.

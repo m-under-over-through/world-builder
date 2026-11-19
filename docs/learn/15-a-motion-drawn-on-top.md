@@ -8,7 +8,7 @@ When a field takes the focus, the browser makes sure it can be seen. If the fiel
 
 ## The trick: a second box with nothing inside
 
-The motion is drawn by another box, the travelling card (`apps/web/src/components/TravellingCard.svelte`). It has the card's colour, corners and shadow, and no words, no field, no buttons. It is fixed to the screen, takes no touch, and a screen reader is told to skip it (`aria-hidden`). It sits over the dimmed page and under the open card, so the open card fades in over it and out from over it.
+The motion is drawn by another box, the travelling card (`apps/web/src/components/TravellingCard.svelte`). It has the card's colour, corners and shadow, and no words, no field, no buttons. It is fixed to the screen, takes no touch, and a screen reader is told to skip it (`aria-hidden`). It sits over the dimmed page and under the open card. The open card comes in late and goes early, so for most of its way the plain card is what the eye sees.
 
 What the eye sees: a plain card grows from the stack to the centre while the real one appears there; or the real one fades while a plain card shrinks back to the stack. Nothing that holds the field ever moves.
 
@@ -16,9 +16,10 @@ What the eye sees: a plain card grows from the stack to the centre while the rea
 
 1. **Measure where it starts.** Every element on the page can report its rectangle (`getBoundingClientRect`): its left, top, width and height on the screen. When a card opens, the rectangle of what was tapped is taken at the tap itself, before the app reacts. On a phone that matters: tapping a tile closes the sheet it is in, and a moment later there is no tile to measure.
 2. **Measure where it ends.** The open card, the card in front, the tile or the pill, measured from the element itself when the motion starts.
-3. **Decide which to which.** A small function (`apps/web/src/lib/travel.ts`) takes plain values (what happens, what was tapped, laptop or phone, the rectangles) and gives the two rectangles, or nothing. Nothing when motion is to be reduced, when a rectangle is missing or has no size. Because it only takes plain values, a test can check every case without a browser.
-4. **Move the box.** The browser's Web Animations API (`element.animate`) is given the first and last rectangle and a length, and draws every frame in between. Here the length is the fade's, 280 milliseconds, with the fade's curve, so the box arrives as the fade ends.
-5. **Take the box away** when its way is done.
+3. **Decide which to which.** A small function (`apps/web/src/lib/travel.ts`) takes plain values (what happens, what was tapped, laptop or phone, the rectangles) and gives the two rectangles, or nothing. Nothing when motion is to be reduced, when a rectangle is missing or has no size, or when either place is wholly off the screen (a tile far down a long list). Because it only takes plain values, a test can check every case without a browser.
+4. **Move the box.** The browser's Web Animations API (`element.animate`) is given the first and last rectangle and a length, and draws every frame in between. Here the length is the fade's, 280 milliseconds, so the box arrives as the fade ends. Its curve is its own: it starts gently, is fastest a third of the way in, and settles. The fade's own curve does nine tenths of its way in the first third of its time, and a card that moves like that is not seen travelling, only arriving.
+5. **Let it be seen.** Two boxes of the same colour in the same place look like one. So the open card stays clear for the first 45 hundredths of an opening, while the plain card comes over from the stack, and its words fade in on the card that has arrived. On the way out its words are gone after the first 40 hundredths, and the plain card is seen going back. The open card only ever changes how see-through it is. It never moves.
+6. **Take the box away** when its way is done.
 
 ## Why nothing waits longer
 
