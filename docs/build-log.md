@@ -2880,3 +2880,33 @@ Three things, and nothing else. The copy as Marco left it is compared with the c
 - The policy is about 510 words under a heading that says "under 400 words". The heading is a note to the editor, and nothing checks it.
 - The date at the end of "Changes" stands alone: "... and the date it changed. 18 November 2026." It may read better as "This version: 18 November 2026."
 - If the day participants are let in is to be a day still to come, that is `opensDay` in `workshop.json`, a decision for the production walk-through, not a sentence in the copy.
+
+## 2026-11-18, Wednesday night. The privacy policy says what is stored for your own card and a changed answer (pull request 74)
+
+### What
+
+- `workshops/rural-manufacturing/copy.md`, the privacy policy, "What we store": two sentences at its end. "A card you write yourself is stored the same way, as one more answer. If you change an answer, the earlier version is kept, locked, next to the new one until everything is deleted."
+- `docs/participant-texts.md`: the same paragraph.
+
+### Why
+
+Two things became true on 18 November that the policy did not say. A participant can write a card of their own (ADR 0022). And an answer can be changed from its tile (ADR 0024): the app never edits what is stored, so the earlier version stays on the server, sealed, until the deletion day. ADR 0024's consequences asked for the sentence.
+
+The second one matters to a person. Someone who rewrites an answer to take something back, a name for example, would think the first words are gone. They are held until 5 February 2027, or until "Delete everything".
+
+The sentences were proposed to Marco before his read of the copy file. He missed them, asked what they were, and said: "Yes, add both."
+
+### How to verify
+
+1. `npm run check`: 622 tests, exit 0.
+2. On staging, tap "?" and open "Privacy policy": "What we store" ends with the two sentences.
+
+### Decisions made on the way
+
+- **No promise that only the latest version is read.** The export gives the latest answer to each card, and gives the earlier ones too when run with `--all-versions`. A policy sentence has to hold without an "unless", so it says what is kept and stops there.
+- **No separate reviewer and no new test.** Words only, approved by the operator. No test pins a sentence of the copy.
+
+### Open questions
+
+- None about the words. This closes the open question of pull request 73 and the consequence of ADR 0024 about the policy.
+- The policy is now about 545 words under a heading that says "under 400 words". Nothing checks the heading.
