@@ -3013,6 +3013,7 @@ The reviewer was asked to read this one as an adversary, since it touches who a 
 - **Sentences that said too much** (reviewer). "Delete everything leaves nothing on the device" left out the note's one page load, and the workshop's name, which the home writes back into local storage as it always has. The record and the learning note now say exactly what is where and for how long. The record also says what is new: while that welcome is on the screen, the phone alone is enough to start as that link.
 - **A test with a name too big** (reviewer). "Another tab has no note" emptied the storage by hand. It is now named for what it shows, and says why.
 - Four tests added: the true wave; a wave link or an invite opened in that tab; offline at "I understand"; the same link joined from another phone in between.
+- **A second read by the reviewer** of these changes: merge, both edges closed and no new one. Its one note, a test that named the queued join without checking it, is fixed.
 - Found right: every way through the open with a note (no code, a link with the same code, one with another, a stored code, a stored link code); the join through a 200, a taken code, a rate limit and no network; and the reasoning that a fresh code would be wrong for anyone whose code came from their link.
 
 ### Open questions

@@ -4,6 +4,7 @@ import Welcome from '../src/screens/Welcome.svelte';
 import { leaveStartOver, START_OVER, takeStartOver } from '../src/lib/start-over.ts';
 import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
+import { pendingJoin } from '../src/lib/sync.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
 import { freshIndexedDb, JOINED, stubRoutes, type Answer } from './helpers.ts';
 
@@ -196,6 +197,7 @@ describe('after "Delete everything", in the same tab', () => {
     await again.join();
     expect(again.code).toBe(CODE);
     expect(await again.store!.get('code')).toBe(CODE);
+    expect(await pendingJoin(again.store!)).toEqual({ code: CODE, wave: 'wave-1' });
     expect(again.screen).toBe('card');
   });
 
