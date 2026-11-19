@@ -6,7 +6,7 @@
  * on it scrolls, and `overflow: hidden` on the page does not stop that. The open card follows
  * the visible part a moment late (lib/viewport.ts), and the picture flickers.
  *
- * So while a card or the place to write is open on a phone, this guard watches every finger on
+ * So while a card is open on a phone (ADR 0027), this guard watches every finger on
  * the page. A drag is let through only when it lands on something that scrolls up and down and
  * has more to show in the direction the finger goes: the text in the field, or the part of the
  * card around it. Every other drag is cancelled, and nothing moves. Two fingers are never

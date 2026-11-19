@@ -75,6 +75,9 @@
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
       void tick().then(() => {
         if (from === 'front') return;
+        // The last card of the deck was answered here: the thank-you card takes the focus
+        // (Stack.svelte), so a screen reader reads it.
+        if (!app.card && app.live?.deckDone) return;
         if (from === 'new') return document.getElementById(OWN_CARD_OPENER)?.focus();
         if (!wide) return document.getElementById(WORLD_PILL)?.focus();
         const tile = [...document.querySelectorAll<HTMLElement>('[data-tile]')].find(
@@ -89,15 +92,28 @@
     void app.closeCard();
   }
 
-  /** Past the limit the input is refused, never cut through a pair (CRYPTO_BAD_TEXT). */
+  /**
+   * Past the limit the input is refused, never cut through a pair (CRYPTO_BAD_TEXT). While the
+   * card is being saved or is fading out, what is typed is not taken. The field is never
+   * switched off for that: a field that is switched off loses the focus, and on a phone the
+   * keyboard would go down under the card while it fades, and the frame would jump (ADR 0025).
+   */
   function onInput(event: Event) {
     const el = event.currentTarget as HTMLTextAreaElement;
+    if (busy) {
+      el.value = app.openDraft;
+      return;
+    }
     if (codePoints(el.value) > MAX_ANSWER_CHARS)
       el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
     app.openDraft = el.value;
   }
 
-  /** Esc closes; Tab and Shift+Tab stay inside. */
+  /**
+   * Esc closes; Tab and Shift+Tab stay inside. Heard on the window, not on the dialog: when the
+   * focus is on nothing (a button that was pressed and has gone), a key pressed is the page's,
+   * and the page behind is `inert`. Esc must still close, and Tab must come back in.
+   */
   function onKey(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -113,19 +129,32 @@
     if (focusable.length === 0) return;
     const first = focusable[0]!;
     const last = focusable.at(-1)!;
-    if (event.shiftKey && document.activeElement === first) {
+    const inside = dialog.contains(document.activeElement);
+    if (event.shiftKey && (!inside || document.activeElement === first)) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
       event.preventDefault();
       first.focus();
     }
+  }
+
+  /**
+   * "Prefer to talk?" and "Got it" each take themselves off the card when pressed. The focus
+   * goes to the field in the same press: it is where the person dictates, and on a phone a
+   * focus anywhere else lowers the keyboard, which has the microphone.
+   */
+  function showHint(open: boolean) {
+    app.hintOpen = open;
+    field?.focus();
   }
 
   const described = $derived(
     [...(card ? [] : ['own-hint']), 'open-count', ...(app.error ? ['open-error'] : [])].join(' '),
   );
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="scrim" class:closing={app.closing} role="presentation" onclick={close}></div>
@@ -141,7 +170,6 @@
   aria-labelledby="open-title"
   tabindex="-1"
   bind:this={dialog}
-  onkeydown={onKey}
 >
   <!-- The head never moves (ADR 0025): the card's area on the left, × on the right. A card
        without an area keeps an empty label; a blank card has the × only. -->
@@ -187,14 +215,13 @@
       bind:this={field}
       value={app.openDraft}
       oninput={onInput}
-      disabled={busy}
       aria-label={card ? card.text : app.copy.text('Own card: field')}
       aria-describedby={described}></textarea>
     {#if app.platform && app.hintOpen}
       <aside class="hint">
         <h2>{app.copy.item('Titles', 'dictation hint')}</h2>
         <p>{app.copy.item('Dictation hint', app.platform)}</p>
-        <button type="button" onclick={() => (app.hintOpen = false)}
+        <button type="button" onclick={() => showHint(false)}
           >{app.copy.item('Buttons', 'got it')}</button
         >
       </aside>
@@ -212,7 +239,7 @@
   {/if}
   <div class="actions">
     {#if app.platform && !app.hintOpen}
-      <button type="button" class="talk" onclick={() => (app.hintOpen = true)}>
+      <button type="button" class="talk" onclick={() => showHint(true)}>
         <svg
           aria-hidden="true"
           width="16"

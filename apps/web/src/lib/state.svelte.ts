@@ -230,6 +230,11 @@ export class AppState {
   saving = $state(false);
   /** True while the open card fades out where it stands, closed or saved. */
   closing = $state(false);
+  /**
+   * True while the card in front is on its way out sideways, before "Set aside" is recorded
+   * (Stack.svelte). No card opens meanwhile: a card opened then would leave the set-aside undone.
+   */
+  leaving = $state(false);
   /** Whether the dictation hint opens by itself on the card in front: its first card of the first round. */
   private frontHint = false;
   /** True while a card is open, whichever card. */
@@ -1054,13 +1059,14 @@ export class AppState {
    * begun on it. The dictation hint is open when this is the first card of the first round.
    */
   openCard(): void {
-    if (!this.card || !this.canWrite || this.writing !== null || this.saving) return;
+    if (!this.card || !this.canWrite || this.writing !== null || this.saving || this.leaving)
+      return;
     this.openFor(this.card.id, 'front');
   }
 
   /** "Write your own story": the open card opens for a new blank card, with the words left there last time. */
   openOwnCard(): void {
-    if (!this.canWrite || this.writing !== null || this.saving) return;
+    if (!this.canWrite || this.writing !== null || this.saving || this.leaving) return;
     this.openFor(NEW_OWN_CARD, 'new');
   }
 
@@ -1072,7 +1078,7 @@ export class AppState {
    * On a phone the sheet closes first.
    */
   openTile(cardId: string): void {
-    if (!this.canWrite || this.writing !== null || this.saving) return;
+    if (!this.canWrite || this.writing !== null || this.saving || this.leaving) return;
     if (!this.tileOpens(cardId)) return;
     this.worldOpen = false;
     this.openFor(cardId, 'tile');
@@ -1120,6 +1126,12 @@ export class AppState {
   private putAway(): void {
     const key = this.writing;
     if (key === null) return;
+    // The words of a card being saved are an answer, not a draft: when the screen changes under
+    // a save (the workshop closed meanwhile), nothing is kept for the next time.
+    if (this.saving) {
+      this.writing = null;
+      return;
+    }
     const text = this.openDraft;
     const answer =
       key === NEW_OWN_CARD ? undefined : this.world.tiles.find((t) => t.cardId === key)?.answer;
@@ -1194,10 +1206,15 @@ export class AppState {
       return false;
     }
     this.saving = true;
+    // Once the event is written the card is answered, and the open card goes whatever happens
+    // after: left standing, a second "Save" would record the answer twice.
+    let recorded = false;
+    let sync: Promise<unknown> = Promise.resolve();
     try {
       const cardId = target === NEW_OWN_CARD ? newOwnCardId() : target;
       const session = this.live.session;
       const event = await this.record('answered', sealed, cardId);
+      recorded = true;
       // The readable copy goes next to the outbox, never into it: the event above carries the
       // sealed text only, and `putAnswer` writes a table no sync ever reads (lib/store.ts).
       const key = answerKey(session.id, cardId);
@@ -1211,13 +1228,18 @@ export class AppState {
       this.announce('saved');
       // The next card comes forward behind the open card, which still shows the card answered.
       if (front) await this.showCard();
+      // The sync starts now, as it did before ADR 0027, and not after the fade: what is on the
+      // screen never waits for it, and it never waits for what is on the screen.
+      sync = this.requestSync();
       await this.fadeOut();
-      this.openDraft = '';
-      this.writing = null;
     } finally {
+      if (recorded) {
+        this.openDraft = '';
+        this.writing = null;
+      }
       this.saving = false;
     }
-    await this.requestSync();
+    await sync;
     return true;
   }
 

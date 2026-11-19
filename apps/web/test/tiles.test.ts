@@ -201,6 +201,24 @@ describe('a card set aside', () => {
     expect(tintOf(app.world.tiles.find((t) => t.cardId === id)!.n)).toBe(tintOf(0));
   });
 
+  it('a card set aside that has come round is lifted in both places while it is open from its tile: its tile, and the card in front', async () => {
+    const app = await started();
+    const id = await setAsideUntilBack(app);
+    app.wide = true;
+    const user = userEvent.setup();
+    renderApp(app);
+    // The card in front and its white tile both carry the question: the tile is found by its id.
+    const tile = document.querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
+    await user.click(tile);
+    await screen.findByRole('dialog', { name: question(id) });
+    // One card, one place (ADR 0027): it is in the open card, and nowhere else on the page.
+    expect(tile.classList.contains('lifted')).toBe(true);
+    expect(document.querySelector('.card.front')!.classList.contains('lifted')).toBe(true);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.querySelector('.lifted')).toBeNull();
+  });
+
   it('answering the front card from its own set-aside tile brings the next card forward', async () => {
     const app = await started();
     const id = await setAsideUntilBack(app);

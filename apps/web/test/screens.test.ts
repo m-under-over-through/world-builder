@@ -243,13 +243,17 @@ describe('the screens render the words of copy.md', () => {
     ).toBe(false);
   });
 
-  it('the card, saving: Save reads "Saving…" and is off, as is the field', () => {
+  it('the card, saving: Save reads "Saving…" and is off, and so is ×; the field is not switched off, so it keeps the focus and a phone keeps its keyboard', () => {
     openFront({ saving: true, openDraft: 'An answer' });
     const save = screen.getByRole('button', {
       name: copy.item('Card states', 'saving'),
     }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
+    const close = screen.getByRole('button', {
+      name: copy.item('Card labels', 'close without saving'),
+    }) as HTMLButtonElement;
+    expect(close.disabled).toBe(true);
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(false);
   });
 
   it('the onboarding card: the tinted front of the stack, "Try a card" as its label, its words, "Got it" as an ink pill; the first card waits behind it in its tint, not a button', () => {

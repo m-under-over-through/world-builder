@@ -488,17 +488,17 @@ The text could not be copied. Select it and copy it by hand.
 
 # Your own card
 
-<!-- The blank card (ADR 0022): a card with no question, which the participant writes. Its button sits under the stack, with "Set aside", on the card screen; it opens a place to write, a sheet on a phone and a wide card on a laptop. Saved, it is a tile in "Your world so far". -->
+<!-- The blank card (ADR 0022): a card with no question, which the participant writes. Its button sits under the stack, with "Set aside", on the card screen; it opens in the open card, as every card does (ADR 0027). Saved, it is a tile in "Your world so far". -->
 
 ## Own card: button (a few words)
 
-<!-- The quiet button under the stack that opens the place to write. Also under the thank-you card once the deck is done. -->
+<!-- The quiet button under the stack that opens a new blank card. Also under the thank-you card once the deck is done. -->
 
 Write your own story
 
 ## Own card: title (a few words)
 
-<!-- The title at the top of the place to write. -->
+<!-- The title at the top of an open blank card. -->
 
 Your own card
 

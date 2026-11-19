@@ -102,7 +102,7 @@ describe('saving an answer', () => {
     expect(app.cardOpen).toBe(false);
   });
 
-  it('a save from the stack gives the round withAnswer gave: the same plan, the same sets, the same seq, the same deck state, a set-aside and a round end included', async () => {
+  it('a save from the stack gives the round withAnswer gave, for every card of a round but its last and with a card set aside: the same plan, the same sets, the same seq; the last card starts the next round, as it always did', async () => {
     // Before ADR 0027 the stack's save moved the round on with `withAnswer`; the one save replays
     // the round from its events (`replaySession`). Card by card, the round after a save must be
     // the one `withAnswer` gives, with the next card's `shown` on top.
@@ -121,7 +121,8 @@ describe('saving an answer', () => {
       compared++;
     }
     expect(compared).toBe(2);
-    // The round ended on its last card: the next round starts as it always did.
+    // The last card of the round is not compared: its save ends the round, and the round on the
+    // screen afterwards is the next one, replayed from nothing, whichever way the last was made.
     expect(app.sessionNo).toBe(2);
   });
 });

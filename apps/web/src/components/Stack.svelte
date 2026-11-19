@@ -36,12 +36,17 @@
    * card comes forward one slot, as any card does.
    */
   let { app }: { app: AppState } = $props();
-  let leaving = $state(false);
   let front: HTMLButtonElement | undefined = $state();
 
   const busy = $derived(app.saving);
-  /** The card in front is in the open card (ADR 0027): it is lifted from its slot meanwhile. */
-  const lifted = $derived(app.writing !== null && app.openedFrom === 'front');
+  /**
+   * The card in front is in the open card (ADR 0027): it is lifted from its slot meanwhile, from
+   * wherever it was opened. A card set aside that has come round is in front and has a tile; one
+   * card, one place, so it is lifted here when it was opened from its tile too. After a save the
+   * card in front is the next card, which is not the open one: it is drawn at once, behind the
+   * open card as that fades.
+   */
+  const lifted = $derived(app.writing !== null && app.writing === app.card?.id);
   /** With the onboarding card in front, every real card sits one slot further back. */
   const behind = $derived(app.demoFront ? 1 : 0);
   /** The real cards on the screen, back to front, so the front one paints last. */
@@ -61,10 +66,15 @@
 
   /** The front card leaves sideways, then is recorded set aside; the onboarding card just goes. */
   async function setAside() {
-    if (busy || leaving || app.cardOpen) return;
-    leaving = true;
-    if (!reducedMotion()) await app.wait(SWIPE_MS);
-    leaving = false;
+    if (busy || app.leaving || app.cardOpen) return;
+    // `app.leaving`, not a flag of this component: while the card is on its way out, nothing
+    // else may open a card, a tile on a laptop included, or this set-aside would not be recorded.
+    app.leaving = true;
+    try {
+      if (!reducedMotion()) await app.wait(SWIPE_MS);
+    } finally {
+      app.leaving = false;
+    }
     await app.setAside();
   }
 
@@ -72,26 +82,30 @@
   const thanks = $derived(!app.card && !app.demoFront && Boolean(app.live?.deckDone));
   let thanksCard: HTMLDivElement | undefined = $state();
 
-  // The front card takes the focus when the open card it was lifted into closes, and when the
-  // onboarding card goes, so the keyboard and the screen reader stay on the loop. After a save
-  // that is the next card, already in front. When the last card goes, the button that sent it
-  // goes too (Save, Set aside), so the thank-you card takes the focus, and a screen reader reads
-  // it. While a card is open the page is `inert` and refuses the focus, so a thank-you card that
-  // came behind the open card takes it once the open card has gone (ADR 0027).
-  let wasLifted = false;
+  // Where the focus goes when it would otherwise be lost (ADR 0027).
+  // - The open card closes and it was opened from the card in front: the card in front takes
+  //   the focus. After a save that is the next card. When that was the last card of the deck,
+  //   the thank-you card takes it, so a screen reader reads it.
+  // - The onboarding card goes: the card in front.
+  // - The thank-you card comes while no card is open (the last card was set aside): it takes
+  //   the focus, since the button that sent the card away has gone with it.
+  // - The thank-you card comes behind an open card that was opened from a tile: it takes the
+  //   focus once the open card has gone. OpenCard.svelte leaves the focus alone in that case.
+  // While a card is open the page is `inert` and refuses the focus, so nothing is tried then.
+  let wasOpen = false;
   let wasDemo = false;
-  let wasThanks = false;
+  let thanksSeen = false;
   $effect(() => {
-    const isLifted = lifted;
+    const isOpen = app.cardOpen;
+    const fromFront = app.openedFrom === 'front';
     const isDemo = app.demoFront;
     const isThanks = thanks;
-    const open = app.cardOpen;
-    if ((!isLifted && wasLifted) || (!isDemo && wasDemo))
+    if ((!isOpen && wasOpen && fromFront) || (!isDemo && wasDemo))
       void tick().then(() => (front ?? thanksCard)?.focus());
-    else if (isThanks && !wasThanks && !open) void tick().then(() => thanksCard?.focus());
-    wasLifted = isLifted;
+    else if (isThanks && !thanksSeen && !isOpen) void tick().then(() => thanksCard?.focus());
+    if (!isOpen) thanksSeen = isThanks;
+    wasOpen = isOpen;
     wasDemo = isDemo;
-    wasThanks = isThanks;
   });
 </script>
 
@@ -107,12 +121,12 @@
         <button
           type="button"
           class="card front"
-          class:leaving
+          class:leaving={app.leaving}
           class:lifted
           bind:this={front}
           use:swipe={{
             onDismiss: () => app.setAside(),
-            enabled: () => !busy && !leaving && !app.cardOpen,
+            enabled: () => !busy && !app.leaving && !app.cardOpen,
           }}
           onclick={() => app.openCard()}
         >
@@ -145,12 +159,12 @@
     <div class="slot slot-0" style:--tint={`var(--tint-${tintOf(0)})`}>
       <div
         class="card front demo"
-        class:leaving
-        use:swipe={{ onDismiss: () => app.dismissDemo(), enabled: () => !leaving }}
+        class:leaving={app.leaving}
+        use:swipe={{ onDismiss: () => app.dismissDemo(), enabled: () => !app.leaving }}
       >
         <span class="label">{app.copy.item('Card labels', 'demo label')}</span>
         <p class="demo-words">{app.copy.text('Demo card')}</p>
-        <button type="button" class="pill" disabled={leaving} onclick={setAside}
+        <button type="button" class="pill" disabled={app.leaving} onclick={setAside}
           >{app.copy.item('Buttons', 'got it')}</button
         >
       </div>
@@ -170,7 +184,7 @@
     type="button"
     class="link own-open"
     id={OWN_CARD_OPENER}
-    disabled={busy || leaving}
+    disabled={busy || app.leaving}
     onclick={() => app.openOwnCard()}>{app.copy.text('Own card: button')}</button
   >
 {/snippet}
@@ -178,7 +192,7 @@
 {#if app.card || app.demoFront || app.ownCardOffered}
   <div class="aside-row">
     {#if app.card || app.demoFront}
-      <button type="button" class="ghost" disabled={busy || leaving} onclick={setAside}>
+      <button type="button" class="ghost" disabled={busy || app.leaving} onclick={setAside}>
         {app.copy.item('Buttons', 'set aside')}
         <svg
           aria-hidden="true"

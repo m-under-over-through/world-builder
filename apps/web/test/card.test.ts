@@ -714,6 +714,39 @@ describe('one open card for every card (ADR 0027)', () => {
     await waitFor(() => expect(document.activeElement).toBe(note));
   });
 
+  it('a save of the last card from its tile gives the focus to the thank-you card too, not back to the tile', async () => {
+    const warmup = workshop.deck.cards.find((c) => c.set === 'warmup')!;
+    const checkpoint = workshop.deck.cards.find((c) => c.set === 'checkpoint')!;
+    stubRoutes({});
+    const app = new AppState();
+    app.workshop = {
+      ...workshop,
+      deck: { ...workshop.deck, cards: [warmup, checkpoint] },
+      config: { ...workshop.config, warmupsPerSession: 1, checkpointsPerSession: 1 },
+    };
+    app.copy = copy;
+    app.store = new WorkshopStore(SLUG);
+    await app.store.set('demoSeen', '2026-11-16');
+    app.code = '1234567890123456';
+    app.wait = async () => {};
+    await app.enterSession();
+    await answerFront(app, 'Warm-up');
+    // The last card is set aside once: it comes round, in front again, with a white tile too.
+    await app.setAside();
+    expect(app.card!.id).toBe(checkpoint.id);
+    expect(app.world.aside.map((t) => t.cardId)).toEqual([checkpoint.id]);
+    app.wide = true;
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(document.querySelector<HTMLElement>(`[data-tile="${checkpoint.id}"]`)!);
+    const dialog = await screen.findByRole('dialog', { name: checkpoint.text });
+    await user.type(within(dialog).getByRole('textbox'), 'The last one');
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const note = await screen.findByRole('note');
+    await waitFor(() => expect(document.activeElement).toBe(note));
+  });
+
   it('the dictation hint opens by itself on the first card of the first round in the open card; "Prefer to talk?" opens it on a tile\'s card and on a blank card', async () => {
     const app = await onACard({ platform: 'Android' });
     await app.enterSession();
@@ -760,6 +793,147 @@ describe('one open card for every card (ADR 0027)', () => {
     expect(hint()).toBeNull();
     await user.click(talk());
     expect(hint()).toBeTruthy();
+  });
+});
+
+describe('the open card while it is saved, fades or the card in front leaves (ADR 0027)', () => {
+  /** A wait that does not end until the test says so: the fade, or the card's way out, held open. */
+  function heldWait(app: AppState): () => void {
+    let release = () => {};
+    app.wait = () => new Promise<void>((resolve) => (release = resolve));
+    return () => release();
+  }
+  const closeButton = (dialog: HTMLElement) =>
+    within(dialog).getByRole('button', { name: copy.item('Card labels', 'close without saving') });
+  const answered = async (app: AppState) =>
+    (await (app.store as WorkshopStore).events.toArray()).filter((e) => e.kind === 'answered');
+
+  it('while the open card fades after a save, a second Save, a close and a tap on a card do nothing; the next card is already in front, the sync has started, and the answer is recorded once', async () => {
+    const app = await onACard();
+    const calls = stubRoutes({});
+    const first = app.card!.id;
+    app.openCard();
+    app.openDraft = 'Once';
+    const release = heldWait(app);
+    const saving = app.save();
+    await vi.waitFor(() => expect(app.closing).toBe(true));
+    // The card answered is still the open one; behind it the next card has come forward.
+    expect(app.writing).toBe(first);
+    expect(app.card!.id).not.toBe(first);
+    // The sync does not wait for the fade.
+    expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true);
+    expect(await app.save()).toBe(false);
+    await app.closeCard();
+    app.openCard();
+    app.openOwnCard();
+    expect(app.writing).toBe(first);
+    release();
+    expect(await saving).toBe(true);
+    expect(app.writing).toBeNull();
+    expect((await answered(app)).map((e) => e.cardId)).toEqual([first]);
+  });
+
+  it('the field is never switched off: while the card fades it keeps the focus, so a phone keeps its keyboard, and what is typed then is not taken', async () => {
+    const app = await onACard();
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(frontCard());
+    const dialog = await screen.findByRole('dialog', { name: app.card!.text });
+    const field = within(dialog).getByRole('textbox') as HTMLTextAreaElement;
+    await user.type(field, 'Kept');
+    const release = heldWait(app);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(app.closing).toBe(true));
+    expect(field.disabled).toBe(false);
+    expect(document.activeElement).toBe(field);
+    await user.keyboard(' and more');
+    expect(field.value).toBe('Kept');
+    expect(app.openDraft).toBe('Kept');
+    release();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(app.draft).toBe('Kept');
+  });
+
+  it('"Prefer to talk?" and "Got it" leave the focus in the field; with the focus on nothing, Esc still closes the card and Tab comes back into it', async () => {
+    const app = await onACard({ platform: 'Android' });
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(frontCard());
+    const dialog = await screen.findByRole('dialog', { name: app.card!.text });
+    const field = within(dialog).getByRole('textbox');
+    await user.click(
+      within(dialog).getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    );
+    expect(screen.getByText(copy.item('Dictation hint', 'Android'))).toBeTruthy();
+    expect(document.activeElement).toBe(field);
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    expect(document.activeElement).toBe(field);
+    // The focus on nothing, as after a press on a button that has gone.
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    (document.activeElement as HTMLElement).blur();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('while the card in front is on its way out, nothing opens, and the set-aside is recorded', async () => {
+    const app = await onACard();
+    const user = userEvent.setup();
+    renderApp(app);
+    const first = app.card!.id;
+    const release = heldWait(app);
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'set aside') }));
+    expect(app.leaving).toBe(true);
+    app.openCard();
+    app.openOwnCard();
+    expect(app.writing).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    release();
+    await waitFor(() => expect(app.live!.dismissed.has(first)).toBe(true));
+    expect(app.leaving).toBe(false);
+  });
+
+  it('the screen changing under a save keeps no words for the next time: a new blank card opens empty', async () => {
+    const app = await onACard();
+    app.openOwnCard();
+    app.openDraft = 'A story';
+    const release = heldWait(app);
+    const saving = app.save();
+    await vi.waitFor(() => expect(app.closing).toBe(true));
+    // As when the server says the workshop has closed while the card fades.
+    app.screen = 'closed';
+    expect(app.writing).toBeNull();
+    release();
+    expect(await saving).toBe(true);
+    app.wait = async () => {};
+    app.screen = 'card';
+    app.openOwnCard();
+    expect(app.openDraft).toBe('');
+    expect(await answered(app)).toHaveLength(1);
+  });
+
+  it('× is off while the card is saved or fades, and Save too', async () => {
+    const app = await onACard();
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(frontCard());
+    const dialog = await screen.findByRole('dialog', { name: app.card!.text });
+    await user.type(within(dialog).getByRole('textbox'), 'An answer');
+    const release = heldWait(app);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(app.closing).toBe(true));
+    expect((closeButton(dialog) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (
+        within(dialog).getByRole('button', {
+          name: copy.item('Buttons', 'save'),
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    release();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });
 

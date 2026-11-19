@@ -22,8 +22,11 @@
    */
   let { app, sheet = false }: { app: AppState; sheet?: boolean } = $props();
   const world = $derived(app.world);
-  /** The tile the open card was opened from, lifted meanwhile (ADR 0027). */
-  const lifted = (cardId: string) => app.openedFrom === 'tile' && app.writing === cardId;
+  /**
+   * The tile of the card that is open, lifted meanwhile (ADR 0027), from wherever the card was
+   * opened: a card set aside that has come round has a tile here and is the card in front too.
+   */
+  const lifted = (cardId: string) => app.writing === cardId;
 </script>
 
 {#snippet pen(words: string)}
