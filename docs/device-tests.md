@@ -53,16 +53,16 @@ Value: `marco-iphone-gmail-01`. Second device: the laptop.
 
 Before: from the laptop, email yourself the link with this value, as a link. In the Gmail app on the iPhone, check in Gmail's settings (Default apps) that links open inside Gmail, not in Safari.
 
-1. In the Gmail app, tap the link. The page opens inside Gmail, with Gmail's bar around it. The welcome shows, with "I understand". Nothing on it says whether the `#` part arrived: the welcome looks the same with and without it. Step 8 is the check, and the most important line of this section (the newsletter's risk, ADR 0018).
+1. In the Gmail app, tap the link. The page opens inside Gmail, with Gmail's bar around it. The welcome shows, with "I understand". Nothing on it says whether the `#` part arrived: the welcome looks the same with and without it. Steps 8 and 10 together are the check, and the most important lines of this section (the newsletter's risk, ADR 0018).
 2. Tap "I understand", then "Got it", then the first card. The keyboard rises; the ×, the question, the field and Save stay above it, and Gmail's own bar does not cover Save.
 3. Write a sentence and tap Save. The next card comes forward; the pill reads 1.
 4. Tap "Set aside". The card leaves.
 5. Tap "Your world so far": the sheet, your tile, one set-aside tile. Tap ×: it closes.
 6. Tap "Remind me" in the sheet. Note what happens: inside Gmail the calendar may not open. That is Gmail's choice, not a failure, as long as the page itself still works after it.
 7. Tap the "?" at the top right, open the fold, tap Back.
-8. Close the in-app browser and tap the link in the email again. Note which of the two you see: the cards where you left them, or the welcome. Both are right; on the welcome, "I understand" must land on your cards, with your answer as "Written on another phone." if Gmail kept nothing. If it lands on a first card with nothing answered, the `#` part was lost on the way: stop here and note it.
+8. Close the in-app browser and tap the link in the email again. Note which of the two you see: the cards where you left them, or the welcome. Both are right; on the welcome, "I understand" must land on your cards, with your answer as "Written on another phone." if Gmail kept nothing. If it lands on a first card with nothing answered, the `#` part was lost on the way: stop here and note it. Landing on your cards does not yet prove the link arrived: if Gmail kept its storage, the cards come back from the phone itself. Step 10 is the other half.
 9. From the in-app browser's menu, choose "Open in Safari". Expected today: Safari shows the welcome as for a new person, because the page had already dropped the `#` part from its address. Do not tap "I understand". Note it: a participant who moves to Safari this way starts over unless they open the email's link in Safari.
-10. On the laptop, open the same link with the same value: the cards, your iPhone answer as "Written on another phone."
+10. On the laptop, open the same link with the same value: the cards, your iPhone answer as "Written on another phone." If the laptop shows the welcome instead of the cards, the `#` part never reached the page in Gmail: the phone joined under a code of its own, and the server has not met this link. Stop here and note it.
 11. Back in Gmail's browser: the "?", "Delete everything and start over", "Yes, delete everything". The welcome. Reload on the laptop: "The link this phone remembered is not in use any more...".
 
 ## 3. Android, Chrome
