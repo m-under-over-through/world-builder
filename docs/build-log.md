@@ -3343,3 +3343,64 @@ The rebuilt page, the same throwaway server and Chrome without a window.
 - **On staging** (the branch pushed to `staging` before the merge, since `main` now deploys to production): the operations repository's scan passes on the served page, with two scripts and six addresses.
 - **Marco, on staging, 19 November.** His first report: "it loads, but it still does the second jump. both on laptop and phone". Then, opening again: iPhone Safari, private and not, no jump; laptop Chrome, no jump; laptop Safari private, no jump; laptop Safari not private, a jump. That is the service worker's update: a device that has opened the app before reloads the page once on its first open after a deploy (ADR 0028, "What this does not do"), and every test of his came minutes after a deploy. The devices that had already taken the update did not jump again; the one that had not, did. No open without an earlier copy jumped, so the page's own reload did not fire on a page whose app started.
 - **Open, and asked of Marco the same day:** make that update quiet, so that the new version waits for the next open and no page is reloaded under someone who is writing. A draft is kept in memory only, so on a slow line the reload can take a half-written answer with it.
+
+## 2026-11-19, Thursday, evening. An update waits for the next open (pull request 81)
+
+### What and why
+
+Marco on staging: "it loads, but it still does the second jump". After every deploy, a device that had opened the app before showed the page, then showed it again a moment later. The registration code that comes with `vite-plugin-pwa` reloaded the page the moment a new service worker took over. On a slow line that reload came many seconds in and took a half-written answer with it. ADR 0029: the page registers the worker itself and does nothing when a new one takes over; the new version is what the next open gets. Learning note 10 now explains the update: [the installed app](learn/10-the-installed-app.md).
+
+### What exists now
+
+- **`apps/web/src/lib/offline-copy.ts`**: one function, `keepOfflineCopy`, that calls `navigator.serviceWorker.register('/sw.js', { scope: '/' })`. Nothing where the browser has no worker. A refusal is swallowed. No listener of any kind, no reload.
+- **`apps/web/src/main.ts`** calls it where `registerSW({ immediate: true })` was, at the same moment, and no longer imports `virtual:pwa-register`. Not in development, as before: the plugin's development code registered nothing there.
+- **`apps/web/pwa.ts`**: the worker's settings are unchanged. The comments say who registers it now, and that `registerType: 'autoUpdate'` is what makes `dist/sw.js` start with `self.skipWaiting(), e.clientsClaim()`, read in the build.
+- **The build** no longer has `assets/workbox-window.prod.es5-*.js`, and the worker's precache no longer lists it: one request and one file fewer.
+- 7 tests more, 727 in all, in `apps/web/test/offline-copy.test.ts`: the module (registers `/sw.js` at `/`; nothing without a worker; a refusal throws nothing and leaves no unhandled rejection; no listener), `main.ts` read as text, no reload anywhere in `src` and exactly one in `public/boot.js`, no dynamic `import(` in `src`.
+
+### How to verify by hand, on staging: two deploys in a row
+
+`docs/device-tests.md`, part 10. After this change is deployed, each device that had staging before jumps once more, for the last time: its copy still holds the old code. After the next deploy, of any commit, the first open shows no jump and the page keeps working; the page about the app still names the previous commit. The open after that names the new one. A new private tab always gets the newest.
+
+### What the builder saw
+
+Three builds into a folder outside the repository: **old** is `a0ab58e` as on `main` (extracted with `git archive`, built with this worktree's `node_modules`, `VITE_WB_ENV=staging`; script `index-YmhcF-eX.js`, with `workbox-window`); **new-1** is this branch with `VITE_WB_ENV=staging` (`index-lUBfQ5lz.js`); **new-2** is this branch with `VITE_WB_ENV=production` (`index-DCh0_Bf5.js`; the production key makes a different script). A throwaway server served the build named in a file it reads on every request, so a deploy was one word written to that file. It sent Netlify's `cache-control` and the site's Content Security Policy, and refused `/api/*` at the socket, so the app took the API as no network. Chrome 157 without a window, driven over its debugging protocol; a mark set on `window` after the first load tells a reload from none.
+
+1. **new-1, first open**: the page from the network, once (`navigate`); the worker installed and in control at 122 ms; no reload in 10 seconds. "I understand", "Got it": the cards.
+2. **new-1, open again**: `navigate`, the page from the copy (the server saw only `/sw.js`), one load, no reload.
+3. **Switch to new-2, open.** `/sw.js` held 8 seconds by the server, to leave time to type. The page ran new-1's script. At 3 seconds a card opened and "The street smells of bread" typed. At 10.05 seconds the worker in control changed; the copy then held new-2's script and no longer new-1's. The page was not reloaded (one load, the mark still there at 20 seconds), and the field still held the words.
+4. **Open again**: new-2's script, `navigate`, one load, no reload.
+5. **A fresh profile, old, then new-1.** The old build's first open: no reload (nothing to update). Switch to new-1 and open: the page ran old's script, and at 3.07 seconds it reloaded itself (`reload`, the mark gone), now with new-1's script. That is the last reload ADR 0029 expects. Then new-2 (step 3 again, `/sw.js` held 5 seconds): new-1's script, "Bread" typed at 2 seconds, the worker changed at 7.05 seconds, no reload, the words still there. Open again: new-2's script, no reload.
+6. **The server off**, with the worker from step 4 in control: the workshop's address opened from the copy, new-2's script, the cards.
+
+And one more, not asked: after a deploy, with the old files already dropped, Save on the page left open worked ("1 answered", no error).
+
+### Decisions made on the way
+
+- **Registered at once, not at `load`**, as `registerSW({ immediate: true })` did.
+- **`scope: '/'` is written out**, as the plugin's code did; it is also the default for `/sw.js`.
+- **Nothing in development**, matched by reading the plugin: its development `registerSW` does nothing at all.
+- **`vite-plugin-pwa/client` stays in `apps/web/tsconfig.json`**, and `workbox-window` in the dependencies: nothing fails with them, and the brief says to leave them. Neither is imported any more.
+
+### Open questions
+
+From ADR 0029, "What this does not do":
+
+- A device that holds a copy from before this change reloads one last time, on its first open after this change is deployed. Only testers' devices hold one.
+- A fix reaches a device one open later than before.
+- Testing a deploy takes two opens, or a private tab.
+- The first open ever is as it was.
+
+And from here:
+
+- Between a deploy and a device's next open, the old client talks to the new server. Every deploy during the collection has to accept what the previous client sends.
+- `workbox-window` is still a dependency of the package and nothing imports it. Removing it is a separate change, as the brief says.
+
+### The review, and the integrator's own look
+
+- **The independent review** found nothing to fix before the merge. It read the plugin's registration code that the page no longer uses: in this mode it registers, reloads on an update, and does nothing else, so nothing but the reload is lost. It built the client and read the worker: `skipWaiting` and `clientsClaim` run inside the worker, whatever the page does. It looked for a way to leave a device on an old version and found none: an install that fails half-way on a weak line leaves the old worker in control, and the browser asks again on the next open.
+- **What an open page may still ask for after an update**: only a typeface, which the browser fetches when it first needs one. The four typefaces keep their names from build to build and are in the new copy. The decision record's point 3 now gives that reason; it said "one script and one stylesheet", which was not the whole of it.
+- **Two loose spots in the tests, named by the review.** "Reloads nowhere" looked for `.reload(` only; it now also refuses `history.go(`, `location.assign(` and an assignment to `location.href`. "Adds no listener" looks at the worker container and would not see a listener put on the registration that `register` returns; today's code has none, and the test is left as it is.
+- **The integrator's look**, in the desktop app's browser, with two of the builder's builds and a server that swaps them. With the first build's copy on the device, the server was switched to the second build and the workshop's address opened: the page ran the first build's script; ten seconds later the same page was still there, not reloaded (a mark set on `window` right after the open was still set), while the copy on the device held the second build's script. The open after that ran the second build's script. Chrome's engine again, so not a second kind of browser.
+- **On staging**, after the first deploy: the served script contains no `location.reload` at all, the worker still starts with `self.skipWaiting(), e.clientsClaim()`, and `workbox-window` is gone from the copy's list.
+- **Marco, on staging, the same evening**, on iPhone Safari, laptop Chrome and laptop Safari, in ordinary tabs that had opened staging before. After the first deploy (`7885af8`): "yes, one jump and then nothing", the last reload of the old code on each. After the second deploy (`7e3627b`, a different script): two more opens on each, and "No jump at all". So the update was seen to wait in Safari and on an iPhone as well, by the one who asked for it. What he did not look at, and nobody has on a phone: that the second of those opens ran the new script. The integrator saw that step in Chrome's engine only.

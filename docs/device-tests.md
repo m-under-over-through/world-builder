@@ -5,6 +5,7 @@ The script Marco runs on real hardware in week 3 (design plan, 9 to 13 November 
 ## Before you start
 
 - **Use staging**: `https://staging--worldbuilder-uot.netlify.app/rural-manufacturing/join/wave-1#p=<value>`. Staging has its own database; nothing here touches the real workshop.
+- **After a deploy, open staging in a new private tab, or twice.** A device that has opened the app before runs the version from before the deploy on its first open after it, and the new one from the second (ADR 0029). The page about the app links to the source at the running commit: that is how to tell.
 - **The value after `#` names the participant.** The same value on any device is the same person; a new value is a new person. Each section below gives its own value, so the sections never mix. A value is 4 to 80 letters, digits, `-` or `_`. It stays in the browser: it is never sent to our server, and the address bar drops it once the page has read it.
 - **The second device.** Each device section ends by opening the same link on another device, then deleting everything. Keep the laptop at hand for the phone sections and a phone for the laptop sections.
 - **The words** below are the ones in `workshops/rural-manufacturing/copy.md` today. If a line reads differently because the copy changed, that is not a failure.
@@ -226,6 +227,20 @@ On the laptop, in Chrome:
 5. Unblock the request (in the "Network request blocking" panel the block opened at the bottom, untick it), then close the tab: the tab remembers that it already tried once, and a new tab starts fresh.
 6. Optional: on the Mac, System Settings, Accessibility, Display, Reduce motion on. In a new tab, steps 1 to 4 again: the line still waits fifteen seconds. Turn Reduce motion off.
 
+## 10. An update waits for the next open (ADR 0029)
+
+After a deploy, the page must not show itself twice. On staging this needs two deploys in a row, on a phone and on the laptop that have each opened staging before. Before the first run of this part, on 19 November 2026, the behaviour had been seen in Chrome only; Safari and an iPhone are what this part is for.
+
+**After the first deploy (this change).** Open staging as usual, not in a private tab. The page may jump once more: it shows, then shows again a moment later. That is the last time. The copy on the device still has the old code, which reloaded.
+
+**After the second deploy (any later commit).**
+
+1. Open staging as usual. The page shows once and stays: no jump. Open a card and write a few words; wait half a minute. The words are still there, and Save works.
+2. On the page about the app, note the commit in the source link: it is the commit from before this deploy. That is expected.
+3. Close the page and open it again (or reload). One showing, no jump. The source link now names the new commit.
+4. In a new private tab, open staging: the new commit at once.
+5. Turn on airplane mode (laptop: Wi-Fi off) and open the workshop's address once more: the page still opens, from the copy on the device. Turn the network back on.
+
 ## Not in this script
 
 - The thank-you card: it needs every card of the deck answered or set aside twice. The tests cover it (`apps/web/test/card.test.ts`, `apps/web/test/accessibility.test.ts`).
@@ -245,3 +260,4 @@ On the laptop, in Chrome:
 | 7       |                    |      |              |                          |
 | 8       |                    |      |              |                          |
 | 9       |                    |      |              |                          |
+| 10      |                    |      |              |                          |
