@@ -25,8 +25,10 @@
   /**
    * The tile of the card that is open, lifted meanwhile (ADR 0027), from wherever the card was
    * opened: a card set aside that has come round has a tile here and is the card in front too.
+   * While a card saved fades out, its tile is lifted too, a new blank card's included (`savedAs`):
+   * the travelling card lands on it as it shows. One card, one place.
    */
-  const lifted = (cardId: string) => app.writing === cardId;
+  const lifted = (cardId: string) => app.writing === cardId || app.savedAs === cardId;
 </script>
 
 {#snippet pen(words: string)}

@@ -18,7 +18,8 @@
    * A modal dialog over the card screen, named by its title: on a laptop (`app.wide`) a box in
    * the centre of the page, and on a phone a box in the frame the keyboard leaves. A card of the
    * deck is on its tint, with no box around the field; a blank card is white, with the boxed
-   * field (ADR 0024). It fades in and out where it stands and never slides.
+   * field (ADR 0024). It fades in and out where it stands and never slides. Where it came from
+   * and where it goes is drawn by the travelling card (TravellingCard.svelte), never by this box.
    *
    * Focus goes into the field when it opens and stays inside; ×, Esc and a tap or click on the
    * scrim close it and keep its words (`app.closeCard`). The focus then goes back to what was

@@ -404,6 +404,53 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(rule('.sheet')['animation']).toMatch(/^sheet-in /);
   });
 
+  it('the open card itself never travels: nothing moves the open card, the open desk or the scrim, in any form, and their animations are the fades (ADR 0027)', () => {
+    // Every rule whose last part is the open card, the open desk or the scrim, closing or not,
+    // framed or not, in the reduced-motion block too.
+    const box = /^\.(open-card|open-desk|scrim)(\.[\w-]+)*$/;
+    const theirs = rules.filter((r) =>
+      r.selectors.some((s) => box.test(s.split(/[\s>]+/).at(-1)!)),
+    );
+    for (const name of [
+      '.open-card',
+      '.open-desk',
+      '.open-card.sheet',
+      '.scrim',
+      '.open-desk.closing',
+      '.open-card.sheet.closing',
+      '.scrim.closing',
+    ])
+      expect(
+        theirs.some((r) => r.selectors.includes(name)),
+        name,
+      ).toBe(true);
+    for (const r of theirs) {
+      const where = r.selectors.join(', ');
+      for (const property of ['transform', 'translate', 'scale', 'rotate'])
+        expect(r.body[property], `${property} on ${where}`).toBeUndefined();
+      expect(r.body['transition'] ?? r.body['transition-property'], where).toBeUndefined();
+      const names = (r.body['animation'] ?? r.body['animation-name'] ?? '')
+        .split(/\s+/)
+        .filter((w) => /^[a-z]+-[a-z-]+$/.test(w));
+      for (const name of names) expect(['fade-in', 'fade-out'], where).toContain(name);
+    }
+  });
+
+  it('the travelling card takes no touch, sits over the scrim and under the open card, and is not drawn with reduced motion (ADR 0027)', () => {
+    const layer = rule('.travelling-card');
+    expect(layer['position']).toBe('fixed');
+    expect(layer['pointer-events']).toBe('none');
+    expect(Number(layer['z-index'])).toBe(Number(rule('.scrim')['z-index']));
+    expect(Number(layer['z-index'])).toBeLessThan(Number(rule('.open-desk')['z-index']));
+    expect(Number(layer['z-index'])).toBeLessThan(Number(rule('.sheet')['z-index']));
+    // Nothing in the stylesheet moves it: the script does, and only when motion is allowed.
+    for (const r of rules.filter((r) => r.selectors.some((s) => s.includes('.travelling-card'))))
+      expect(r.body['animation'] ?? r.body['transition'], r.selectors.join(', ')).toBeUndefined();
+    expect(reduced.find((r) => r.selectors.includes('.travelling-card'))?.body['display']).toBe(
+      'none',
+    );
+  });
+
   it('a finger on the parts of an open card that never move cannot drag it; nothing that holds a field refuses a drag (ADR 0025)', () => {
     for (const selector of [
       '.app.framed .open-card.sheet .head',

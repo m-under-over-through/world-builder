@@ -1432,9 +1432,10 @@ button.tile .pen {
 .open-desk {
   position: fixed;
   z-index: 21;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
+  /* Centred by its margins, not moved by a translate: nothing that holds the field is moved
+     (ADR 0027, "The open card itself never travels"). */
+  inset: 0;
+  margin: auto;
   width: min(640px, calc(100vw - 72px));
   height: min(600px, calc(100dvh - 96px));
   overflow-y: auto;
@@ -1455,6 +1456,23 @@ button.tile .pen {
 .open-desk textarea {
   font-size: 17px;
   line-height: 1.5;
+}
+
+/* The travelling card (ADR 0027; components/TravellingCard.svelte): a box with the card's look and
+   nothing inside it, while a card goes from one place to another. Over the page and the scrim (it
+   comes after the scrim in the page, at the same height), under the open card, which fades in
+   over it and out from over it: the question and the field are never covered by an empty box.
+   Its place, size and fade are animated from the script; nothing here moves it. It takes no
+   touch. A blank card's is white with the ink line of its tile. */
+.travelling-card {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  background: var(--tint, var(--color-surface));
+  box-shadow: var(--shadow-card);
+}
+.travelling-card.own {
+  border: 1.5px solid var(--color-ink);
 }
 
 /* ---------- the laptop page (600px and wider): stack left, world right, the page scrolls as one ---------- */
@@ -1661,6 +1679,10 @@ button.tile .pen {
   }
   details.technical > summary .caret {
     transition: none;
+  }
+  /* Nothing travels (components/TravellingCard.svelte does not draw it either). */
+  .travelling-card {
+    display: none;
   }
 }
 
