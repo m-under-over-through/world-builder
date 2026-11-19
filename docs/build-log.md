@@ -2831,3 +2831,52 @@ The reviewer of pull request 71 read this one too. Verdict: merge after fixes. T
 
 - An empty field with no box: on the open card of the stack it is the same, a rule and then the cursor. Whether a person sees at once where to write, on a real phone, is for Marco's look.
 - The focus ring on a tint is still not seen on a real device (pull request 71).
+
+## 2026-11-18, Wednesday night. The copy is final (pull request 73)
+
+### What
+
+- `workshops/rural-manufacturing/copy.md`: Marco's read and edit of the whole file. All 74 draft marks are gone; `grep -c '^\[placeholder\]'` gives 0.
+- `docs/participant-texts.md`: the same terms and privacy policy, and a note of how the bracketed places were decided.
+- `apps/web/test/copy.test.ts`: the test of the words a screen fills now asks that "Not open yet" has its `[day]` slot.
+
+### Why
+
+The words were the last thing between the app and the production address going to Mechanism's staff. Marco read the file on the evening of 18 November and edited it where it lies, in the main folder. By the file's own rule, a block whose draft mark is deleted is final.
+
+### Marco's changes to the words
+
+- The page for a phone with no link: "To start, open the link you were sent." The second sentence is gone.
+- The line under the welcome for a phone with no link no longer says "The link in your email is yours."
+- Terms. "Who can take part" has no age line. "Questions" is the address info@under-over-through.co. No governing law is named.
+- Privacy policy. The opening is one sentence. "Changes" ends with the date 18 November 2026. "Contact" is the same address.
+- An address that is not a workshop: "This address is not valid. Use the link you were sent."
+
+These answer the four notes in square brackets that the terms and the policy were showing to participants (build log, pull request 70's night, and the ops page).
+
+### What the integrator changed in Marco's file
+
+Three things, and nothing else. The copy as Marco left it is compared with the copy merged, blank lines aside, and these are the only lines that differ.
+
+- **"Not open yet" keeps its slot.** Marco typed a date over `[day]`: "This opens on Friday November 19th 2026." `[day]` is not a note for a reviewer: the app fills it with the opening day from `workshop.json`, written in the phone's own language (`Closed.svelte`). A typed date would stay when the day moves. And 19 November 2026 is a Thursday. The slot is back; a test now asks for it. In production the opening day is 16 November, already past, so nobody sees this page today either way.
+- **The two editor notes** above the terms and the policy said "Draft of 2 November 2026, awaiting the legal review". They say "Final on 18 November 2026". The app never shows a note.
+- **Blank lines.** Where a draft mark was deleted, two blank lines were left. Prettier makes them one.
+
+### How to verify
+
+1. `npm run check`: 622 tests, exit 0.
+2. On staging, tap "?", then "Terms" and "Privacy policy": no square brackets, and the contact address at the end of each.
+3. Open the staging address with a made-up name in place of `rural-manufacturing`: "This address is not valid. Use the link you were sent."
+
+### Decisions made on the way
+
+- **No separate reviewer.** The words are the operator's, and the integrator's part is three lines, listed above. As for pull request 69.
+- **The opening-day slot was put back without asking first.** It is a slot the file's own instructions say to keep, the typed date was wrong by a day of the week, and the page is not shown in production. Marco is told in the same breath and can say otherwise.
+- **No test pins a sentence of the copy.** All 622 tests passed with the file as Marco left it: the tests read their words from the file. Only the formatting check failed, on the blank lines.
+
+### Open questions
+
+- **"What we store" in the privacy policy does not mention two things that are true.** A blank card is stored the same way, as one more answer. And an answer that is changed keeps its earlier version, locked, until everything is deleted (ADR 0024, Consequences). Two sentences were proposed to Marco before his read. He did not add them. The policy is his file; he is asked once more.
+- The policy is about 510 words under a heading that says "under 400 words". The heading is a note to the editor, and nothing checks it.
+- The date at the end of "Changes" stands alone: "... and the date it changed. 18 November 2026." It may read better as "This version: 18 November 2026."
+- If the day participants are let in is to be a day still to come, that is `opensDay` in `workshop.json`, a decision for the production walk-through, not a sentence in the copy.
