@@ -30,3 +30,4 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0024   | Tiles open: a card set aside can be answered from its tile, and an answer can be changed          |
 | 0025   | While a card is open on a phone, only the card scrolls; the page behind is held                   |
 | 0026   | After "Delete everything", the same tab starts over: the welcome with "I understand" again        |
+| 0027   | One open card: every card opens, closes and leaves the same way, on a phone and on a laptop       |

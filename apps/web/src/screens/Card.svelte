@@ -11,8 +11,8 @@
    * the left column, "Your world so far" in the right one with the tiles and the set-aside
    * tiles. The left column always holds the stack: when a round's queue is done the next round
    * starts at once (ADR 0017). The columns are flex-basis driven, so between about 600 and 1030
-   * pixels they stack into one column, and the page scrolls as one. The states of the card are
-   * the state's (`app.cardState`, `app.demoFront`, `app.exiting`).
+   * pixels they stack into one column, and the page scrolls as one. A card opens over all of it,
+   * in the open card (components/OpenCard.svelte, ADR 0027), which App.svelte draws.
    */
   let { app }: { app: AppState } = $props();
   const world = $derived(app.world);
@@ -27,7 +27,7 @@
 {#if app.wide}
   <div class="page">
     <div class="col-stack">
-      <div class="loop" class:answering={app.cardState !== 'fresh'}><Stack {app} /></div>
+      <div class="loop"><Stack {app} /></div>
     </div>
     <section class="col-world" aria-labelledby="world-title">
       <div class="world-head">

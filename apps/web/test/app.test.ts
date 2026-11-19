@@ -550,12 +550,15 @@ describe('the first session', () => {
     await throughTheIntro(user);
     await user.click(await screen.findByRole('button', { name: copy.item('Buttons', 'got it') }));
     await user.type(await openTheCard(user), 'Half an answer');
+    // While the card is open the page behind it, the "?" too, cannot be reached (ADR 0027).
+    await user.click(
+      screen.getByRole('button', { name: copy.item('Card labels', 'close without saving') }),
+    );
+    await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull());
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
     expect(await screen.findByRole('heading', { name: copy.item('Titles', 'about') })).toBeTruthy();
     await user.click(backs().at(-1)!);
-    expect(((await screen.findByRole('textbox')) as HTMLTextAreaElement).value).toBe(
-      'Half an answer',
-    );
+    expect(((await openTheCard(user)) as HTMLTextAreaElement).value).toBe('Half an answer');
   });
 
   it('a taken code is retried once, silently, with a fresh code', async () => {
@@ -745,7 +748,7 @@ describe('the core loop', () => {
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
   }
 
-  it('Save: the answered card leaves and the next is the front at once, with no toast and no status line; the answer syncs in the background', async () => {
+  it('Save: the open card fades out and the next is the front, with no toast and no status line; the answer syncs in the background', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [SYNCED, SYNCED] });
     const user = userEvent.setup();
     const app = await toTheFirstCard(user);
@@ -755,14 +758,14 @@ describe('the core loop', () => {
       expect(screen.queryByRole('button', { name: (n) => n.includes(first.text) })).toBeNull(),
     );
     expect(await frontCard()).toBeTruthy();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull());
     await waitFor(() => expect(app.sync.lastResult).toBe('ok'));
     expect(document.querySelector('[role="status"], .toast, .toast-slot')).toBeNull();
     expect(app.live!.answered.has(first.id)).toBe(true);
     expect(app.world.tiles.map((t) => t.answer)).toEqual(['An answer']);
   });
 
-  it('offline, nothing is said: the card leaves as ever, and the answer waits in the outbox for the retry', async () => {
+  it('offline, nothing is said: the card is saved as ever, and the answer waits in the outbox for the retry', async () => {
     stubRoutes({ [`/api/${SLUG}/join`]: [JOINED], [`/api/${SLUG}/sync`]: [() => 'offline'] });
     const user = userEvent.setup();
     const { wait, release } = heldRetry();

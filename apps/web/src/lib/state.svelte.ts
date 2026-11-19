@@ -16,6 +16,7 @@ import { dayStatus } from './days.ts';
 import { codeFromValue, valueFromHash } from './identity.ts';
 import { newOwnCardId } from './own-card.ts';
 import { detectPlatform, type Platform } from './platform.ts';
+import { reducedMotion } from './swipe.ts';
 import {
   countsAsOpen,
   pageHref,
@@ -37,7 +38,6 @@ import {
   replaySession,
   sessionOver,
   setAsideCards,
-  withAnswer,
   withDismissal,
   withShown,
   type History,
@@ -93,21 +93,11 @@ export function aboutSectionFor(page: Page): AboutSection | null {
 }
 
 /**
- * What the front card is doing (docs/screen-map.md, Core loop; design/DESIGN.md, States).
- * `fresh` is the stack with the question; `answering` the card opened with the field;
- * `saving` the moment the answer is sealed and written. There is no toast after a save or a set
- * aside (ADR 0019, Marco's morning pass): the card leaving and the next one coming to the
- * front is the feedback, and the about page's diagnostics keep the sync's facts.
+ * Where the open card was opened from (ADR 0027): the card in front of the stack, a tile in "Your
+ * world so far", or "Write your own story" for a new blank card. That thing is lifted while the
+ * card is open, and the focus goes back to it when the card closes without a save.
  */
-export type CardState = 'fresh' | 'answering' | 'saving';
-
-/** The answered card on its way out of the stack, drawn for the length of its exit (ADR 0015). */
-export interface ExitingCard {
-  card: Card;
-  /** Its number in the session, for the tint; never shown (no numbers on the screen, ADR 0019). */
-  n: number;
-  answer: string;
-}
+export type OpenedFrom = 'front' | 'tile' | 'new';
 
 /** One answer in "Your world so far": the tile (ADR 0014, ADR 0015). */
 export interface WorldTile {
@@ -122,14 +112,14 @@ export interface WorldTile {
   answer: string | null;
   /** True for a blank card (ADR 0022): no question and no area; the tile shows its own label. */
   own?: boolean;
-  /** True when the tile opens in the place to write: this device holds its words (ADR 0024). */
+  /** True when the tile opens in the open card: this device holds its words (ADR 0024, ADR 0027). */
   opens: boolean;
 }
 
 /**
  * One card set aside in any round and not answered since: a tile like an answered one, white
  * with a line instead of a tint, with its area and its question and no answer (ADR 0019). It
- * always opens in the place to write, on any device (ADR 0024).
+ * always opens in the open card, on any device (ADR 0024, ADR 0027).
  */
 export interface AsideTile {
   cardId: string;
@@ -138,13 +128,13 @@ export interface AsideTile {
 }
 
 /**
- * The place to write open for a new blank card, rather than for the card of a tile (ADR 0022,
- * ADR 0024). Empty, so it can never be a card id.
+ * The open card open for a new blank card, rather than for a card of the deck or a blank card
+ * already written (ADR 0022, ADR 0027). Empty, so it can never be a card id.
  */
 export const NEW_OWN_CARD = '';
 
-/** How long the answered card takes to leave the stack. */
-export const EXIT_MS = 320;
+/** How long the open card takes to fade out where it stands, closed or saved (ADR 0025, ADR 0027). */
+export const CLOSE_MS = 280;
 
 /** The four tints of the design, by card number: a card keeps its tint everywhere it appears. */
 export const TINTS = ['sun', 'mint', 'sky', 'lilac'] as const;
@@ -180,7 +170,8 @@ export class AppState {
   #screen = $state<Screen>('loading');
   /**
    * The screen showing. Leaving the cards (a sync that finds the workshop closed, the about page)
-   * also closes the blank card, so it is not found open on the way back (ADR 0022).
+   * also closes the open card, keeping its words, so it is not found open on the way back (ADR
+   * 0022, ADR 0027).
    */
   get screen(): Screen {
     return this.#screen;
@@ -216,32 +207,43 @@ export class AppState {
   platform = $state<Platform | null>(null);
 
   /**
-   * The answer being written on the current card. It lives here, not in the card component, so
-   * opening "About this app" and coming back finds it where it was (review of item 4). Closing
-   * the card with × keeps it too; `drafts` holds the half-written answers of cards set aside,
-   * in memory only, so a card coming round again shows what was started (design/DESIGN.md). It
-   * also holds what "Not now" left in the place to write: one draft per card id (ADR 0024).
+   * The answer begun on the card in front. It lives here, not in a component, so opening "About
+   * this app" and coming back finds it where it was (review of item 4). Closing the open card
+   * keeps it too; `drafts` holds the half-written answers of every other card, in memory only,
+   * so a card set aside and coming round again, or a tile opened again, shows what was started
+   * (design/DESIGN.md). One draft per card id (ADR 0024).
    */
   draft = $state('');
   private drafts = new Map<string, string>();
   /**
-   * The place to write (ADR 0022, ADR 0024): which card it is open for, its words, and whether
-   * they are being saved. `writing` is null while it is closed, `NEW_OWN_CARD` for a new blank
-   * card, else the card id of the tile it was opened from: a card set aside, an answer, or a
-   * blank card already written. The words live in memory only, never in the store; "Not now"
-   * puts them in `drafts` under that id, so they are there the next time, as a card keeps its
-   * draft.
+   * The open card (ADR 0027): which card it is open for, its words, and whether they are being
+   * saved or the card is fading out. `writing` is null while it is closed, `NEW_OWN_CARD` for a
+   * new blank card, else a card id: the card in front, a card set aside, an answer, or a blank
+   * card already written. `openDraft` holds the words while it is open; closing puts them back
+   * under the card's id (`draft` for the card in front, `drafts` for any other), so they are
+   * there the next time. `openedFrom` says what was tapped, which is lifted meanwhile.
    */
   writing = $state<string | null>(null);
-  ownDraft = $state('');
-  ownSaving = $state(false);
-  /** True while the place to write is open, for whichever card. */
-  get ownCardOpen(): boolean {
+  openDraft = $state('');
+  openedFrom = $state<OpenedFrom>('front');
+  /** True from Save until the open card has gone: the answer is sealed, written and the card fades. */
+  saving = $state(false);
+  /** True while the open card fades out where it stands, closed or saved. */
+  closing = $state(false);
+  /**
+   * True while the card in front is on its way out sideways, before "Set aside" is recorded
+   * (Stack.svelte). No card opens meanwhile: a card opened then would leave the set-aside undone.
+   */
+  leaving = $state(false);
+  /** Whether the dictation hint opens by itself on the card in front: its first card of the first round. */
+  private frontHint = false;
+  /** True while a card is open, whichever card. */
+  get cardOpen(): boolean {
     return this.writing !== null;
   }
   /**
-   * What the place to write shows on top: a card of the deck by its area and its question, or
-   * nothing for a blank card, new or written, which keeps its own title and hint (ADR 0024).
+   * What the open card shows on top: a card of the deck by its area and its question, or nothing
+   * for a blank card, new or written, which keeps its own title and hint (ADR 0024).
    */
   get writingCard(): Card | null {
     const id = this.writing;
@@ -249,12 +251,12 @@ export class AppState {
     return this.workshop?.deck.cards.find((c) => c.id === id) ?? null;
   }
   /**
-   * The tint of the place to write (ADR 0024): a card of the deck is on a tint there too. An
+   * The tint of the open card (ADR 0024): a card of the deck is on a tint there too. An
    * answer has the tint of its tile in "Your world so far". A card set aside has the tint its
    * tile will have once it is answered here: its number in the round in progress. For a card
    * this round plans, that is its tint in the stack of this round; a card set aside earlier
    * that this round does not plan has number 0 (lib/session.ts, cardNumber), here as on its
-   * tile. The two are the same reckoning (see `world`), so the place keeps its tint while the
+   * tile. The two are the same reckoning (see `world`), so the card keeps its tint while the
    * answer is saved. None for a blank card: it is in no deck and has no number, and its tile is
    * white.
    */
@@ -285,8 +287,7 @@ export class AppState {
   card = $state.raw<Card | undefined>(undefined);
   /** The card's number in this session, its place in the queue as planned (lib/session.ts, cardNumber). */
   cardNo = $state(0);
-  cardState = $state<CardState>('fresh');
-  /** The last thing done to a card, for a screen reader: the leaving card is drawn as decoration (ADR 0019). */
+  /** The last thing done to a card, for a screen reader: "saved", "set aside" (ADR 0019). */
   announcement = $state<{ n: number; text: string }>({ n: 0, text: '' });
   /**
    * True while the onboarding card is the front of the stack (ADR 0019): on the first open of a
@@ -294,9 +295,6 @@ export class AppState {
    * it, and is recorded `shown` only once the onboarding card has gone.
    */
   demoFront = $state(false);
-  /** The answered card leaving the stack, for the length of its exit; null when none is. */
-  exiting = $state.raw<ExitingCard | null>(null);
-  private exitToken = 0;
   /**
    * Everything this participant did, on this device and on the server, as one history
    * (lib/session.ts): the sessions and the events. "Your world so far" is read from it.
@@ -311,6 +309,7 @@ export class AppState {
   /** The sheet "Your world so far" is open (phone). */
   worldOpen = $state(false);
   joining = $state(false);
+  /** The dictation hint is open on the open card: by itself on the first card, else from "Prefer to talk?". */
   hintOpen = $state(false);
   sync = $state<SyncStatus>({ lastResult: 'never', outboxSize: 0, outboxSessions: 0 });
   /** The last error code of any kind, server or client, for the panel's diagnostics. */
@@ -409,10 +408,6 @@ export class AppState {
     return this.live ? position(this.live) : { n: 0, total: 0 };
   }
 
-  get saving(): boolean {
-    return this.cardState === 'saving';
-  }
-
   /** The next two cards of the queue behind the front one, with their numbers: the backs of the stack. */
   get backCards(): { card: Card; n: number }[] {
     if (!this.live || !this.workshop || !this.card) return [];
@@ -438,7 +433,7 @@ export class AppState {
    * session by session and in card order within a session, standing where its first answer put
    * it and showing the words of its latest answer (`latestAnswers`) where this device wrote them;
    * then the cards set aside in any round and never answered, oldest first, as white tiles (ADR
-   * 0019, ADR 0024). Each tile says whether it opens in the place to write: a card set aside
+   * 0019, ADR 0024). Each tile says whether it opens in the open card: a card set aside
    * always, an answer only where this device holds the words of its latest version. No count of
    * the cards still to come: rounds follow one another, so there is no end to count down to.
    */
@@ -855,7 +850,6 @@ export class AppState {
   private async showCard(): Promise<void> {
     if (!this.store || !this.workshop || !this.live) return;
     this.error = '';
-    this.cardState = 'fresh';
     if (roundDone(this.live)) await this.startRound(this.live.session.sessionNo);
     // Still over: the round planned nothing (a workshop.json asking for no cards, or a deck
     // without them), or a new round was over at once. Either way the stack is empty and no
@@ -870,7 +864,9 @@ export class AppState {
     this.card = this.workshop.deck.cards.find((c) => c.id === id);
     this.cardNo = id === undefined ? 0 : cardNumber(this.live.queueAsPlanned, id);
     this.draft = (id === undefined ? undefined : this.drafts.get(id)) ?? '';
-    this.hintOpen = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
+    // The dictation hint opens by itself on this card only when it is the first of the first
+    // round (architecture plan, 8.1); it shows when the card is opened (`openCard`).
+    this.frontHint = this.sessionNo === 1 && this.live.untouched && this.platform !== null;
     // The onboarding card: in front of the first card before anything was done in the first
     // session, once per device (ADR 0019). A second device continuing a first session already
     // under way skips it. The card behind it is not shown yet, so nothing is recorded.
@@ -973,7 +969,7 @@ export class AppState {
 
   /**
    * One event, as the contract spells it, with this session's next seq; the engine names the kind.
-   * For the front card unless a card id is given: a blank card's (ADR 0022).
+   * For the front card unless a card id is given: the open card's (ADR 0022, ADR 0027).
    */
   private async record(
     kind: EventKind,
@@ -1016,70 +1012,9 @@ export class AppState {
     if (event !== undefined) this.copyEvents = new Map(this.copyEvents).set(key, event.id);
   }
 
-  /** Tap, click or Enter on the front card: it opens with the field (`answering`). */
-  openCard(): void {
-    if (!this.card || this.demoFront || this.cardState !== 'fresh') return;
-    this.cardState = 'answering';
-  }
-
-  /** × on the open card: back to the stack. The draft stays, so opening the card again finds it. */
-  closeCard(): void {
-    if (this.cardState !== 'answering') return;
-    this.cardState = 'fresh';
-  }
-
   /** Said once, to a screen reader only, each time a card is saved or set aside; `n` makes the same words say again. */
   private announce(key: 'saved' | 'set aside' | 'set aside for later'): void {
     this.announcement = { n: this.announcement.n + 1, text: this.copy.item('Announcements', key) };
-  }
-
-  /** The answered card leaves the stack: drawn on its way out for EXIT_MS, then gone. */
-  private leave(exiting: ExitingCard): void {
-    const token = ++this.exitToken;
-    this.exiting = exiting;
-    this.announce('saved');
-    void this.wait(EXIT_MS).then(() => {
-      if (this.exitToken === token) this.exiting = null;
-    });
-  }
-
-  /**
-   * Save: seal the draft and write the outbox (`saving`); keep the readable copy next to it,
-   * for this participant on this device (ADR 0014); let the answered card leave while the next
-   * one is already the front, which is all the feedback there is (no toast, ADR 0019); and sync
-   * in the background. Returns whether the answer was taken; the promise settles once the sync
-   * has answered, which nothing waits for on the screen.
-   */
-  async save(answer = this.draft): Promise<boolean> {
-    if (!this.workshop || !this.live || !this.card || !this.store || this.cardState === 'saving')
-      return false;
-    this.error = '';
-    const text = truncateCodePoints(answer, MAX_ANSWER_CHARS);
-    let sealed: string;
-    try {
-      sealed = sealAnswer(this.workshop.publicKey, text);
-    } catch {
-      // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
-      // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
-      this.fail('CLIENT_SEAL_FAILED');
-      return false;
-    }
-    this.cardState = 'saving';
-    const card = this.card;
-    const session = this.live.session;
-    const n = this.cardNo;
-    const event = await this.record('answered', sealed);
-    // The readable copy goes next to the outbox, never into it: the event above carries the
-    // sealed text only, and `putAnswer` writes a table no sync ever reads (lib/store.ts).
-    const key = answerKey(session.id, card.id);
-    await this.keepCopy(key, session.id, card.id, text, event);
-    this.live = withAnswer(this.live, card.id);
-    this.drafts.delete(card.id);
-    this.draft = '';
-    this.leave({ card, n, answer: text });
-    await this.showCard();
-    await this.requestSync();
-    return true;
   }
 
   /**
@@ -1087,11 +1022,12 @@ export class AppState {
    * time (`dismissed`) and out of it the second (`deferred`); the event is recorded; the sync
    * runs in the background; the next card comes at once, with no toast (ADR 0019). A half-written
    * answer waits in memory for the card to come round. With the onboarding card in front, the
-   * button and the swipe send it away instead, as "Got it" does: nothing is recorded.
+   * button and the swipe send it away instead, as "Got it" does: nothing is recorded. It acts on
+   * the card in front while it is closed; while a card is open it does nothing (ADR 0027).
    */
   async setAside(): Promise<void> {
     if (this.demoFront) return this.dismissDemo();
-    if (!this.live || !this.card || this.cardState === 'saving') return;
+    if (!this.live || !this.card || this.saving || this.writing !== null) return;
     const card = this.card;
     const { live, event } = withDismissal(this.live, card.id);
     if (!event) return;
@@ -1105,36 +1041,59 @@ export class AppState {
   }
 
   /**
-   * Whether the blank card is offered (ADR 0022): on the card screen whenever a round is live,
-   * also once the deck is done; never on the welcome or the about page, and never while the
-   * onboarding card is in front, since a person writes after they have seen what this is.
+   * Whether a card can be open now (ADR 0027): on the card screen whenever a round is live, also
+   * once the deck is done; never on the welcome or the about page, and never while the onboarding
+   * card is in front, since a person writes after they have seen what this is.
    */
-  get ownCardOffered(): boolean {
+  get canWrite(): boolean {
     return this.screen === 'card' && this.live !== null && !this.demoFront;
   }
 
-  /** "Write your own story": the place to write opens, with the words left there last time. */
-  openOwnCard(): void {
-    if (!this.ownCardOffered || this.cardState !== 'fresh') return;
-    this.error = '';
-    this.ownDraft = this.drafts.get(NEW_OWN_CARD) ?? '';
-    this.writing = NEW_OWN_CARD;
+  /** Whether "Write your own story" is offered (ADR 0022): wherever a card can be open. */
+  get ownCardOffered(): boolean {
+    return this.canWrite;
   }
 
   /**
-   * A tap on a tile in "Your world so far" (ADR 0024): the place to write opens for that card.
-   * A card set aside opens empty, or with the words it was set aside with; an answer, or a blank
-   * card, opens with the words of its latest version, or with what "Not now" left there. Only a
-   * tile that opens: an answer whose latest words are not on this device has nothing to change.
-   * On a phone the sheet closes first. A card open in the stack is closed, keeping its draft.
+   * Tap, click or Enter on the card in front: it opens in the open card (ADR 0027), with the words
+   * begun on it. The dictation hint is open when this is the first card of the first round.
+   */
+  openCard(): void {
+    if (!this.card || !this.canWrite || this.writing !== null || this.saving || this.leaving)
+      return;
+    this.openFor(this.card.id, 'front');
+  }
+
+  /** "Write your own story": the open card opens for a new blank card, with the words left there last time. */
+  openOwnCard(): void {
+    if (!this.canWrite || this.writing !== null || this.saving || this.leaving) return;
+    this.openFor(NEW_OWN_CARD, 'new');
+  }
+
+  /**
+   * A tap on a tile in "Your world so far" (ADR 0024): the open card opens for that card. A card
+   * set aside opens empty, or with the words it was set aside with; an answer, or a blank card,
+   * opens with the words of its latest version, or with what was left there when it closed. Only
+   * a tile that opens: an answer whose latest words are not on this device has nothing to change.
+   * On a phone the sheet closes first.
    */
   openTile(cardId: string): void {
-    if (!this.ownCardOffered || this.cardState === 'saving' || this.ownSaving) return;
+    if (!this.canWrite || this.writing !== null || this.saving || this.leaving) return;
     if (!this.tileOpens(cardId)) return;
-    if (this.cardState === 'answering') this.closeCard();
-    this.error = '';
     this.worldOpen = false;
-    this.ownDraft = this.draftOf(cardId);
+    this.openFor(cardId, 'tile');
+  }
+
+  /**
+   * The one way a card opens (ADR 0027): its words, the hint, what was tapped, then the card. The
+   * hint opens by itself only on the card in front, when `showCard` said so; on any other card it
+   * waits for "Prefer to talk?".
+   */
+  private openFor(cardId: string, from: OpenedFrom): void {
+    this.error = '';
+    this.openDraft = this.draftOf(cardId);
+    this.hintOpen = from === 'front' && this.frontHint;
+    this.openedFrom = from;
     this.writing = cardId;
   }
 
@@ -1147,25 +1106,33 @@ export class AppState {
   }
 
   /**
-   * The words a card opens with in the place to write. One draft per card id: the front card's
-   * is the stack's own (`draft`), any other card's waits in `drafts`; with none, an answer opens
-   * with the words of its latest version, a card set aside empty.
+   * The words a card opens with. One draft per card id: the front card's is the stack's own
+   * (`draft`), any other card's waits in `drafts`, a new blank card's under `NEW_OWN_CARD`; with
+   * none, an answer opens with the words of its latest version, a card set aside empty.
    */
   private draftOf(cardId: string): string {
-    if (this.card?.id === cardId) return this.draft;
+    if (cardId !== NEW_OWN_CARD && this.card?.id === cardId) return this.draft;
     const kept = this.drafts.get(cardId);
     if (kept !== undefined) return kept;
+    if (cardId === NEW_OWN_CARD) return '';
     return this.world.tiles.find((t) => t.cardId === cardId)?.answer ?? '';
   }
 
   /**
-   * The place to write closes and its words are kept for the next time, under its card id. The
-   * words of an answer left as they were are not a draft: the next time opens with the answer.
+   * The open card closes and its words are kept for the next time, under its card id. The words
+   * of an answer left as they were are not a draft: the next time opens with the answer. The card
+   * in front keeps its hint open or closed as it was.
    */
   private putAway(): void {
     const key = this.writing;
     if (key === null) return;
-    const text = this.ownDraft;
+    // The words of a card being saved are an answer, not a draft: when the screen changes under
+    // a save (the workshop closed meanwhile), nothing is kept for the next time.
+    if (this.saving) {
+      this.writing = null;
+      return;
+    }
+    const text = this.openDraft;
     const answer =
       key === NEW_OWN_CARD ? undefined : this.world.tiles.find((t) => t.cardId === key)?.answer;
     const keep = text.trim() !== '' && text !== answer;
@@ -1173,72 +1140,106 @@ export class AppState {
     if (key !== NEW_OWN_CARD && this.card?.id === key) this.draft = text;
     else if (keep) this.drafts.set(key, text);
     else this.drafts.delete(key);
+    if (this.openedFrom === 'front') this.frontHint = this.hintOpen;
     this.writing = null;
   }
 
-  /** "Not now", Esc, the scrim: the place closes; the words stay in memory for the next time. */
-  closeOwnCard(): void {
-    if (this.ownSaving) return;
+  /**
+   * The open card fades out where it stands (ADR 0025, ADR 0027). It never slides. Under reduced
+   * motion it goes at once, as the place to write did.
+   */
+  private async fadeOut(): Promise<void> {
+    this.closing = true;
+    try {
+      if (!reducedMotion()) await this.wait(CLOSE_MS);
+    } finally {
+      this.closing = false;
+    }
+  }
+
+  /**
+   * ×, Esc, a tap or click on the scrim: the open card fades out and closes, and its words stay
+   * in memory for the next time, for every card (ADR 0027). Not while it is being saved.
+   */
+  async closeCard(): Promise<void> {
+    if (this.writing === null || this.saving || this.closing) return;
     this.error = '';
+    await this.fadeOut();
     this.putAway();
   }
 
   /**
-   * Save in the place to write, as `save` does for the front card: cut to the limit by code
-   * points, sealed before anything is written, one `answered` event on the live round through the
-   * same outbox, the readable copy next to it under this round's key (ADR 0014), then the sync in
-   * the background. An empty text, or spaces only, is not saved. Returns whether it was taken.
+   * Save, the one save for every card (ADR 0027): cut to the limit by code points, sealed before
+   * anything is written (CLIENT_SEAL_FAILED when it cannot be), one `answered` event on the live
+   * round with its next seq, through the outbox, the readable copy next to it under this round's
+   * key with the event's id (ADR 0014, ADR 0024), "saved" for a screen reader, then the sync in
+   * the background. An empty text, or spaces only, is not saved. Returns whether it was taken;
+   * the promise settles once the sync has answered, which nothing waits for on the screen.
    *
-   * Which card: a fresh id from `newOwnCardId` for a new blank card (ADR 0022), and called with
-   * nothing open; else the card of the tile (ADR 0024). Nothing stored is changed: an answer
-   * changed is one more event for the same card id, and the latest one is the answer.
+   * Which card is the open one: a fresh id from `newOwnCardId` for a new blank card (ADR 0022);
+   * else its own id. Nothing stored is changed: an answer changed is one more event for the same
+   * card id, and the latest one is the answer.
    *
-   * The round is replayed from its events afterwards, so it is the round a reload would find. A
-   * changed answer or a blank card leaves it as it was: the front card, its draft, the queue and
-   * the stack do not move, and no `shown` is recorded. A card set aside is answered for good: if
-   * it was the front card, the next card comes forward, as after any answer.
+   * The round is replayed from its events afterwards, so it is the round a reload would find. For
+   * a card of the queue that is the round `withAnswer` gave before ADR 0027 (the test "a save from
+   * the stack gives the round withAnswer gave" proves it). A changed answer or a blank card leaves
+   * the round as it was: the card in front, its draft, the queue and the stack do not move, and no
+   * `shown` is recorded. When the card answered is the card in front (opened from the stack, or a
+   * card set aside that came round, opened from its tile), the next card comes forward and is
+   * recorded `shown`, while the open card still stands over it; then the open card fades out.
    */
-  async saveOwnCard(answer = this.ownDraft): Promise<boolean> {
-    if (!this.workshop || !this.live || !this.store || this.ownSaving || !this.ownCardOffered)
-      return false;
-    if (!answer.trim()) return false;
+  async save(answer = this.openDraft): Promise<boolean> {
+    if (!this.workshop || !this.live || !this.store || this.saving || this.closing) return false;
     const target = this.writing;
-    if (target !== null && target !== NEW_OWN_CARD && !this.tileOpens(target)) return false;
+    if (target === null || !this.canWrite || !answer.trim()) return false;
+    const front = target !== NEW_OWN_CARD && this.card?.id === target;
+    if (target !== NEW_OWN_CARD && !front && !this.tileOpens(target)) return false;
     this.error = '';
     const text = truncateCodePoints(answer, MAX_ANSWER_CHARS);
     let sealed: string;
     try {
       sealed = sealAnswer(this.workshop.publicKey, text);
     } catch {
-      // As for a card: to a participant it is one thing, nothing was saved (CLIENT_SEAL_FAILED).
+      // Whatever the sealing failed on (a lone surrogate, a bad key), to a participant it is
+      // one thing: nothing was saved. The crypto package's own codes have no wording in copy.md.
       this.fail('CLIENT_SEAL_FAILED');
       return false;
     }
-    this.ownSaving = true;
-    let front = false;
+    this.saving = true;
+    // Once the event is written the card is answered, and the open card goes whatever happens
+    // after: left standing, a second "Save" would record the answer twice.
+    let recorded = false;
+    let sync: Promise<unknown> = Promise.resolve();
     try {
-      const cardId = target === null || target === NEW_OWN_CARD ? newOwnCardId() : target;
+      const cardId = target === NEW_OWN_CARD ? newOwnCardId() : target;
       const session = this.live.session;
-      front = this.card?.id === cardId;
       const event = await this.record('answered', sealed, cardId);
-      // The readable copy goes to the table no sync reads, never into the event (lib/store.ts).
+      recorded = true;
+      // The readable copy goes next to the outbox, never into it: the event above carries the
+      // sealed text only, and `putAnswer` writes a table no sync ever reads (lib/store.ts).
       const key = answerKey(session.id, cardId);
       await this.keepCopy(key, session.id, cardId, text, event);
       // The round as a reload would replay it (ADR 0024): the card joins the round's answered
       // ids, which the deck engine ignores for a card not in the queue, and a blank card is not
       // a touch of the round, so the first card keeps its hints (lib/session.ts).
       this.live = replaySession(this.workshop.deck, this.workshop.config, session, this.history);
-      this.drafts.delete(target ?? NEW_OWN_CARD);
+      this.drafts.delete(target);
       if (front) this.draft = '';
-      this.ownDraft = '';
-      this.writing = null;
       this.announce('saved');
+      // The next card comes forward behind the open card, which still shows the card answered.
+      if (front) await this.showCard();
+      // The sync starts now, as it did before ADR 0027, and not after the fade: what is on the
+      // screen never waits for it, and it never waits for what is on the screen.
+      sync = this.requestSync();
+      await this.fadeOut();
     } finally {
-      this.ownSaving = false;
+      if (recorded) {
+        this.openDraft = '';
+        this.writing = null;
+      }
+      this.saving = false;
     }
-    // The front card was the one answered: the next one comes forward, as after any answer.
-    if (front) await this.showCard();
-    await this.requestSync();
+    await sync;
     return true;
   }
 

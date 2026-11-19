@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import Dexie from 'dexie';
 import { IDBFactory } from 'fake-indexeddb';
+import type { AppState } from '../src/lib/state.svelte.ts';
 
 /**
  * What the client's tests share: the API as a stub that answers by path, a fresh in-memory
@@ -63,4 +64,21 @@ export function pretendUserAgent(value: string): void {
 
 export function restoreUserAgent(): void {
   delete (navigator as { userAgent?: string }).userAgent;
+}
+
+/**
+ * Answer the card in front as a person does since ADR 0027: open it in the open card, write, and
+ * Save. Returns what `save` returns.
+ */
+export async function answerFront(app: AppState, words: string): Promise<boolean> {
+  app.openCard();
+  app.openDraft = words;
+  return app.save();
+}
+
+/** Write a new blank card and save it: "Write your own story", the words, Save (ADR 0022). */
+export async function saveOwnCard(app: AppState, words: string): Promise<boolean> {
+  app.openOwnCard();
+  app.openDraft = words;
+  return app.save();
 }

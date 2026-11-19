@@ -303,7 +303,6 @@ export const COPY_LISTS = {
   Diagnostics: ['last sync', 'outbox', 'last error', 'never', 'ok', 'offline', 'error'],
   Reminder: ['summary', 'description'],
   'Invitation page: buttons': ['new', 'copy'],
-  'Own card: buttons': ['save', 'not now'],
 } as const;
 
 /** One line per error code, server and client, under "Error: <CODE>". */

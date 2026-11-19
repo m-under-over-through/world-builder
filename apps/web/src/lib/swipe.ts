@@ -47,6 +47,11 @@ export function reducedMotion(): boolean {
 
 export interface SwipeOptions {
   onDismiss: (direction: SwipeDirection) => void;
+  /**
+   * Told true when a swiped card starts on its way out and false when it has gone, just before
+   * `onDismiss`. The stack uses it so that nothing else can open a card meanwhile (ADR 0027).
+   */
+  onFlight?: (flying: boolean) => void;
   /** Off while the card is open for answering, saving or leaving. */
   enabled?: () => boolean;
 }
@@ -114,6 +119,7 @@ export function swipe(node: HTMLElement, options: SwipeOptions) {
       return;
     }
     settled = false;
+    options.onFlight?.(true);
     const sign = direction === 'left' ? -1 : 1;
     node.style.transition = `transform ${SWIPE_MS}ms ease, opacity ${SWIPE_MS}ms ease`;
     node.style.transform = followTransform(sign * SWIPE_EXIT_PX);
@@ -125,6 +131,7 @@ export function swipe(node: HTMLElement, options: SwipeOptions) {
       node.style.transform = '';
       node.style.opacity = '';
       settled = true;
+      options.onFlight?.(false);
       options.onDismiss(direction);
     };
     // A card whose transition never fires (hidden tab, a browser without transitions) still leaves.

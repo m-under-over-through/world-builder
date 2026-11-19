@@ -14,13 +14,19 @@
    * with no question and no tint: its label is the copy file's "Own card: tile", then the words.
    *
    * A tile opens (ADR 0024): it is a button, named by what it shows and then by the words of its
-   * small pen, and a tap opens the place to write for that card (components/OwnCard.svelte). A
-   * card set aside, in any round, always opens; an answer or a blank card opens where this
+   * small pen, and a tap opens that card in the open card (components/OpenCard.svelte, ADR 0027).
+   * A card set aside, in any round, always opens; an answer or a blank card opens where this
    * device holds the words of its latest version. A tile written on another device stays as it
-   * was, not a button. One tile per card: it stands where the first answer put it.
+   * was, not a button. One tile per card: it stands where the first answer put it. While its card
+   * is open the tile is lifted: its place in the list stays, but it is not drawn.
    */
   let { app, sheet = false }: { app: AppState; sheet?: boolean } = $props();
   const world = $derived(app.world);
+  /**
+   * The tile of the card that is open, lifted meanwhile (ADR 0027), from wherever the card was
+   * opened: a card set aside that has come round has a tile here and is the card in front too.
+   */
+  const lifted = (cardId: string) => app.writing === cardId;
 </script>
 
 {#snippet pen(words: string)}
@@ -75,6 +81,7 @@
               type="button"
               class="tile opens"
               class:own={tile.own}
+              class:lifted={lifted(tile.cardId)}
               data-tile={tile.cardId}
               style:--tint={tile.own ? undefined : `var(--tint-${tintOf(tile.n)})`}
               onclick={() => app.openTile(tile.cardId)}
@@ -106,6 +113,7 @@
           <button
             type="button"
             class="tile aside opens"
+            class:lifted={lifted(tile.cardId)}
             data-tile={tile.cardId}
             onclick={() => app.openTile(tile.cardId)}
           >

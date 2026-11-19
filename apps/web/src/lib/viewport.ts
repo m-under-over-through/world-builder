@@ -10,8 +10,8 @@
  * (`interactive-widget=resizes-content`) makes the layout viewport shrink for the keyboard,
  * and the visual viewport then has the same box, so the same two numbers serve both.
  *
- * This module keeps two custom properties on the app's root up to date while a card or the
- * place to write is open on a phone, and says whether the keyboard is up. Without a visual
+ * This module keeps two custom properties on the app's root up to date while a card is open on
+ * a phone (ADR 0027), and says whether the keyboard is up. Without a visual
  * viewport it does nothing, and the open card is laid out as before.
  *
  * The frame is a fixed box since ADR 0025: the text scrolls inside the field, and nothing here

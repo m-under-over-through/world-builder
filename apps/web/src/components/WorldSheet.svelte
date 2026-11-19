@@ -11,7 +11,7 @@
    * answers, the cards set aside, "Remind me") scrolling as one. Focus moves to × when it opens
    * and stays inside; Esc, ×, a tap on the scrim or a swipe down on its head close it, and
    * focus returns to the pill that opened it. A tap on a tile that opens (ADR 0024) closes the
-   * sheet at once and opens the place to write for that card. The page behind does not scroll meanwhile, and
+   * sheet at once and opens that card in the open card. The page behind does not scroll meanwhile, and
    * is `inert` (App.svelte), so a screen reader's swipe stays in the sheet as well.
    */
   let { app, returnTo }: { app: AppState; returnTo?: HTMLElement | undefined } = $props();
@@ -39,11 +39,11 @@
       document.body.style.overflow = overflow;
       // After the page has drawn itself without the sheet: until then the pill is still
       // `inert` (App.svelte), and an inert element refuses the focus. Not when a tile closed the
-      // sheet to open the place to write: the focus is in its field, and comes back to the pill
-      // when it closes (ADR 0024; OwnCard.svelte).
+      // sheet to open its card: the focus is in its field, and comes back to the pill when the
+      // open card closes (ADR 0024, ADR 0027; OpenCard.svelte).
       const pill = returnTo;
       void tick().then(() => {
-        if (!app.ownCardOpen) pill?.focus();
+        if (!app.cardOpen) pill?.focus();
       });
     };
   });

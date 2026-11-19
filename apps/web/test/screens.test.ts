@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import About from '../src/screens/About.svelte';
+import OpenCard from '../src/components/OpenCard.svelte';
 import Card from '../src/screens/Card.svelte';
 import Closed from '../src/screens/Closed.svelte';
 import NotAWorkshop from '../src/screens/NotAWorkshop.svelte';
@@ -47,6 +48,16 @@ function onACard(patch: Partial<AppState> = {}): AppState {
   );
   const card = workshop.deck.cards.find((c) => c.id === currentCardId(live));
   return state({ live, card, cardNo: 1, ...patch });
+}
+
+/** The card in front, open in the open card (ADR 0027), drawn on its own. */
+function openFront(patch: Partial<AppState> = {}): AppState {
+  const app = onACard();
+  app.writing = app.card!.id;
+  app.openedFrom = 'front';
+  Object.assign(app, patch);
+  render(OpenCard, { app });
+  return app;
 }
 
 describe('the screens render the words of copy.md', () => {
@@ -167,29 +178,64 @@ describe('the screens render the words of copy.md', () => {
     expect(document.querySelectorAll('.card.back[aria-hidden="true"]')).toHaveLength(2);
   });
 
-  it('the card, answering: the question as the label of the field, the counter alone under it and described, × and Save, and no Set aside', () => {
-    const app = onACard({ cardState: 'answering' });
-    render(Card, { app });
+  it('the card in front, open: a dialog named by its question, on its tint, the area and × in its head, the question as the name of the field, the counter alone under it and described, "Prefer to talk?" and Save', () => {
+    const app = openFront({ platform: 'iPhone and iPad' });
+    const dialog = screen.getByRole('dialog', { name: app.card!.text });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.classList.contains('tinted')).toBe(true);
+    expect(dialog.style.getPropertyValue('--tint')).toBe(`var(--tint-${tintOf(1)})`);
+    expect(dialog.querySelector('.rule')).not.toBeNull();
+    // The parts in their order (ADR 0027): the head, the part that scrolls, the counter, the row.
+    expect([...dialog.children].map((c) => c.className.trim())).toEqual([
+      'head',
+      'scrolls',
+      'meta',
+      'actions',
+    ]);
+    const head = dialog.querySelector('.head')!;
+    expect(head.querySelector('.label')!.textContent).toBe(app.card!.area);
+    expect(head.querySelector('button')!.getAttribute('aria-label')).toBe(
+      copy.item('Card labels', 'close without saving'),
+    );
     const field = screen.getByRole('textbox', { name: app.card!.text });
-    expect(field.getAttribute('aria-describedby')).toBe('answer-count');
+    expect(field.getAttribute('aria-describedby')).toBe('open-count');
     // The nudge left the open card (ADR 0019): the row under the field holds the counter only.
-    const meta = document.querySelector('.card.open .meta')!;
-    expect([...meta.children].map((c) => c.id)).toEqual(['answer-count']);
+    const meta = dialog.querySelector('.meta')!;
+    expect([...meta.children].map((c) => c.id)).toEqual(['open-count']);
     expect(document.getElementById('answer-nudge')).toBeNull();
-    expect(document.querySelector('.card.open .label')!.textContent).toBe(app.card!.area);
-    expect(
-      screen.getByRole('button', { name: copy.item('Card labels', 'close without saving') }),
-    ).toBeTruthy();
+    const actions = dialog.querySelector('.actions')!;
+    expect([...actions.querySelectorAll('button')].map((b) => b.textContent!.trim())).toEqual([
+      copy.item('Buttons', 'prefer to talk'),
+      copy.item('Buttons', 'save'),
+    ]);
     const save = screen.getByRole('button', {
       name: copy.item('Buttons', 'save'),
     }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: copy.item('Buttons', 'set aside') })).toBeNull();
-    expect(screen.queryByText(copy.item('Card labels', 'swipe hint'))).toBeNull();
+    // "Not now" is gone (ADR 0027): × does what it did.
+    expect(dialog.textContent).not.toContain('Not now');
+  });
+
+  it('a card without an area keeps an empty label in the head of the open card, as on the stack', () => {
+    const app = onACard();
+    const { id, set, text } = app.card!;
+    app.card = { id, set, text };
+    app.workshop = {
+      ...workshop,
+      deck: {
+        ...workshop.deck,
+        cards: [app.card, ...workshop.deck.cards.filter((c) => c.id !== id)],
+      },
+    };
+    app.writing = id;
+    render(OpenCard, { app });
+    const label = document.querySelector('.open-card .head .label')!;
+    expect(label.textContent).toBe('');
+    expect(label.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('the card keeps the draft the state holds', () => {
-    render(Card, { app: onACard({ cardState: 'answering', draft: 'Half an answer' }) });
+    openFront({ openDraft: 'Half an answer' });
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Half an answer');
     expect(
       (screen.getByRole('button', { name: copy.item('Buttons', 'save') }) as HTMLButtonElement)
@@ -197,13 +243,17 @@ describe('the screens render the words of copy.md', () => {
     ).toBe(false);
   });
 
-  it('the card, saving: Save reads "Saving…" and is off, as is the field', () => {
-    render(Card, { app: onACard({ cardState: 'saving', draft: 'An answer' }) });
+  it('the card, saving: Save reads "Saving…" and is off, and so is ×; the field is not switched off, so it keeps the focus and a phone keeps its keyboard', () => {
+    openFront({ saving: true, openDraft: 'An answer' });
     const save = screen.getByRole('button', {
       name: copy.item('Card states', 'saving'),
     }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true);
+    const close = screen.getByRole('button', {
+      name: copy.item('Card labels', 'close without saving'),
+    }) as HTMLButtonElement;
+    expect(close.disabled).toBe(true);
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(false);
   });
 
   it('the onboarding card: the tinted front of the stack, "Try a card" as its label, its words, "Got it" as an ink pill; the first card waits behind it in its tint, not a button', () => {
@@ -231,7 +281,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the open card with the dictation hint open: its title once, the line for this platform, and "Got it"', () => {
-    render(Card, { app: onACard({ cardState: 'answering', platform: 'Windows', hintOpen: true }) });
+    openFront({ platform: 'Windows', hintOpen: true });
     expect(
       screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
     ).toBeTruthy();
@@ -244,9 +294,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the open card with the hint closed: "Prefer to talk?" on a platform that has dictation', () => {
-    render(Card, {
-      app: onACard({ cardState: 'answering', platform: 'Android', hintOpen: false }),
-    });
+    openFront({ platform: 'Android', hintOpen: false });
     expect(
       screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
     ).toBeTruthy();
@@ -254,7 +302,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the open card on a platform with no dictation: no hint and no "Prefer to talk?"', () => {
-    render(Card, { app: onACard({ cardState: 'answering', platform: null, hintOpen: true }) });
+    openFront({ platform: null, hintOpen: true });
     expect(
       screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
     ).toBeNull();
@@ -262,7 +310,7 @@ describe('the screens render the words of copy.md', () => {
   });
 
   it('the open card with a sealing failure: the CLIENT_SEAL_FAILED wording', () => {
-    render(Card, { app: onACard({ cardState: 'answering', error: 'CLIENT_SEAL_FAILED' }) });
+    openFront({ error: 'CLIENT_SEAL_FAILED' });
     expect(screen.getByText(copy.error('CLIENT_SEAL_FAILED'), { exact: false })).toBeTruthy();
   });
 
