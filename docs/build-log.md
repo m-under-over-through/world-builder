@@ -2774,8 +2774,13 @@ A card keeps its tint everywhere it appears: in the stack, as it leaves, and on 
 
 At 375 by 553 and at 1280 by 800, against a local server: an answer in mint on the phone and in sky on the laptop; a text of fourteen lines scrolling inside the field with the question and "Save" in place; a card set aside in white with its boxed field. The focus ring could not be seen there: the browser pane does not hold the focus, so no ring is drawn. Its distance is the open card's, and a stylesheet test ties the two.
 
+### Review
+
+A separate reviewer read the pull request and ran the two test files. Verdict: merge, nothing to fix. It traced each case by hand: an answer from an earlier round changed now, an answer written on another phone, a blank card, a card set aside and answered later, the front card that is also a white tile, one tile opened after another, and the moment of the save. It worked out the contrast of each colour on the four tints: ink is at least 10.2 to 1, soft ink at least 6.2, and muted fails on three of them, which is why it is not used. Its one note is in the open questions below. Its list of what no test covers: the tint of an answer from an earlier round, and the tint on the phone's sheet (the test opens the laptop's card; the component is the same).
+
 ### Open questions
 
 - Whether a card set aside should open on the tint it had in the stack. It opens white now, as its tile is.
+- From the review: while "Save" is working the field is disabled, and Safari draws the words of a disabled field in its own grey. On a tint that grey was not measured. It lasts as long as two writes to the phone's own store, and the open card has always done the same. Left as it is.
 - The focus ring of the field on a tint, on a real phone and with a keyboard on a laptop.
 - Closed here: the first open question of pull request 70. Marco tried it on his iPhone on 18 November: with a card open, the page behind holds.
