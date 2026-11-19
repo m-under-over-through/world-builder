@@ -1,6 +1,6 @@
 <script lang="ts">
   import { MAX_ANSWER_CHARS } from '@wb/contracts';
-  import { onMount, tick, untrack } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { fill } from '../lib/copy.ts';
   import { NEW_OWN_CARD, type AppState } from '../lib/state.svelte.ts';
   import { reducedMotion } from '../lib/swipe.ts';
@@ -10,9 +10,9 @@
   /**
    * The place to write a blank card (ADR 0022): a card with no question, which the participant
    * writes. Since ADR 0024 also the place a tile opens in: a card set aside, its area and its
-   * question on top and the field empty; an answer, the same with its words in the field, on the
-   * tint of its tile; a blank card already written, with its title and hint and its words. Which
-   * card is `app.writing`. Over the card screen as a modal dialog: on a phone a sheet, built the way
+   * question on top and the field empty; an answer, the same with its words in the field; both
+   * on the card's tint; a blank card already written, with its title and hint and its words,
+   * white. Which card is `app.writing`. Over the card screen as a modal dialog: on a phone a sheet, built the way
    * WorldSheet.svelte is; on a laptop (`app.wide`) a wide card over the desk, with the same
    * content. The title, the hint, a large field with its own name for a
    * screen reader, the counter near the limit as on a card, then "Not now" and "Save".
@@ -51,16 +51,11 @@
   /** The card of the tile this was opened from (ADR 0024): its area and question go on top. */
   const card = $derived(app.writingCard);
   /**
-   * The tint of the tile this was opened from (ADR 0024): an answer opens on the tint of its
-   * tile, as the card it was when it was answered; a card set aside and a blank card open white,
-   * as their tiles are. Asked once for each card opened, and not again while it is open: a card
-   * set aside becomes a tinted tile the moment its answer is recorded, a moment before the place
-   * closes, and the place must not change colour under the finger that tapped Save.
+   * The tint of the card (ADR 0024): a card of the deck is on its tint here too, an answer on
+   * the tint of its tile and a card set aside on the tint its tile will have. A blank card has
+   * none and is white, as its tile is.
    */
-  const tint = $derived.by(() => {
-    void app.writing;
-    return untrack(() => app.writingTint);
-  });
+  const tint = $derived(app.writingTint);
 
   onMount(() => {
     // The field takes the focus after `tick()`: by then App.svelte has put the frame's class and

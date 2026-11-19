@@ -249,15 +249,18 @@ export class AppState {
     return this.workshop?.deck.cards.find((c) => c.id === id) ?? null;
   }
   /**
-   * The tint of the tile the place to write was opened from (ADR 0024): an answer keeps the tint
-   * its tile has in "Your world so far", which is the one its card had in the stack. None for a
-   * card set aside and for a blank card: their tiles are white, and so is their place to write.
+   * The tint of the place to write (ADR 0024): a card of the deck keeps its tint there too. An
+   * answer has the tint of its tile in "Your world so far". A card set aside has the tint its
+   * tile will have once it is answered here: its number in the round in progress, which is also
+   * its tint in the stack of this round. The two are the same reckoning (see `world`), so the
+   * place does not change colour while the answer is saved. None for a blank card: it is in no
+   * deck and has no number, and its tile is white.
    */
   get writingTint(): Tint | null {
-    const id = this.writing;
-    if (id === null || id === NEW_OWN_CARD) return null;
-    const tile = this.world.tiles.find((t) => t.cardId === id);
-    return tile && !tile.own ? tintOf(tile.n) : null;
+    const card = this.writingCard;
+    if (!card || !this.live) return null;
+    const tile = this.world.tiles.find((t) => t.cardId === card.id);
+    return tintOf(tile ? tile.n : cardNumber(this.live.queueAsPlanned, card.id));
   }
   /** True while a refused join waits out the server's Retry-After before its one retry. */
   retrying = $state(false);
