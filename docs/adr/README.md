@@ -31,3 +31,5 @@ One file per decision, numbered, never edited after the fact except to mark it s
 | 0025   | While a card is open on a phone, only the card scrolls; the page behind is held                   |
 | 0026   | After "Delete everything", the same tab starts over: the welcome with "I understand" again        |
 | 0027   | One open card: every card opens, closes and leaves the same way, on a phone and on a laptop       |
+| 0028   | The page is never empty, and no request waits for good                                            |
+| 0029   | An update waits for the next open: no page is reloaded under a person                             |

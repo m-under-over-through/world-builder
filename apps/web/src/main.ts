@@ -1,9 +1,9 @@
 import { mount } from 'svelte';
-import { registerSW } from 'virtual:pwa-register';
 import './app.css';
 import App from './App.svelte';
 import { startApp } from './lib/boot.ts';
 import { manifestHref, pointManifest } from './lib/install.ts';
+import { keepOfflineCopy } from './lib/offline-copy.ts';
 import { parseRoute } from './lib/route.ts';
 import { findWorkshop } from './lib/workshops.ts';
 
@@ -19,6 +19,8 @@ const target = document.getElementById('app')!;
 startApp(target, () => mount(App, { target }));
 
 // The service worker keeps the client's files for an installed app (apps/web/pwa.ts); a new
-// deploy replaces them on the next open. Registered here, from a module file, because an inline
-// script is what the Content Security Policy forbids.
-registerSW({ immediate: true });
+// deploy replaces them, and the next open runs the new version. Nothing reloads this page when that
+// happens (ADR 0029; lib/offline-copy.ts). Registered here, from a module file, because an inline
+// script is what the Content Security Policy forbids; at once, as before, not at `load`. Only in a
+// build: the development server has no worker, and the plugin's code registered nothing there.
+if (!import.meta.env.DEV) keepOfflineCopy();

@@ -22,9 +22,14 @@ export const API_PATH = /^\/api\//;
 export const REMINDER_PATH = /\/reminder\.ics$/;
 
 export const pwaOptions: Partial<VitePWAOptions> = {
-  // Registered from main.ts through the virtual module: an inline script would break the
-  // Content Security Policy (script-src 'self').
+  // Registered from main.ts by the app's own module (src/lib/offline-copy.ts, ADR 0029), not by
+  // the plugin's registration code, which reloaded the page when a new worker took over. Nothing
+  // is injected: an inline script would break the Content Security Policy (script-src 'self').
   injectRegister: null,
+  // For the worker itself: `autoUpdate` makes the generated dist/sw.js start with
+  // `self.skipWaiting(), e.clientsClaim()`, so a new worker takes over at once and the next open,
+  // even a reload in the same tab, is the new version (ADR 0029, point 2). Read in the build of
+  // 19 November 2026. It no longer reaches the page: the page's code is our own.
   registerType: 'autoUpdate',
   includeAssets: ['icons/favicon.svg', 'icons/apple-touch-icon.png'],
   manifest: {
