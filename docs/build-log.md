@@ -3020,3 +3020,70 @@ The reviewer was asked to read this one as an adversary, since it touches who a 
 
 - **After the delete the welcome says nothing about it.** A person who deleted everything sees the first page again and has to trust that it worked. One calm line would help, for example "Everything you sent is deleted." The words would be Marco's.
 - **The code stays in the tab** until the tab is closed or reloaded. This is a choice about what stays on the device, and those are Marco's to weigh. The pull request is not merged until he has said yes.
+
+---
+
+## 2026-11-18, Wednesday, night. One open card for every card (pull request 77)
+
+### What and why
+
+Marco tried staging on a laptop and found that the card in front of the stack opened on the left, in place, and flew off when saved, while a tile or a blank card opened in the centre and faded. He said the centre is better and that every card must behave the same (ADR 0027). This is the first of two pull requests: the structure, with fades. The second adds the travelling motions.
+
+Before, there were two pieces. `Stack.svelte` drew its own open card, with `app.cardState` and `app.save()`. `OwnCard.svelte` drew the dialog for tiles and the blank card, with `app.writing` and `app.saveOwnCard()`. Each change since had been checked against one piece and not the other.
+
+### What exists now
+
+- **One component**, `apps/web/src/components/OpenCard.svelte` (the old `OwnCard.svelte`, renamed). Every card opens in it. The parts, in order: the head (the card's area, or an empty label, and the ×); the part that may scroll on a phone (the question or the blank card's title and hint, a rule on a tint, the field, the dictation hint); the counter; a failed save; the row with "Prefer to talk?" and Save. "Not now" is gone.
+- **One path in the state** (`apps/web/src/lib/state.svelte.ts`). Three ways in, one way through: `openCard()` for the card in front, `openTile(id)` for a tile, `openOwnCard()` for a new blank card, all through a private `openFor(id, from)`. One way out, `closeCard()`, and one save, `save()`. `app.writing` is the id of the open card, for the card in front too. `app.openedFrom` says what was tapped.
+- **What was tapped is lifted.** The card in front, or the tile, gets the class `lifted` (`visibility: hidden`): its place is kept, so nothing moves, and it takes no tap and no focus.
+- **The page behind is `inert` for every open card**, on a phone and on a laptop. It used to stay reachable behind the stack's own card.
+- **Fades only.** The open card fades in and out where it stands. The state waits the length of the fade (`CLOSE_MS`, 280 ms) before it lets the card go, on a close and after a save; under reduced motion it does not wait. After a save from the stack, the next card comes forward in the stack first, behind the open card, which then fades out. Nothing flies off: `card-exit`, `.slot.exit`, `app.exiting` and `EXIT_MS` are gone.
+- **One set of rules** in `app.css` under "the open card". Every `.card.open`, `.stack.answering`, `.loop.answering` rule is gone.
+- **The copy file** lost the block "Own card: buttons" and nothing else. Save is "Buttons", "save".
+
+### The two saves, side by side
+
+The brief asked for the differences between the stack's `save()` and `saveOwnCard()`, and what was done with each.
+
+| What                        | `save()` (the stack)                       | `saveOwnCard()` (the dialog)                      | Now                                                                    |
+| --------------------------- | ------------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| Which card                  | always the card in front                   | the open one; with nothing open, a new blank card | the open one only; with nothing open, nothing is saved                 |
+| Empty text                  | not checked (the button was off)           | refused                                           | refused                                                                |
+| Sealing failure             | `CLIENT_SEAL_FAILED`, the draft kept       | the same                                          | the same; the card stays open with its words                           |
+| The event and its seq       | `record('answered')`, the round's next seq | the same                                          | the same                                                               |
+| The readable copy           | `keepCopy` with the event's id             | the same                                          | the same                                                               |
+| The round after             | `withAnswer`                               | `replaySession` from the events                   | `replaySession`; a test proves it equals `withAnswer` card by card     |
+| The draft                   | `draft` and `drafts` cleared               | the same, for the card's id                       | the same                                                               |
+| "Saved" for a screen reader | through `leave()`                          | directly                                          | directly                                                               |
+| The next card and its shown | `showCard()`                               | `showCard()` only when it was the card in front   | `showCard()` when it was the card in front, before the open card fades |
+| A store that throws         | `cardState` stuck on `saving`              | `ownSaving` reset in `finally`                    | `saving` reset in `finally`                                            |
+| The sync                    | in the background                          | the same                                          | the same                                                               |
+| The answered card           | drawn flying off (`exiting`)               | none                                              | none: the open card fades                                              |
+
+Why `replaySession` gives the same round as `withAnswer`: both add the card to the answered set and move the seq on by one; a card of the queue is a touch of the round either way; and `deckDone`, which `withAnswer` carries over and the replay works out again, can only differ when the deck is done, and then the round is over too and the next one is replayed from scratch.
+
+### How to verify
+
+1. `npm run check`: 645 tests, exit 0.
+2. `npx vitest run apps/web/test/state.test.ts -t withAnswer`: the round after each save equals what `withAnswer` gave.
+3. On a laptop at 1280 by 800: Tab to the card in front, Enter. The open card is in the centre over the dimmed page, the card's slot is empty. Esc: the ring is back on the card. Enter, type, Save: the next card has the ring and the tile is on the right.
+4. On a phone (staging, not a preview): tap the card in front. It opens in the same framed box as a tile's card, the area and × at the top. `docs/device-tests.md` parts 1, 1b, 3, 4, 4b, 6 and 7b have the steps.
+
+### Decisions made on the way
+
+- **The fade is waited for in the state**, not in the component, so a close and a save go out the same way. Before, the dialog faded on a close and vanished at once on a save.
+- **The dictation hint keeps a flag of its own for the card in front** (`frontHint`), set by `showCard`. `hintOpen` is now what the open card shows: on opening it is the card in front's flag, and closed for any other card. "Got it" on the first card holds for it the next time it opens.
+- **Set aside does nothing while a card is open.** The page behind is inert anyway; the state says it too.
+- **Opening a tile while a card is open does nothing.** It used to close the stack's card first. The page behind cannot be reached now.
+- **The open desk may scroll as a whole** (`overflow-y: auto` on `.open-desk`), because the hint is on every card now and a short laptop window might not fit the field, the hint and the row.
+- **The open card on a phone keeps the class `sheet`**, as the place to write did, and its own rules come after the sheet's in the stylesheet. A test checks the order, since the two weigh the same.
+
+### Looked at in a browser
+
+A local development server with no API, a code written into the browser's storage by hand, the browser pane's emulation (which counts as a touch phone below 768 pixels): the card in front open at 375 by 667, at 375 by 553 with the hint open, at 1280 by 800 with the hint open, and a blank card at 390 by 844. The layout is as described above. A desktop browser has no keyboard, so nothing here says how it sits above a real one. Marco's phone is the proof.
+
+### Open questions
+
+- **"Prefer to talk?" loses the focus.** The button goes when the hint opens, and the focus falls to the page. It did on the stack's card too. Moving the focus to "Got it", or to the field, would fix it; which one is a choice for a phone.
+- **`lib/viewport.ts` and `lib/page-lock.ts` still say "the place to write"** in a comment. They were not in this brief.
+- **`design/DESIGN.md`** still describes the stack's own open card and the answered card flying off.
