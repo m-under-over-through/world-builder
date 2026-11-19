@@ -206,6 +206,24 @@ Value: `marco-android-lowend-01`, in Chrome, on the oldest or cheapest Android a
 7. **Background.** Start an answer, leave Chrome for five minutes, come back: the same card. The half-written answer is kept only while Chrome keeps the page in memory; if the page reloaded, it is gone. Note which happened: a phone that reloads often loses drafts.
 8. Delete everything for this value.
 
+## 9. The page before the app starts (ADR 0028)
+
+The page now carries its own first screen until the app takes over: the name, and a line that shows only when the app has not started after eight seconds. An ordinary open must look exactly as before.
+
+On the iPhone and on the Android, during sections 1 and 3:
+
+1. Watch the first moment of each open, from a link and from a reload. "World Builder" sits in the same place from the first moment to the welcome or the cards: it does not jump up or down, left or right. A faint grey line never flashes under it.
+2. The page loads once. It does not show the name, go blank and show it again.
+
+On the laptop, in Chrome:
+
+1. Open a new tab. Open the developer tools (Cmd+Option+I), the Network tab. Open the staging link of section 4 in that tab. The page as usual.
+2. In Network, find the request whose name starts with `index-` and ends in `.js`. Right-click it, "Block request URL".
+3. Reload the page. "World Builder" at the top, nothing else. In Network the page is asked for twice: the page has loaded itself once more, by itself. It does not load a third time.
+4. Wait. After about eight seconds a grey line shows under the name: "This is taking longer than it should. Reload the page, or open your link again." (or the words in `copy.md` today). Nothing else appears.
+5. Unblock the request (in the "Network request blocking" panel the block opened at the bottom, untick it), then close the tab: the tab remembers that it already tried once, and a new tab starts fresh.
+6. Optional: on the Mac, System Settings, Accessibility, Display, Reduce motion on. In a new tab, steps 1 to 4 again: the line still waits eight seconds. Turn Reduce motion off.
+
 ## Not in this script
 
 - The thank-you card: it needs every card of the deck answered or set aside twice. The tests cover it (`apps/web/test/card.test.ts`, `apps/web/test/accessibility.test.ts`).
@@ -224,3 +242,4 @@ Value: `marco-android-lowend-01`, in Chrome, on the oldest or cheapest Android a
 | 6       |                    |      |              |                          |
 | 7       |                    |      |              |                          |
 | 8       |                    |      |              |                          |
+| 9       |                    |      |              |                          |

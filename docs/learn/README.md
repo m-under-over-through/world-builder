@@ -2,20 +2,21 @@
 
 Explainers for the ideas in this codebase, written for the operator: someone who understands systems at a high level and wants to see the actual procedure and the actual code. Each note has the same shape: the idea, why it is here, the procedure in this repository, how to check it yourself, what can go wrong, and what it does not do.
 
-| Note                              | Idea                                                                                                                                                    |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-sealed-boxes.md`              | Public-key encryption, sealed boxes, and the key procedure                                                                                              |
-| `02-codes-hashes-and-peppers.md`  | Why the code is hashed, why salting cannot work for lookup, what a pepper is, the numbers                                                               |
-| `03-schemas-as-contracts.md`      | Zod schemas as the shared vocabulary, validation at boundaries, reading a failure                                                                       |
-| `04-repo-anatomy-and-tooling.md`  | Workspaces, the config files, how tests run, how to read a failing run                                                                                  |
-| `05-what-a-review-finds.md`       | Ten lessons from the first independent review: atomic file creation, bounded contracts, text encoding, degenerate keys, strict schemas                  |
-| `06-the-skeleton-end-to-end.md`   | Where an answer goes, file by file; how to run the whole stack locally; what the skeleton taught                                                        |
-| `07-bundling-the-function.md`     | Imports, links and why a deployed function must be one file; how the build makes it and how two tests hold it                                           |
-| `08-backups.md`                   | Logical dumps, sealing files with age, Object Lock, a heartbeat; what the nightly job does, step by step, how to check it, and the restore drill        |
-| `09-seeded-shuffle.md`            | Pseudo-random generators, seeds, Fisher-Yates; why a stored seed replays a session; the three functions of the deck engine                              |
-| `10-the-installed-app.md`         | The manifest and its three addresses; why an iPhone's home-screen app starts empty; what the service worker keeps and never keeps                       |
-| `11-the-calendar-file.md`         | The iCalendar format, a repeating event with an alarm in floating time; why a file for everyone and not a service; how the build writes it              |
-| `12-unique-without-a-list.md`     | Drawing values at random instead of keeping a list; why 32 characters and not 36; the birthday sum for values and for codes                             |
-| `13-the-keyboard-and-the-page.md` | The page and the visible part of it; what a phone's keyboard does to each; how the app holds the page and which touches it stops                        |
-| `14-what-a-tab-remembers.md`      | Memory, session storage, local storage, IndexedDB and how long each lasts; the note "Delete everything" leaves for the next page load                   |
-| `15-a-motion-drawn-on-top.md`     | Why the open card never moves; a box with nothing inside that travels in its place; measuring rectangles, the Web Animations API, one card in one place |
+| Note                                        | Idea                                                                                                                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-sealed-boxes.md`                        | Public-key encryption, sealed boxes, and the key procedure                                                                                                      |
+| `02-codes-hashes-and-peppers.md`            | Why the code is hashed, why salting cannot work for lookup, what a pepper is, the numbers                                                                       |
+| `03-schemas-as-contracts.md`                | Zod schemas as the shared vocabulary, validation at boundaries, reading a failure                                                                               |
+| `04-repo-anatomy-and-tooling.md`            | Workspaces, the config files, how tests run, how to read a failing run                                                                                          |
+| `05-what-a-review-finds.md`                 | Ten lessons from the first independent review: atomic file creation, bounded contracts, text encoding, degenerate keys, strict schemas                          |
+| `06-the-skeleton-end-to-end.md`             | Where an answer goes, file by file; how to run the whole stack locally; what the skeleton taught                                                                |
+| `07-bundling-the-function.md`               | Imports, links and why a deployed function must be one file; how the build makes it and how two tests hold it                                                   |
+| `08-backups.md`                             | Logical dumps, sealing files with age, Object Lock, a heartbeat; what the nightly job does, step by step, how to check it, and the restore drill                |
+| `09-seeded-shuffle.md`                      | Pseudo-random generators, seeds, Fisher-Yates; why a stored seed replays a session; the three functions of the deck engine                                      |
+| `10-the-installed-app.md`                   | The manifest and its three addresses; why an iPhone's home-screen app starts empty; what the service worker keeps and never keeps                               |
+| `11-the-calendar-file.md`                   | The iCalendar format, a repeating event with an alarm in floating time; why a file for everyone and not a service; how the build writes it                      |
+| `12-unique-without-a-list.md`               | Drawing values at random instead of keeping a list; why 32 characters and not 36; the birthday sum for values and for codes                                     |
+| `13-the-keyboard-and-the-page.md`           | The page and the visible part of it; what a phone's keyboard does to each; how the app holds the page and which touches it stops                                |
+| `14-what-a-tab-remembers.md`                | Memory, session storage, local storage, IndexedDB and how long each lasts; the note "Delete everything" leaves for the next page load                           |
+| `15-a-motion-drawn-on-top.md`               | Why the open card never moves; a box with nothing inside that travels in its place; measuring rectangles, the Web Animations API, one card in one place         |
+| `16-what-a-page-shows-before-its-script.md` | What a browser does between getting a page and running its script; stylesheets, module scripts, `async` and `load`; why a 200 for a missing script still breaks |

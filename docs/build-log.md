@@ -3252,3 +3252,64 @@ The reviewer of the open card read this one. Verdict: merge after fixes.
 - Marco's phone, for the check above.
 - A person can still turn the suggestion on or off for themselves: Settings, Safari, AutoFill, "Use Contact Info". The app cannot.
 - The reading pass that removes names before anyone reads the answers (the privacy policy, "Who sees what") is the last line of defence, and stays.
+
+## 2026-11-19, Thursday. The page is never empty, and no request waits for good (pull request PR_NUMBER)
+
+### What and why
+
+On 19 November the first open of a production link on Marco's phone gave a page with nothing on it until he reloaded. Once the app's script runs, the page always shows the header and "Loading", so the script did not run. The page as served had nothing in it until then: an empty `#app` and one script. If that script failed, stalled or threw, nothing showed, nothing said so, and nothing tried again. The cause is still not known. ADR 0028 makes the next one visible, and in the commonest case lets it mend itself. Learning note 16 explains the browser's side: [what a page shows before its script](learn/16-what-a-page-shows-before-its-script.md).
+
+A second gap was found by reading: `api()` had no time limit, so "Loading" could stay as long as the browser waited.
+
+### What exists now
+
+- **The page's own first screen**, in `apps/web/index.html`, inside `#app`: `div.app.boot`, with `header.topbar`, `.lines` and `span.name` ("World Builder"), and `main.text` with one `p.muted`, the text of `CLIENT_NOT_STARTED`. Only `div`, `header`, `main`, `span` and `p`. No inline script, no `style`, no `on...`.
+- **The line waits eight seconds**, by the stylesheet alone (`apps/web/src/app.css`): `visibility: hidden`, and an animation that starts after 8 seconds and ends on `visibility: visible`. A screen reader does not read it before it shows. The reduced-motion block leaves it alone on purpose: a delay is not motion.
+- **The name does not move.** The page's header uses the app's classes. Two rules more: on a phone the room of the organizer's line is kept empty, since the app's first frame at a workshop's address has the organizer under the name and the header centres its lines; from 600 pixels the laptop header, which the app switches to before its first paint.
+- **`apps/web/public/boot.js`**, loaded `<script async src="/boot.js">`. At the window's `load` (or at once, if the page has already loaded) it looks for `.boot` in `#app`. Gone: the app started. Still there: if the tab's session storage has no `wb:reloaded`, it sets it and calls `location.reload()`. Storage refused on read or write: no reload. It asks the network for nothing and logs nothing.
+- **`apps/web/src/lib/boot.ts`**, called by `main.ts`: takes the page's screen out of `#app`, mounts the app, then forgets `wb:reloaded`. If the mount throws, `#app` is put back as the page had it, the mark is kept, and the error goes on: `boot.js` then still finds the screen at `load`, and the reload happens once and not in a loop.
+- **A time limit on every request**, `apps/web/src/lib/api.ts`: `REQUEST_TIMEOUT_MS` (15 seconds), with an `AbortController` and a timer, cleared once the body has been read. The sync request that carries the outbox passes `SYNC_TIMEOUT_MS` (60 seconds), for its body of up to `MAX_REQUEST_BYTES` on a small phone line. A request over its limit returns `CLIENT_SYNC_FAILED` with status 0, exactly as a request the network refused.
+- **The new client code** `CLIENT_NOT_STARTED` (in `packages/contracts`, from the integrator), with its line in `copy.md` and its entry in `docs/runbook.md`. `CLIENT_SYNC_FAILED` in the runbook names the limits.
+- 25 tests more, 713 in all: `apps/web/test/boot.test.ts` (the page, the stylesheet read as text, `boot.js` run against a stand-in window, the module), five in `api.test.ts`, two in `sync.test.ts`. No existing test changed.
+
+### How to verify by hand
+
+1. `npm run check`: 713 tests, exit 0.
+2. `VITE_WB_ENV=staging npm run build --workspace=apps/web`. In `apps/web/dist/index.html` the module script is in the head, the page's screen in `#app`, and `<script async src="/boot.js"></script>` at the end of the body. `dist/boot.js` is the file in `public/` as it is, and `dist/sw.js` lists `boot.js` in its precache.
+3. On staging, in Chrome on a laptop: `docs/device-tests.md`, part 9. Block the app's script in the developer tools and reload: the name, one more load of the page, then the line after eight seconds.
+4. On a phone: an ordinary open looks as before (part 9, the first two steps).
+
+### What the builder saw on the built page
+
+A throwaway static server (not in the repository) served `apps/web/dist` with the single-page fallback and the site's Content Security Policy, and could answer the app's script with the page itself, with a 404, or never. Chrome without a window was driven over its debugging protocol. No warning of the policy in any run.
+
+- **The script answered with the page once, then normally**: the page was asked for twice, then the app started (the welcome); the second load kept `#p=...` in the address until the app read it; the mark was gone after the start. The same with a 404 in place of the page.
+- **The script answered with the page every time**: the page was asked for exactly twice, never a third time. The name alone; the line hidden at 7.5 seconds and shown at 10. The mark set, the address still with its `#p=...`.
+- **The script never answered**: the page was asked for once and did not reload, since `load` never came. The line hidden at 7.5 seconds and shown at 10.
+- **An ordinary open**: the page loaded once, the welcome.
+- **The name's place**, measured on the page's screen and on the app's "Loading" (an API held open): 24 by 19.4 at 375 and 390 wide, 36 by 22 at 756 wide, the same on both. Before the organizer's room was kept, the name sat 7.6 pixels lower on a phone than in the app.
+- **A request held open**: "Loading" for 15 seconds, then the browser closed the request and the app went on to the welcome.
+- **Blocking the script in the developer tools**, with the service worker already installed: one reload, then the line. So part 9 of the device tests works on a laptop that has opened staging before.
+
+### Decisions made on the way
+
+- **The organizer's room is kept on a phone.** The brief asked for no organizer line and a name that does not move. On a phone the two disagreed: the header centres its lines, and the app's first frame at a workshop's address has two. The page keeps the second line's room empty, with padding; no tag and no word added. At an address that is not a workshop the name moves the other way, by the same amount; that page has no organizer, and no participant link goes there.
+- **The laptop header from 600 pixels**, for the same reason: the app is the laptop page before its first paint.
+- **A body stopped by the limit is the request stopped.** A body that is not JSON still reads as no body, as before; only a read the limit stopped goes to the failure. A stub that ignores the signal, as the tests' stubs do, is never failed by a timer, so no existing test changed meaning.
+- **The new section of `copy.md` carries a draft mark**, `[placeholder]`, as the file's own rules say for words that are still a draft, and an editor's note that the words are in `index.html` too. Marco deletes the mark when the words are final.
+- **The build log entry is at the bottom**, as this log's own first lines say ("Newest entry at the bottom"); the brief said the top.
+
+### Open questions
+
+From ADR 0028, "What this does not do":
+
+- A stylesheet that stalls: nothing is drawn until it arrives. A stylesheet that fails shows the page unstyled, with the line at once (seen on the built page, with the stylesheet answered 404 and the script failing).
+- A script that stalls without failing: no reload; the line after eight seconds.
+- A browser that draws nothing at all. From now on, a blank page without the app's name means that.
+- A device store that never answers: `openStore` still waits with no limit.
+- The service worker's reload a moment after a deploy: unchanged.
+
+And from here:
+
+- "Loading" can last longer than fifteen seconds when the open makes more than one request: GET /me, then the outbox with its sixty. As the ADR says, at most the limit of each request.
+- The cause of the blank page of 19 November is still not known.
