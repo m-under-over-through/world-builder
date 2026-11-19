@@ -217,6 +217,9 @@ describe('every workshop folder has the words the client reads', () => {
     it(`${slug}: the words a screen fills are still there`, () => {
       expect(copy.item('Reminder', 'description')).toContain('[link]');
       expect(copy.item('Your world', 'answered so far')).toContain('[n]');
+      // The opening day comes from workshop.json, in the phone's own language (Closed.svelte).
+      // A date typed over the slot would stay when the day moves.
+      expect(copy.text('Not open yet')).toContain('[day]');
     });
 
     it(`${slug}: no block is left for the intro screens, the toasts, the nudge on the card or the numbers of a round (ADR 0019)`, () => {
