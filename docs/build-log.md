@@ -2954,3 +2954,68 @@ The same reviewer read this one. Verdict: merge after one fix to the device scri
 ### Open questions
 
 - None.
+
+## 2026-11-18, Wednesday night. After "Delete everything", the same tab starts over (pull request 76)
+
+### What
+
+- `apps/web/src/lib/start-over.ts` (new): the note the delete leaves for the page load that follows it, and the two functions that write it and take it.
+- `apps/web/src/lib/state.svelte.ts`: `deleteMe` leaves the note. `open` takes it first thing and, when nothing else says who this device is, keeps the code and the wave in memory.
+- `apps/web/test/start-over.test.ts` (new, 15 tests). 637 tests in all.
+- `docs/adr/0026-after-delete-everything-the-same-tab-starts-over.md` (new), and its row in the index.
+- `docs/learn/14-what-a-tab-remembers.md` (new), and its row in the index: [what a tab remembers](learn/14-what-a-tab-remembers.md).
+- `docs/screen-map.md` and `docs/device-tests.md` (part 1 step 11, part 2 step 11, part 3 step 11).
+
+### Why
+
+Marco tried "Delete everything" on staging and landed on "To start, open the link you were sent." His words: "I get why technically, but as a user my expectation would be to go back to the beginning of the experience since I haven't closed the tab or the browser."
+
+Why it happened. The delete wipes the device's store, then loads the workshop's home afresh, so that nothing of the participant stays in the page's memory. A fresh page with an empty store does not know which link the phone came through. With no link, the welcome has no button.
+
+### How it works now, step by step
+
+1. `DELETE /me`. If the server refuses, the app says so and nothing else happens.
+2. The device's store is wiped.
+3. The page writes one note into the tab's session storage: the workshop, the code, and the wave the server recorded for the participant. Only a participant who came through a wave gets one.
+4. The page loads the workshop's home afresh.
+5. The new page takes the note and erases it, before anything else.
+6. The new page checks the note: this workshop, a code of 16 digits, a wave that is a name.
+7. If the device holds no code, and the address names no wave and no invite, the code and the wave are kept in memory, and the welcome shows "I understand".
+8. "I understand" joins with that code. The server deleted the participant, so this is a new one under the same link, with the onboarding card first.
+
+### How to verify
+
+1. `npm run check`: 637 tests, exit 0.
+2. On staging: join through a link, answer a card, "?", "Delete everything and start over", "Yes, delete everything". The welcome, with "I understand".
+3. Tap it: the first card with "Got it" comes first again, and "Your world so far" is empty.
+4. Delete once more and reload the welcome: no button, "To start, open the link you were sent."
+5. In the browser's developer tools, Application, Session storage: no `wb:startOver` entry on that welcome. IndexedDB: no `code` row.
+
+### Decisions made on the way
+
+- **The same code, not a fresh one.** A fresh code would be tidier to explain and wrong for the person. The email's link makes one code, always. If the device joined under another, the next open of the email's link would switch the device to the link's participant, and what was written in between would be out of sight. ADR 0026 has the reasoning.
+- **Session storage, not the device's store.** The store was just wiped and is meant to stay empty. Session storage gets across one reload, belongs to one tab, and is erased on the next load.
+- **The page still loads afresh.** A reload is the one sure way to leave nothing of the old participant in memory. Resetting the app's memory by hand, field by field, would trade that for one saved note.
+- **No note for a device that came through an invite.** Its token works once. It is told to open its link, as before.
+- **A link opened in that tab, and a stored code, both win over the note.**
+- **No new words.** The question before the delete already says "Opening your link again starts you over from nothing." Nothing on the welcome says "Everything is deleted"; see the open questions.
+
+### Tried before the pull request
+
+In a browser against a local server: joined through a link, answered a card, deleted. The address was the workshop's home; the welcome had "I understand"; session storage had no note; the store's settings table was empty. "I understand" then showed the onboarding card and no tile. The requests, in order: `DELETE /me`, then one `POST /join`. No second "wave opened".
+
+### Review, and what the integrator changed before the merge
+
+The reviewer was asked to read this one as an adversary, since it touches who a device is. Verdict: merge after fixes. It found no way for the code to reach an address, a log, a request other than the join, or the device's store.
+
+- **The note could carry the wrong wave** (reviewer). The delete took the wave from what the device last arrived through. A device that joined through one wave and later opened another wave's link would have started over through the second. The wave is now the one the server recorded for the participant, from `GET /me`; the device's own memory of it is used only when the server has not said.
+- **The note could be used at another link** (reviewer). If the page load after the delete never happened, the note waited in the tab, and an invite or a wave link opened there next would have joined under the old code. The note is now used only at an address that names no wave and no invite. Opened anywhere else, it is erased and not used.
+- **Sentences that said too much** (reviewer). "Delete everything leaves nothing on the device" left out the note's one page load, and the workshop's name, which the home writes back into local storage as it always has. The record and the learning note now say exactly what is where and for how long. The record also says what is new: while that welcome is on the screen, the phone alone is enough to start as that link.
+- **A test with a name too big** (reviewer). "Another tab has no note" emptied the storage by hand. It is now named for what it shows, and says why.
+- Four tests added: the true wave; a wave link or an invite opened in that tab; offline at "I understand"; the same link joined from another phone in between.
+- Found right: every way through the open with a note (no code, a link with the same code, one with another, a stored code, a stored link code); the join through a 200, a taken code, a rate limit and no network; and the reasoning that a fresh code would be wrong for anyone whose code came from their link.
+
+### Open questions
+
+- **After the delete the welcome says nothing about it.** A person who deleted everything sees the first page again and has to trust that it worked. One calm line would help, for example "Everything you sent is deleted." The words would be Marco's.
+- **The code stays in the tab** until the tab is closed or reloaded. This is a choice about what stays on the device, and those are Marco's to weigh. The pull request is not merged until he has said yes.
