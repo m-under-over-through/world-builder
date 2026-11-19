@@ -65,12 +65,6 @@ We do not ask who you are: no name, no email, no account. Your answers are locke
 
 The link this phone remembered is not in use any more. Open the link from your email again.
 
-## Welcome: your link (under 40 words)
-
-<!-- One line under the welcome's paragraph, above "I understand", when the link this device opened carries a value of its own for the recipient (ADR 0018). -->
-
-This link is yours. It opens your cards on any phone. To bring someone in, use the two other links in the email, not this one.
-
 ## Welcome: no link (under 40 words)
 
 <!-- Shown under the welcome's paragraph in place of the "I understand" button when this device has no link from an email or invite to join through. -->

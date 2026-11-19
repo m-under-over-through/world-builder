@@ -6,15 +6,15 @@
    * ADR 0019), in the layout of the design's Welcome artboard: the fanned cards, decoration;
    * the title and the purpose line; one paragraph that says what this is, how it works and the
    * consent; one button, "I understand", which is the consent and does what the consent screen
-   * did (`app.join`: the link's code or a fresh one, the join, the first card). Under the
-   * paragraph, one line for the case a person is in: arrived through a link with a value of its
-   * own (ADR 0018), "This link is yours"; through a link without one, nothing more; neither, the
-   * line says to open the link you were sent, and there is no button. When the code this phone
-   * remembered was refused on open (AUTH_CODE_UNKNOWN), one quiet line says so.
+   * did (`app.join`: the link's code or a fresh one, the join, the first card). Arrived through
+   * a link, with a value of its own (ADR 0018) or without, nothing more is said: the line "This
+   * link is yours" went on 18 November 2026, since the invitation and the terms say it already.
+   * Arrived without a link, a line under the paragraph says to open the link you were sent, and
+   * there is no button. When the code this phone remembered was refused on open
+   * (AUTH_CODE_UNKNOWN), one quiet line says so.
    */
   let { app }: { app: AppState } = $props();
-  const yourLink = $derived(Boolean(app.linkCode));
-  const canJoin = $derived(Boolean(yourLink || app.arrival.wave || app.arrival.invite));
+  const canJoin = $derived(Boolean(app.linkCode || app.arrival.wave || app.arrival.invite));
   /** The fanned cards of the artboard, back to front: tint and turn. */
   const FAN = [
     ['lilac', -14],
@@ -39,9 +39,7 @@
     {#if app.codeRefused}
       <p class="line" role="status">{app.copy.text('Welcome: link not accepted')}</p>
     {/if}
-    {#if canJoin}
-      {#if yourLink}<p class="line">{app.copy.text('Welcome: your link')}</p>{/if}
-    {:else}
+    {#if !canJoin}
       <p class="line">{app.copy.text('Welcome: no link')}</p>
     {/if}
   </div>

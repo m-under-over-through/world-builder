@@ -2910,3 +2910,47 @@ The sentences were proposed to Marco before his read of the copy file. He missed
 
 - None about the words. This closes the open question of pull request 73 and the consequence of ADR 0024 about the policy.
 - The policy is now about 545 words under a heading that says "under 400 words". Nothing checks the heading.
+
+## 2026-11-18, Wednesday night. The welcome no longer says "This link is yours" (pull request 75)
+
+### What
+
+- `workshops/rural-manufacturing/copy.md`: the block "Welcome: your link" is deleted, with its heading and its note.
+- `apps/web/src/lib/copy.ts`: the block is out of `COPY_TEXT`, the list of blocks the client reads. The type of a block's name comes from that list, so the compiler found the one place that read it.
+- `apps/web/src/screens/Welcome.svelte`: the line is no longer drawn. Whether a person can join is worked out as before.
+- `apps/web/test/screens.test.ts`: one test rewritten. Still 622 tests.
+- `docs/adr/0019-one-page-before-the-cards.md`, `docs/screen-map.md`, `docs/device-tests.md`.
+
+### Why
+
+Marco, while testing staging: "you can remove this line from the onboarding: This link is yours. It opens your cards on any phone. To bring someone in, use the two other links in the email, not this one. It is redundant."
+
+The line was shown under the welcome's paragraph to a person who arrived through a link with a value of its own (ADR 0018). The same three things are said elsewhere: the invitation's text, above the link, says it is theirs and that the two other links are for forwarding; the terms say "Do not forward your own link: it is the key to what you wrote"; and the welcome's own paragraph says the same link brings them back to the cards.
+
+### How to verify
+
+1. `npm run check`: 622 tests, exit 0.
+2. On staging, open a join link with a new word after `#p=`. The welcome ends with "We do not ask who you are..." and then "I understand".
+3. In a private window, open the workshop's address with no link: "To start, open the link you were sent." and no button, as before.
+
+### Decisions made on the way
+
+- **The block is deleted, not left empty.** An empty block would be drawn as an empty paragraph, and a block nothing reads is a block nobody keeps up to date.
+- **No new decision record.** ADR 0019 listed the three lines of the welcome; its sentence now lists two and says when and why the third went.
+- **The device script loses its sign.** Inside the Gmail app's browser, the script asked the tester to look for "This link is yours" to know that the part after `#` had reached the page. The welcome now looks the same with and without it. The script checks by what happens next, in two steps: opening the email's link again must land on the same cards, and the laptop, opened with the same link, must show the phone's answer as "Written on another phone." A participant never had use for the sign: nobody notices a line that is not there.
+
+### Seen before the pull request
+
+At 375 by 553 against a local server, through a link with a value: the title, the purpose, five paragraphs, no line under them, and "I understand".
+
+### Review, and what the integrator changed before the merge
+
+The same reviewer read this one. Verdict: merge after one fix to the device script.
+
+- **One step promised more than it shows** (reviewer). The script said that opening the link a second time inside Gmail was the check that the part after `#` had arrived. It is only half of it. If Gmail kept its storage and the part was lost on the first open, the phone joined under a code of its own, and the second open brings the same cards back from the phone itself: nothing looks wrong. The loss shows only on the laptop, which then opens on the welcome, as for a link the server has not met. Steps 1, 8 and 10 of part 2 now say so, and step 10 says to stop there.
+- Found right: whether a person can join is worked out by the same expression as before; in each of the five cases (a link with a value, one without, an invite, no link, a refused code) the welcome shows what it should; nothing else read the block; the spacing above the button is the same; and it is still said where a participant reads it, in the invitation and in the terms, that their own link is not for forwarding.
+- One long comment line is wrapped.
+
+### Open questions
+
+- None.

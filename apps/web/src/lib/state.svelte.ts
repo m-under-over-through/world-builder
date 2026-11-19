@@ -197,9 +197,8 @@ export class AppState {
   codeRefused = $state(false);
   /**
    * The code a link's value made, when the server has not met it yet (ADR 0018): a new
-   * participant, so the welcome ("This link is yours"), the intro, and a join with this code
-   * rather than a fresh one. Empty when the link carried no value, or once the code is the
-   * device's participant (`code`).
+   * participant, so the welcome, and a join with this code rather than a fresh one. Empty when
+   * the link carried no value, or once the code is the device's participant (`code`).
    */
   linkCode = $state('');
   /** True while the retry loop runs, so only one does. */
