@@ -11,7 +11,7 @@ On 19 November 2026 the first open of a production link on Marco's phone gave a 
 5. **The app's script runs.** It is a module, so it runs once the whole tree is built. It draws the app into `#app`.
 6. **`load`.** When every file the page asked for has arrived or failed, the window says `load`.
 
-Until step 5, what is on the screen is only what `index.html` holds. Before ADR 0028 that was an empty `<div id="app">`. Now it is the app's name, where the app's header draws it, and a line that waits eight seconds.
+Until step 5, what is on the screen is only what `index.html` holds. Before ADR 0028 that was an empty `<div id="app">`. Now it is the same picture as the app's own loading screen: the app's name where the header draws it, and "Loading" under it. A second line waits fifteen seconds before it shows.
 
 ## Why a stylesheet holds up the first picture and a module script does not
 
@@ -42,10 +42,10 @@ A browser checks what kind of file it got before it runs a module script. HTML i
 
 ## How to check it yourself
 
-On a laptop, in Chrome, open a staging link in a new tab with the developer tools open. In Network, find the request for `/assets/index-....js`, right-click it and choose "Block request URL". Reload. You see "World Builder" at the top, the page loads once more by itself (two requests for the page in Network), and after eight seconds the line from `copy.md` shows under the name. Unblock the request when done, and close the tab, so its mark goes with it.
+On a laptop, in Chrome, open a staging link in a new tab with the developer tools open. In Network, find the request for `/assets/index-....js`, right-click it and choose "Block request URL". Reload. You see "World Builder" at the top and "Loading" under it, the page loads once more by itself (two requests for the page in Network), and after fifteen seconds the line from `copy.md` shows under "Loading". Unblock the request when done, and close the tab, so its mark goes with it.
 
 ## What it does not do
 
 - A stylesheet that stalls: nothing is drawn until it arrives.
-- A script that stalls without failing: no `load`, so no reload. The line after eight seconds says what to do. A reload after a fixed time was refused, since on a slow line it would throw away a download that was about to finish.
+- A script that stalls without failing: no `load`, so no reload. The line after fifteen seconds says what to do. Fifteen and not less, and words that say "if it stays like this": the app's script is about 400 kB before compression, and on a weak line it can take that long to arrive while nothing is wrong. A reload after a fixed time was refused, since on a slow line it would throw away a download that was about to finish.
 - A browser that draws nothing at all: nothing in the page can help.

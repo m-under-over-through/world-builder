@@ -1353,6 +1353,12 @@ export class AppState {
    * session storage: the code and the wave, so the welcome can start the same link over without
    * the email (ADR 0026; lib/start-over.ts). It is left only once the server has deleted and the
    * device is wiped.
+   *
+   * AUTH_CODE_UNKNOWN on the delete means the server holds nothing for this code: it deleted the
+   * participant a moment ago and the answer was lost or cut off by the time limit (ADR 0028), or
+   * the join is still queued on this device and never reached it. Either way nothing of this
+   * participant is on the server, which is what the person asked for, so the device goes on as
+   * after a delete that worked. Every other failure shows its line and wipes nothing.
    */
   async deleteMe(): Promise<void> {
     if (!this.store || !this.workshop || !this.confirmingDelete) return;
@@ -1365,7 +1371,7 @@ export class AppState {
       method: 'DELETE',
       code,
     });
-    if (!res.ok) {
+    if (!res.ok && res.error !== 'AUTH_CODE_UNKNOWN') {
       this.fail(res.error);
       return;
     }

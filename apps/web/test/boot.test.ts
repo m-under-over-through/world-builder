@@ -24,7 +24,7 @@ const words = (el: Element | null | undefined) =>
   (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
 describe('the page as served (index.html)', () => {
-  it("has the app's name and the line for a script that did not start", () => {
+  it('the page as served has the app\'s name, "Loading", and the line for a script that did not start, as the app\'s own loading screen draws them', () => {
     const screens = page.querySelectorAll(`#app > .${BOOT_CLASS}`);
     expect(screens).toHaveLength(1);
     const screen = screens[0]!;
@@ -32,7 +32,13 @@ describe('the page as served (index.html)', () => {
     expect(screen.classList.contains('app')).toBe(true);
     expect(page.getElementById('app')!.children).toHaveLength(1);
     const name = screen.querySelector(':scope > header.topbar > .lines > span.name');
-    const line = screen.querySelector(':scope > main.text > p.muted');
+    // The app's loading screen: main.text and one p.muted with "Loading" (App.svelte). The late
+    // line is a second paragraph, with a class of its own.
+    const lines = screen.querySelectorAll(':scope > main.text > p');
+    expect(lines).toHaveLength(2);
+    const [loading, line] = [...lines];
+    expect(loading!.className).toBe('muted');
+    expect(line!.classList.contains('late')).toBe(true);
     expect(words(name)).toBe('World Builder');
     // No organizer: the page does not know the workshop.
     expect(screen.querySelector('.organizer')).toBeNull();
@@ -43,6 +49,7 @@ describe('the page as served (index.html)', () => {
       const copy = Copy.parse(readFileSync(join(workshops, slug, 'copy.md'), 'utf8'));
       // The two cannot drift: change the words in copy.md and index.html together.
       expect(words(line), slug).toBe(copy.error('CLIENT_NOT_STARTED'));
+      expect(words(loading), slug).toBe(copy.item('App labels', 'loading'));
       expect(words(name), slug).toBe(copy.item('App labels', 'app name'));
     }
   });
@@ -75,6 +82,20 @@ describe('the page as served (index.html)', () => {
     }
   });
 
+  it("main.ts mounts the app through startApp and nowhere else, so the page's screen is taken away and the mark forgotten", () => {
+    // Read as text: main.ts runs the app when imported. With a plain mount the app would sit next
+    // to the page's screen, and boot.js would reload on every open.
+    const main = readFileSync(join(web, 'src/main.ts'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(main).toMatch(/import \{ startApp \} from '\.\/lib\/boot\.ts';/);
+    expect(main).toMatch(
+      /startApp\(\s*target,\s*\(\)\s*=>\s*mount\(App,\s*\{\s*target\s*\}\s*\)\s*\)/,
+    );
+    expect(main.match(/\bmount\(/g)).toHaveLength(1);
+    expect(main).toMatch(/const target = document\.getElementById\('app'\)!;/);
+  });
+
   it('boot.js names the same class and the same mark as src/lib/boot.ts', () => {
     expect(bootJs).toContain(`'.${BOOT_CLASS}'`);
     expect(bootJs).toContain(`'${RELOAD_MARK}'`);
@@ -95,12 +116,16 @@ function block(source: string, start: number): string {
 describe('the stylesheet (app.css, read as text: a check of the words, not of a rendered page)', () => {
   const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-  it('the stylesheet keeps the line hidden for eight seconds, with reduced motion too', () => {
-    const rule = block(plain, plain.indexOf(`\n.${BOOT_CLASS} .muted {`));
+  it('the stylesheet keeps the late line hidden for fifteen seconds, with reduced motion too, and leaves "Loading" alone', () => {
+    const rule = block(plain, plain.indexOf(`\n.${BOOT_CLASS} .late {`));
     expect(rule).toContain('visibility: hidden;');
-    // Shown by an animation that waits 8 seconds and keeps its end: visibility, not opacity, so a
-    // screen reader does not read the line before it shows.
-    expect(rule).toContain('animation: boot-late 1ms linear 8s forwards;');
+    // Shown by an animation that waits 15 seconds and keeps its end: visibility, not opacity, so
+    // a screen reader does not read the line before it shows.
+    expect(rule).toContain('animation: boot-late 1ms linear 15s forwards;');
+    // Nothing hides "Loading", the line every class of the page's screen shares with the app's.
+    for (const [, selector, body] of plain.matchAll(/([^{}]*)\{([^{}]*)\}/g))
+      if (selector!.includes(BOOT_CLASS) && /visibility|display|opacity/.test(body!))
+        expect(selector!.trim(), 'only the late line is hidden').toBe(`.${BOOT_CLASS} .late`);
     const keyframes = block(plain, plain.indexOf('@keyframes boot-late {'));
     expect(keyframes.replace(/\s+/g, ' ')).toBe(
       '@keyframes boot-late { from, to { visibility: visible; } }',
@@ -134,14 +159,21 @@ describe('the stylesheet (app.css, read as text: a check of the words, not of a 
     const organizer = body('.topbar .organizer');
     const size = /font-size: (\d+)px;/.exec(organizer)![1];
     const height = /line-height: ([\d.]+);/.exec(organizer)![1];
-    expect(body(`.app.${BOOT_CLASS} .topbar .lines`)).toContain(
-      `padding-bottom: calc(${gap}px + ${size}px * ${height});`,
-    );
     // From 600 pixels the app is the laptop page before its first paint: the same header.
     const at = plain.indexOf(`.app.${BOOT_CLASS} .topbar {`);
     const media = plain.lastIndexOf('@media', at);
     expect(plain.slice(media, plain.indexOf('{', media)).trim()).toBe('@media (min-width: 600px)');
     const wide = block(plain, media);
+    const outside = plain.replace(wide, '');
+    expect(body(`.app.${BOOT_CLASS} .topbar .lines`, outside)).toBe(
+      `padding-bottom: calc(${gap}px + ${size}px * ${height});`,
+    );
+    // There the organizer is larger, so its room is too.
+    const wideSize = /font-size: (\d+)px;/.exec(body('.app.wide .topbar .organizer'))![1];
+    expect(wideSize).not.toBe(size);
+    expect(body(`.app.${BOOT_CLASS} .topbar .lines`, wide)).toBe(
+      `padding-bottom: calc(${gap}px + ${wideSize}px * ${height});`,
+    );
     for (const [boot, app] of [
       [`.app.${BOOT_CLASS} .topbar`, '.app.wide .topbar'],
       [`.app.${BOOT_CLASS} .topbar .name`, '.app.wide .topbar .name'],

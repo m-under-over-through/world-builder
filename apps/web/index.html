@@ -13,17 +13,21 @@
     <title>World Builder</title>
   </head>
   <body>
-    <!-- The page's own first screen (ADR 0028; src/lib/boot.ts): the name where the app's header
-         draws it, and a line that shows after eight seconds (app.css). The line is the text of
-         CLIENT_NOT_STARTED in every workshop's copy.md; a test holds them equal. -->
+    <!-- The page's own first screen (ADR 0028; src/lib/boot.ts): the same picture as the app's
+         loading screen, the name where the header draws it and "Loading" under it, and a second
+         line that shows after fifteen seconds (app.css). The two lines are the texts of "loading"
+         under "App labels" and of CLIENT_NOT_STARTED in every workshop's copy.md; a test holds
+         them equal. -->
     <div id="app">
       <div class="app boot">
         <header class="topbar">
           <div class="lines"><span class="name">World Builder</span></div>
         </header>
         <main class="text">
-          <p class="muted">
-            This is taking longer than it should. Reload the page, or open your link again.
+          <p class="muted">Loading…</p>
+          <p class="muted late">
+            This is taking longer than it should. If it stays like this, reload the page or open
+            your link again.
           </p>
         </main>
       </div>

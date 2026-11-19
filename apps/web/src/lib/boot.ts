@@ -1,8 +1,9 @@
 /**
  * The page's own first screen, and the app taking over from it (ADR 0028; learning note 16).
  *
- * The page as served (index.html) carries a first screen of its own inside `#app`: the app's name
- * where the header draws it, and a line that shows after eight seconds. It is there for the case
+ * The page as served (index.html) carries a first screen of its own inside `#app`, the same picture
+ * as the app's loading screen: the app's name where the header draws it and "Loading" under it, and
+ * a second line that shows after fifteen seconds. It is there for the case
  * where the app's script never starts. A small script of the page's own (public/boot.js) looks for
  * it when the window has loaded: still there means the app did not start, and the page is loaded
  * once more, with a mark in the tab's session storage so it happens only once.
@@ -38,7 +39,7 @@ export function forgetReload(): void {
  *
  * The screen is taken out before the mount, since Svelte's `mount` adds to its target and does not
  * empty it. If the mount throws, the target is put back as the page had it: the screen alone,
- * without whatever the mount left half drawn. So the name and the late line stay on the screen,
+ * without whatever the mount left half drawn. So the name, "Loading" and the late line stay,
  * boot.js still finds the screen at `load` and loads the page once more, and the mark is not
  * forgotten, so that reload happens once and not in a loop. The error is thrown on, as before.
  */

@@ -1671,10 +1671,12 @@ button.tile .pen {
 /* ---------- the page's own first screen (index.html; ADR 0028) ----------
    The name sits where the app's header draws it while loading, at every width, so it does not
    move when the app takes over: the same classes as the header, and from 600px the laptop's
-   header, which the app switches to before its first paint. The line under it is for a script
-   that never started. It is hidden for eight seconds and then shown, by the stylesheet alone:
-   no script is involved. `visibility`, not opacity, so a screen reader does not read it before
-   it shows.
+   header, which the app switches to before its first paint. "Loading" under it is the app's own
+   loading line, in its place, shown from the start. The second line (`.late`) is for a script
+   that never started. It is hidden for fifteen seconds and then shown, by the stylesheet alone:
+   no script is involved. Fifteen, not less: the app's script is about 400 kB before compression,
+   and on a weak line it can take many seconds to arrive while nothing is wrong (ADR 0028).
+   `visibility`, not opacity, so a screen reader does not read it before it shows.
    At a workshop's address the app's first frame has the organizer under the name, and on a phone
    the header centres the two lines in its 48 pixels. The page does not know the workshop, so it
    keeps the organizer's room empty (the 2 of the gap and a line of 11 at 1.2), and the name sits
@@ -1683,9 +1685,9 @@ button.tile .pen {
 .app.boot .topbar .lines {
   padding-bottom: calc(2px + 11px * 1.2);
 }
-.boot .muted {
+.boot .late {
   visibility: hidden;
-  animation: boot-late 1ms linear 8s forwards;
+  animation: boot-late 1ms linear 15s forwards;
 }
 @keyframes boot-late {
   from,
@@ -1701,11 +1703,15 @@ button.tile .pen {
   .app.boot .topbar .name {
     font-size: 16px;
   }
+  /* the laptop's organizer is 12 pixels (.app.wide .topbar .organizer), so its room is too */
+  .app.boot .topbar .lines {
+    padding-bottom: calc(2px + 12px * 1.2);
+  }
 }
 
 /* reduced motion: the fades stay, the movement goes */
 @media (prefers-reduced-motion: reduce) {
-  /* The page's own late line (.boot .muted, above) is not in here on purpose: its eight seconds
+  /* The page's own late line (.boot .late, above) is not in here on purpose: its fifteen seconds
      are a delay, not motion. Nothing moves when it shows, and with reduced motion it must still
      wait, or it would flash on any open where the app takes a moment to start (ADR 0028). */
   .slot,
