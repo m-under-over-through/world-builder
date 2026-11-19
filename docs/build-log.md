@@ -3114,3 +3114,55 @@ Left as they are, and named here so nobody has to find them again:
 - **`design/DESIGN.md`** still describes the stack's own open card and the answered card flying off. It is an export of the design canvas and is not edited here.
 - **The sizes of the open card are the stack's for every card now**: the question at 27 or 28 pixels where a tile's card had 24, the area at 12 where it had 11. For Marco's eye.
 - **The motions of ADR 0027** are the second pull request: opening from what was tapped, closing back to it, and a saved card going to "Your world so far".
+
+## 2026-11-18, Wednesday, night. A motion says where the card went (pull request 78)
+
+### What and why
+
+Marco asked that "the animation should either move the card to the saved list, back to the card stack, or away if dismissed" (ADR 0027). Pull request 77 gave every card one open card, which fades in and out where it stands. This is the second pull request: the motions. Learning note 15 explains the idea, [a motion drawn on top](learn/15-a-motion-drawn-on-top.md).
+
+### What exists now
+
+- **The travelling card**, `apps/web/src/components/TravellingCard.svelte`, mounted in `App.svelte` after the open card and outside it. A fixed box with the card's tint (white with the ink line for a blank card), its corners and a shadow, and nothing inside. `aria-hidden`, `pointer-events: none`, no focus, in the page only while it travels. Over the page and the scrim, under the open card.
+- **Which place to which**, `apps/web/src/lib/travel.ts`, plain values in, two rectangles or nothing out:
+  - opening from the card in front or a tile: from it to the open card;
+  - a new blank card opening or closing: nothing travels;
+  - closing without saving: to the card in front, to its tile from 600 pixels, to the pill on a phone (its tile is in the closed sheet);
+  - saving: to its tile from 600 pixels, to the pill on a phone. A new blank card too, to its new tile.
+  - Set aside is unchanged.
+- **The open card never moves.** No rule of the stylesheet moves `.open-card`, `.open-desk` or `.scrim`. The open desk was centred with a `translate`; it is centred by its margins now, in the same place (measured at 1280 by 800: 320, 100, 640 by 600).
+- **One plain fact in the state**, `app.savedAs`: the card id a save is recorded under, until the open card has gone. A new blank card has no id until it is saved, so without it neither the tile to land on nor the tile to lift could be found. `World.svelte` lifts that tile while the card fades, as it already lifted the tile of every other card saved.
+
+### How it moves, and what my eye chose
+
+- Position, size and corners in 280 milliseconds (`CLOSE_MS`) with `--ease-sheet`, inside the wait the state already makes for the fade. Nothing waits for it, and nothing waits longer than before.
+- **Under the open card, not over it.** Over it, an empty coloured box slid across the question and the field. Under it, the open card fades in over the box and out from over it.
+- **Its fade**: opening, whole for the first third and then fading as it lands, since the open card is there by then; closing to the card in front or a tile, coming up in the first third and landing whole as that shows; going to the pill, coming up and fading again as it reaches it, since a pill is not a card.
+- A tile is measured by the list item that holds it: a tile just added rises 8 pixels into place (`tile-in`), and the travelling card landed 8 pixels low before this.
+- The box never stays longer than twice its way (560 ms), in case a page in the background holds its animations.
+
+### How to verify
+
+1. `npm run check`: 686 tests, exit 0.
+2. `npx vitest run apps/web/test/travel.test.ts`: the table at both widths; reduced motion; missing rectangles; in the page with `element.animate` and a layout given by hand.
+3. Laptop and phones: `docs/device-tests.md`, parts 1, 1b, 3, 4 and 4b, and the Reduce Motion steps.
+
+### Looked at in a browser
+
+A local Vite server on this branch and the local API, in the browser pane, which was hidden the whole time. A hidden pane holds its frames, so the motion was never watched playing. Instead, every animation on the page was paused by script at chosen moments and the travelling card's rectangle and opacity were read, with a few screenshots of the paused frames at 1280 by 800.
+
+- 1280 by 800: the card in front opened (from 46, 105, 400 by 520 to the open desk, 320, 100, 640 by 600), closed by Esc (back to the card in front, which showed again with the focus on it), saved (to the first tile, lifted until the end, then shown with the focus on the next card); a tile opened and closed (from it and back to it, the focus back on it); a blank card opened (nothing travelled) and saved (a white box with the ink line to its new tile, lifted until the end).
+- 375 by 667: the card in front opened (to the frame's first guess, 0, 8, 375 by 326), closed by × (back to it), saved (to the pill, 80, 609, 215 by 48, opacity near 0 at the end); a blank card's tile opened from the sheet (from where the tile was, the sheet already gone) and closed (to the pill, the focus on the pill).
+- 375 by 553 and 390 by 844: the card in front opened to the frame, the field with the focus; at 390 by 844 closed by the dimmed page, back to the card. A blank card opened and closed: nothing travelled.
+- Not seen: reduced motion (the pane cannot ask for it; the tests do), a real keyboard, a real phone, the motion at its real speed.
+
+### Decisions made on the way
+
+- The press is heard on the window in the capture phase, so it is measured before the tile's or the card's own handler opens the card.
+- The open card's rectangle is taken after `tick()`, as the field takes the focus: the root has the frame by then. On a phone that is the first guess of what the keyboard will leave; the box lands there, and the open card then follows the keyboard as before.
+
+### Open questions
+
+- **On an iPhone, a saved card goes to the pill while the keyboard is still up**, and the pill is under the keyboard: the box may go behind the keyboard. Marco's phone will show it; the device script asks him to note it.
+- **On Android the keyboard shortens the page**, so the card in front can be smaller while the keyboard is up than once it has gone down. A card closed may land on the smaller card and the card then grows. Only a phone can show it.
+- **The word**: "travelling card" is proposed for the glossary, which is not edited here.
