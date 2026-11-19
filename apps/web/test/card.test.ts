@@ -868,14 +868,70 @@ describe('the open card while it is saved, fades or the card in front leaves (AD
     expect(document.activeElement).toBe(field);
     await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'got it') }));
     expect(document.activeElement).toBe(field);
-    // The focus on nothing, as after a press on a button that has gone.
+    // The focus on nothing, as after a press on a button that has gone. The key is sent to the
+    // window by hand, so only the app's own handler can move the focus: the test DOM's Tab does
+    // nothing by itself.
     (document.activeElement as HTMLElement).blur();
     expect(document.activeElement).toBe(document.body);
-    await user.tab();
-    expect(dialog.contains(document.activeElement)).toBe(true);
+    await fireEvent.keyDown(window, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton(dialog));
     (document.activeElement as HTMLElement).blur();
+    await fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    );
+    (document.activeElement as HTMLElement).blur();
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('with the deck done and the thank-you card standing, a blank card closed gives the focus back to "Write your own story"', async () => {
+    const warmup = workshop.deck.cards.find((c) => c.set === 'warmup')!;
+    const checkpoint = workshop.deck.cards.find((c) => c.set === 'checkpoint')!;
+    stubRoutes({});
+    const app = new AppState();
+    app.workshop = {
+      ...workshop,
+      deck: { ...workshop.deck, cards: [warmup, checkpoint] },
+      config: { ...workshop.config, warmupsPerSession: 1, checkpointsPerSession: 1 },
+    };
+    app.copy = copy;
+    app.store = new WorkshopStore(SLUG);
+    await app.store.set('demoSeen', '2026-11-16');
+    app.code = '1234567890123456';
+    app.wait = async () => {};
+    await app.enterSession();
+    await answerFront(app, 'Warm-up');
+    await answerFront(app, 'The last one');
+    const user = userEvent.setup();
+    renderApp(app);
+    await screen.findByRole('note');
+    const opener = screen.getByRole('button', { name: copy.text('Own card: button') });
+    await user.click(opener);
+    await screen.findByRole('dialog', { name: copy.text('Own card: title') });
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it('a card swiped away tells the stack while it is on its way out, so nothing opens then either', async () => {
+    const app = await onACard();
+    renderApp(app);
+    const card = frontCard();
+    const first = app.card!.id;
+    const at = (x: number) => ({ pointerId: 1, clientX: x, clientY: 200, button: 0 });
+    await fireEvent.pointerDown(card, at(100));
+    await fireEvent.pointerMove(card, at(180));
+    await fireEvent.pointerMove(card, at(260));
+    await fireEvent.pointerUp(card, at(260));
+    // On its way out: the stack knows, and no card opens.
+    expect(app.leaving).toBe(true);
+    app.openCard();
+    app.openOwnCard();
+    expect(app.writing).toBeNull();
+    await fireEvent.transitionEnd(card);
+    await waitFor(() => expect(app.live!.dismissed.has(first)).toBe(true));
+    expect(app.leaving).toBe(false);
   });
 
   it('while the card in front is on its way out, nothing opens, and the set-aside is recorded', async () => {

@@ -70,14 +70,16 @@
     const from = app.openedFrom;
     const id = app.writing;
     const wide = app.wide;
+    const thanksAlready = thanksShown();
     return () => {
       document.body.style.overflow = overflow;
       // Once the page has drawn itself without the dialog: until then the opener is `inert`.
       void tick().then(() => {
         if (from === 'front') return;
-        // The last card of the deck was answered here: the thank-you card takes the focus
-        // (Stack.svelte), so a screen reader reads it.
-        if (!app.card && app.live?.deckDone) return;
+        // The last card of the deck was answered here, and the thank-you card has just come:
+        // it takes the focus (Stack.svelte), so a screen reader reads it. Not when it was there
+        // already: a blank card opened under it gives the focus back to its button, as always.
+        if (!thanksAlready && thanksShown()) return;
         if (from === 'new') return document.getElementById(OWN_CARD_OPENER)?.focus();
         if (!wide) return document.getElementById(WORLD_PILL)?.focus();
         const tile = [...document.querySelectorAll<HTMLElement>('[data-tile]')].find(
@@ -87,6 +89,11 @@
       });
     };
   });
+
+  /** Whether the thank-you card stands where the stack was: the deck is done and no card is in front. */
+  function thanksShown(): boolean {
+    return !app.card && !app.demoFront && Boolean(app.live?.deckDone);
+  }
 
   function close() {
     void app.closeCard();

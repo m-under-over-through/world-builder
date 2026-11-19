@@ -3064,7 +3064,7 @@ Why `replaySession` gives the same round as `withAnswer`: both add the card to t
 
 ### How to verify
 
-1. `npm run check`: 653 tests, exit 0.
+1. `npm run check`: 655 tests, exit 0.
 2. `npx vitest run apps/web/test/state.test.ts -t withAnswer`: the round after each save equals what `withAnswer` gave.
 3. On a laptop at 1280 by 800: Tab to the card in front, Enter. The open card is in the centre over the dimmed page, the card's slot is empty. Esc: the ring is back on the card. Enter, type, Save: the next card has the ring and the tile is on the right.
 4. On a phone (staging, not a preview): tap the card in front. It opens in the same framed box as a tile's card, the area and × at the top. `docs/device-tests.md` parts 1, 1b, 3, 4, 4b, 6 and 7b have the steps.
@@ -3097,7 +3097,8 @@ Changed before the merge:
 - **A blank card could keep its words as a draft** (reviewer) when the screen changed under its save. The words of a card being saved are never kept for the next time.
 - **The thank-you card's focus** (reviewer). Saved from a tile, the last card of the deck left the focus on the tile. The thank-you card takes it, from the stack and from a tile alike.
 - **A test's name said more than it showed** (reviewer): "the same round" is checked for every card of a round but its last, whose save starts the next round. The name says so.
-- Eight tests added for the above, and one corrected. 653 tests in all.
+- Eight tests added for the above, and one corrected.
+- **A second read by the reviewer** of these fixes found one of them wrong. To let the thank-you card take the focus, the open card had stopped giving the focus back whenever the deck was done; so with the thank-you card already standing, a blank card closed left the focus on nothing. It now steps aside only when the thank-you card has come while it was open. The second read also asked for the swipe to tell the stack while its card is on its way out, as the button does, and for the Tab test to send its key in a way only the app's handler can answer. All three are in, with a test each. 655 tests in all.
 - Comments in `lib/viewport.ts`, `lib/page-lock.ts` and three editor's notes in the copy file said "place to write". They say "open card".
 
 After the fixes the integrator tried them in the same browser: "Prefer to talk?" and "Got it" left the cursor in the field; Esc closed the card with the focus on nothing; and during the fade after "Save" the field was still on, the next card was already drawn in the stack, and the focus then landed on it.

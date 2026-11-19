@@ -126,6 +126,7 @@
           bind:this={front}
           use:swipe={{
             onDismiss: () => app.setAside(),
+            onFlight: (flying) => (app.leaving = flying),
             enabled: () => !busy && !app.leaving && !app.cardOpen,
           }}
           onclick={() => app.openCard()}
