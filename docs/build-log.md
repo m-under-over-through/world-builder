@@ -2784,3 +2784,50 @@ A separate reviewer read the pull request and ran the two test files. Verdict: m
 - From the review: while "Save" is working the field is disabled, and Safari draws the words of a disabled field in its own grey. On a tint that grey was not measured. It lasts as long as two writes to the phone's own store, and the open card has always done the same. Left as it is.
 - The focus ring of the field on a tint, on a real phone and with a keyboard on a laptop.
 - Closed here: the first open question of pull request 70. Marco tried it on his iPhone on 18 November: with a card open, the page behind holds.
+
+## 2026-11-18, Wednesday night. A card set aside opens in its colour too (pull request 72)
+
+### What
+
+- `apps/web/src/lib/state.svelte.ts`: `writingTint` gives a tint to every card of the deck. An answer has the tint of its tile, as since pull request 71. A card set aside has the tint its tile will have once it is answered: its number in the round in progress. A blank card has none.
+- `apps/web/src/components/OwnCard.svelte`: the tint is read the plain way. The rule of pull request 71 that asked for it only once is gone.
+- `apps/web/src/app.css`: one comment. No rule changed.
+- Tests: two in `tiles.test.ts` rewritten, one added, and a third now checks the tint. 622 tests in all.
+- `docs/adr/0024-tiles-open.md`: the line of pull request 71 is rewritten. `docs/screen-map.md`, `docs/device-tests.md` (part 1b steps 3 to 5, part 4b step 1).
+
+### Why
+
+Pull request 71 left one choice open: a card set aside has a tint in the stack and a white tile, so which does it open in? It opened white, like the tile tapped. Marco was asked and chose: "Give it colour."
+
+### How to verify
+
+1. `npm run check`: 622 tests, exit 0.
+2. On a phone, staging: answer a card, set the next one aside and note its colour. Tap "Your world so far" and the white tile. The place to write has that colour, a thin line under the question, and no box around the field. Type, tap "Save": the tile now has the same colour.
+3. Tap "Write your own story": white, with the boxed field, as before.
+
+### Decisions made on the way
+
+- **Which tint.** The one the card's tile will have once it is answered. A tile's tint comes from the card's number in the round of its first answer, and a card answered from its tile is answered in the round in progress. So the place to write asks for the card's number in that round. For a card set aside in this round, that is the tint it had in the stack a moment ago.
+- **A card set aside in an earlier round that this round does not plan has no number in it.** Its number is 0, and 0 gives lilac. That was already the tint of its tile after the save (pull request 67); now the place to write shows it before. Every such card is lilac.
+- **The white tile stays white.** In "Your world so far", white still means "not answered yet". Only the place to write changed.
+- **The once-only rule of pull request 71 is removed, not kept in case.** It was there because a white place could turn tinted in the moment between the answer being recorded and the place closing. Now the tint before and the tint after are the same reckoning, in the same getter and in `world`. A test holds the save in that moment and checks the tint has not changed, and that the tile has it afterwards.
+- **Only the blank card keeps the boxed field.** It is in no deck, has no number, and its tile is white with an ink line.
+
+### Seen before the pull request
+
+At 375 by 553 against a local server: a card that was mint in the stack opened mint from its white tile, and its tile was mint after the save. The blank card was white. In the 277 pixels a keyboard leaves on that phone, the question, the rule and the field scroll as one part, and "Not now" and "Save" stay in place (ADR 0025). The field without its box is 31 pixels lower than the boxed one, so more fits than before.
+
+### Review, and what the integrator changed before the merge
+
+The reviewer of pull request 71 read this one too. Verdict: merge after fixes. The code was right; the words were not.
+
+- **"The tint it had in the stack" was said of every card set aside** (reviewer). It is true only of a card set aside in the round in progress. A card set aside in an earlier round takes its number in this round, and one this round does not plan is lilac. The name of the test, the comment on `writingTint`, the line in ADR 0024, the screen map and the device script now say which case they mean.
+- **A check that could not fail** (reviewer). The test of a card set aside twice asked only that the tint was not empty, and it never is for a card of the deck. It now asks for the tint the card had in the stack before it was set aside the second time.
+- **No test of the earlier-round case** (reviewer). Added: a card set aside twice, then rounds answered until one does not plan it; it opens on the tint of number 0 and its tile takes the same.
+- The reviewer traced the claim the simpler code rests on, step by step through the save, and found it holds: before the answer is recorded the tint comes from the card's number in the round in progress, and after, from the tile, whose number is that same number.
+- Two cases it could not rule out, both left as they are: an answer to the same card arriving from a second phone while the place is open, and a new round starting while it is open. In either, the tint could change once. Neither can be reached by one person on one phone: the place to write covers the stack.
+
+### Open questions
+
+- An empty field with no box: on the open card of the stack it is the same, a rule and then the cursor. Whether a person sees at once where to write, on a real phone, is for Marco's look.
+- The focus ring on a tint is still not seen on a real device (pull request 71).
