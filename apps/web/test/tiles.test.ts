@@ -102,9 +102,11 @@ describe('a card set aside', () => {
     expect(tile.textContent).toContain(copy.item('Your world', 'open aside'));
     await user.click(tile);
     const dialog = await openCard(question(aside));
-    // The sheet has closed under it; the field is named by the question and empty.
+    // The sheet has closed under it; the dialog is named by the question and the field is empty.
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    const field = within(dialog).getByRole('textbox', { name: question(aside) });
+    const field = within(dialog).getByRole('textbox', {
+      name: copy.item('Card labels', 'write an answer'),
+    });
     expect((field as HTMLTextAreaElement).value).toBe('');
     // The field takes the focus after `tick()`, once its box is in place (ADR 0025).
     await waitFor(() => expect(document.activeElement).toBe(field));

@@ -614,7 +614,9 @@ describe('headings', () => {
       expect(tile.classList.contains('tile')).toBe(true);
       await user.click(tile);
       const dialog = await screen.findByRole('dialog', { name: answered.question });
-      const field = within(dialog).getByRole('textbox', { name: answered.question });
+      const field = within(dialog).getByRole('textbox', {
+        name: copy.item('Card labels', 'write an answer'),
+      });
       await waitFor(() => expect(document.activeElement).toBe(field));
       expectHeadingsInOrder(`a tile's open card ${wide ? 'on a laptop' : 'on a phone'}`);
       await user.keyboard('{Escape}');
