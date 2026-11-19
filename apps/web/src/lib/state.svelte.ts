@@ -231,6 +231,14 @@ export class AppState {
   /** True while the open card fades out where it stands, closed or saved. */
   closing = $state(false);
   /**
+   * The card id the words being saved are recorded under, from the moment it is known until the
+   * open card has gone; null otherwise. It is `writing`, except for a new blank card, whose id is
+   * made at the save (`newOwnCardId`). Its tile exists as soon as the answer is recorded, and is
+   * lifted until the open card has gone, as the tile of any card saved (World.svelte), so the
+   * travelling card can land on it as it shows (ADR 0027; components/TravellingCard.svelte).
+   */
+  savedAs = $state<string | null>(null);
+  /**
    * True while the card in front is on its way out sideways, before "Set aside" is recorded
    * (Stack.svelte). No card opens meanwhile: a card opened then would leave the set-aside undone.
    */
@@ -1212,6 +1220,7 @@ export class AppState {
     let sync: Promise<unknown> = Promise.resolve();
     try {
       const cardId = target === NEW_OWN_CARD ? newOwnCardId() : target;
+      this.savedAs = cardId;
       const session = this.live.session;
       const event = await this.record('answered', sealed, cardId);
       recorded = true;
@@ -1237,6 +1246,7 @@ export class AppState {
         this.openDraft = '';
         this.writing = null;
       }
+      this.savedAs = null;
       this.saving = false;
     }
     await sync;

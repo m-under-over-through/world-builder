@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import Invitations from './components/Invitations.svelte';
   import OpenCard from './components/OpenCard.svelte';
+  import TravellingCard from './components/TravellingCard.svelte';
   import { WORLD_PILL } from './components/Stack.svelte';
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
@@ -27,7 +28,8 @@
    * sits to its left (no numbers of a round, no strip, no toast: ADR 0019). The about page, the
    * terms and the policy have their Back and no "?". Then the screen; and on a phone's card
    * screen only, a foot with the pill that opens "Your world so far" (ADR 0015). No other screen
-   * has a foot. Every card opens in the open card (ADR 0027), drawn here over the screen. While
+   * has a foot. Every card opens in the open card (ADR 0027), drawn here over the screen, and the
+   * travelling card draws where it came from and where it went. While
    * it is open on a phone, the page behind is held still and only the card scrolls (ADR 0025;
    * below, at `writing`).
    */
@@ -289,4 +291,6 @@
   {#if cardShown}
     <OpenCard {app} />
   {/if}
+  <!-- Outside the open card and the page: it draws where a card goes, over both (ADR 0027). -->
+  <TravellingCard {app} />
 </div>
