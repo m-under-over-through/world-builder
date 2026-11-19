@@ -249,12 +249,14 @@ export class AppState {
     return this.workshop?.deck.cards.find((c) => c.id === id) ?? null;
   }
   /**
-   * The tint of the place to write (ADR 0024): a card of the deck keeps its tint there too. An
+   * The tint of the place to write (ADR 0024): a card of the deck is on a tint there too. An
    * answer has the tint of its tile in "Your world so far". A card set aside has the tint its
-   * tile will have once it is answered here: its number in the round in progress, which is also
-   * its tint in the stack of this round. The two are the same reckoning (see `world`), so the
-   * place does not change colour while the answer is saved. None for a blank card: it is in no
-   * deck and has no number, and its tile is white.
+   * tile will have once it is answered here: its number in the round in progress. For a card
+   * this round plans, that is its tint in the stack of this round; a card set aside earlier
+   * that this round does not plan has number 0 (lib/session.ts, cardNumber), here as on its
+   * tile. The two are the same reckoning (see `world`), so the place keeps its tint while the
+   * answer is saved. None for a blank card: it is in no deck and has no number, and its tile is
+   * white.
    */
   get writingTint(): Tint | null {
     const card = this.writingCard;

@@ -154,6 +154,7 @@ describe('a card set aside', () => {
   it('a card set aside twice opens and can be answered, and never comes round again', async () => {
     const app = await started();
     const id = await setAsideUntilBack(app);
+    const inTheStack = tintOf(app.cardNo);
     await app.setAside();
     const kinds = (await db(app).events.toArray())
       .filter((e) => e.cardId === id)
@@ -163,9 +164,10 @@ describe('a card set aside', () => {
     app.openTile(id);
     expect(app.writing).toBe(id);
     expect(app.ownDraft).toBe('');
-    // It opens on a tint, and its tile takes the same one when it is answered.
+    // Set aside for the second time in this round: it opens on the tint it had in the stack of
+    // this round, and its tile takes the same one when it is answered.
     const tint = app.writingTint;
-    expect(tint).not.toBeNull();
+    expect(tint).toBe(inTheStack);
     expect(await app.saveOwnCard('At last')).toBe(true);
     expect(await answersFor(app, id)).toHaveLength(1);
     expect(app.world.aside.map((t) => t.cardId)).not.toContain(id);
@@ -174,6 +176,22 @@ describe('a card set aside', () => {
       expect(app.card?.id).not.toBe(id);
       await answerFront(app, `Later ${i}`);
     }
+  });
+
+  it('a card set aside in an earlier round that this round does not plan opens on the tint of number 0, and its tile takes the same', async () => {
+    const app = await started();
+    const id = await setAsideUntilBack(app);
+    // Set aside a second time, it is out of the rounds for good (ADR 0020).
+    await app.setAside();
+    for (let i = 0; i < 40 && app.live!.queueAsPlanned.includes(id); i++)
+      await answerFront(app, `Later ${i}`);
+    // A later round, which does not plan it: its tile is still there, and it has no number here.
+    expect(app.live!.queueAsPlanned).not.toContain(id);
+    expect(app.world.aside.map((t) => t.cardId)).toContain(id);
+    app.openTile(id);
+    expect(app.writingTint).toBe(tintOf(0));
+    expect(await app.saveOwnCard('At last')).toBe(true);
+    expect(tintOf(app.world.tiles.find((t) => t.cardId === id)!.n)).toBe(tintOf(0));
   });
 
   it('answering the front card from its own set-aside tile brings the next card forward', async () => {
@@ -246,7 +264,7 @@ describe('an answer', () => {
     );
   });
 
-  it('an answer opens on the tint of its tile, a card set aside on the tint it had in the stack, and a blank card white', async () => {
+  it('an answer opens on the tint of its tile, a card set aside in this round on the tint it had in the stack, and a blank card white', async () => {
     const app = await started();
     const first = await answerFront(app, 'First words');
     const second = await answerFront(app, 'Second words');
@@ -276,7 +294,7 @@ describe('an answer', () => {
       await user.keyboard('{Escape}');
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     }
-    // A card set aside: its tile is white, and it opens on the tint it had in the stack.
+    // A card set aside in this round: its tile is white, and it opens on the tint it had in the stack.
     const whiteTile = tileButton(question(aside));
     expect(whiteTile.style.getPropertyValue('--tint')).toBe('');
     await user.click(whiteTile);

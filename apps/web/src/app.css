@@ -1499,8 +1499,9 @@ button.tile .pen {
 }
 /* A card of the deck opened from its tile is on its tint (ADR 0024): the place to write is
    then drawn as the open card is, its question, a rule and the words on the tint, with no box
-   around the field. Only a blank card is white, with the boxed field. The ring of the field stands 6 out, as on the open card, since the words
-   have no padding of their own. Muted is never drawn on a tint, so the counter is in soft ink. */
+   around the field. Only a blank card is white, with the boxed field. The ring of the field
+   stands 6 out, as on the open card, since the words have no padding of their own. Muted is
+   never drawn on a tint, so the counter is in soft ink. */
 .own-card.tinted {
   background: var(--tint);
 }

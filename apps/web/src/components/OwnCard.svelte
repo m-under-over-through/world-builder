@@ -12,9 +12,9 @@
    * writes. Since ADR 0024 also the place a tile opens in: a card set aside, its area and its
    * question on top and the field empty; an answer, the same with its words in the field; both
    * on the card's tint; a blank card already written, with its title and hint and its words,
-   * white. Which card is `app.writing`. Over the card screen as a modal dialog: on a phone a sheet, built the way
-   * WorldSheet.svelte is; on a laptop (`app.wide`) a wide card over the desk, with the same
-   * content. The title, the hint, a large field with its own name for a
+   * white. Which card is `app.writing`. Over the card screen as a modal dialog: on a phone a
+   * sheet, built the way WorldSheet.svelte is; on a laptop (`app.wide`) a wide card over the
+   * desk, with the same content. The title, the hint, a large field with its own name for a
    * screen reader, the counter near the limit as on a card, then "Not now" and "Save".
    *
    * Focus goes into the field when it opens and stays inside; Esc, "Not now" and a tap on the

@@ -106,7 +106,7 @@ Value: `marco-laptop-chrome-01`. Second device: the iPhone. This section uses th
 
 ## 4b. Laptop, Chrome: tiles open with the keyboard (ADR 0024)
 
-1. With an answer and a card set aside on the right, Tab until a tile has the ring: it is a button. Press Enter. A card over the desk: the area, the question, the field with the cursor in it (empty for a card set aside, holding the words for an answer). The card of an answer has the colour of its tile; a card set aside has the colour it had in the stack, and its tile takes that colour once it is saved. Only "Your own card" is white.
+1. With an answer and a card set aside on the right, Tab until a tile has the ring: it is a button. Press Enter. A card over the desk: the area, the question, the field with the cursor in it (empty for a card set aside, holding the words for an answer). The card of an answer has the colour of its tile; a card set aside in this round has the colour it had in the stack, and its tile takes that colour once it is saved. Only "Your own card" is white.
 2. Press Esc: it closes, and the ring is back on the same tile. Press Enter again, change the words, Tab to "Save", Enter. The tile shows the new words in the same place; "n answered" in the top bar has not changed.
 3. Open the card in front (Enter on it), then click a tile with the mouse: the card in front closes, keeping its words, and the tile's place to write opens.
 
