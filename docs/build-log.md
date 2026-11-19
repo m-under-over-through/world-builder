@@ -3114,3 +3114,54 @@ Left as they are, and named here so nobody has to find them again:
 - **`design/DESIGN.md`** still describes the stack's own open card and the answered card flying off. It is an export of the design canvas and is not edited here.
 - **The sizes of the open card are the stack's for every card now**: the question at 27 or 28 pixels where a tile's card had 24, the area at 12 where it had 11. For Marco's eye.
 - **The motions of ADR 0027** are the second pull request: opening from what was tapped, closing back to it, and a saved card going to "Your world so far".
+
+## 2026-11-18, Wednesday night. The field is not named by the question; "Prefer to talk?" stays put (pull request 79)
+
+### What
+
+- `apps/web/src/components/OpenCard.svelte`: the field of a card of the deck is named "Write an answer", not by the question. It carries `autocomplete="off"`, `data-1p-ignore` and `data-lpignore="true"`. "Prefer to talk?" is always in the row and opens and closes its hint. The hint has no title of its own.
+- `apps/web/src/app.css`: three rules for the hint's title are gone.
+- Seven tests changed. Still 655.
+- `docs/adr/0027-one-open-card.md` gains the two points. `docs/screen-map.md`, `docs/device-tests.md` (part 1, step 4, a new check; part 6, what VoiceOver says), and one editor's note in the copy file.
+
+### Why
+
+Marco tried the open card on his iPhone, the first time on a real phone, and sent a picture.
+
+**Safari offered to fill the answer with his address.** The card was "What does the street smell like?". The bar above the keyboard said "AutoFill Contact" and showed his home address. One tap would have put it in the answer. An answer must never hold a name or an address by accident: that is the first rule of this project.
+
+**"Prefer to talk?" went away when its hint opened.** The button gave way to the hint, by design. Marco read it as the button disappearing.
+
+### How Safari decides, as far as is known
+
+Safari looks at the words that label a field and guesses what belongs in it. "Street" reads as an address. The field's label was the question itself, because that was good for a screen reader.
+
+The standard switch, `autocomplete="off"`, does not help: Apple's own page says Safari ignores it and leaves the choice to the person's settings ("Improving AutoFill experiences for your forms", developer.apple.com). The same page says Safari reads the label a field is tied to.
+
+So the fix takes the question out of the field's label. The question is still the name of the dialog, which a screen reader says first.
+
+### How to verify
+
+1. `npm run check`: 655 tests, exit 0.
+2. On an iPhone, staging: open the card "What does the street smell like?" (area Making). The bar above the keyboard offers no "AutoFill Contact", no address and no name. Try "What do the neighbors complain about?" too.
+3. Tap "Prefer to talk?": the hint opens above it, the button stays. Tap it again, or "Got it": the hint closes.
+
+### Decisions made on the way
+
+- **The field's name is "Write an answer".** The words are already in the copy, as the line on the closed card. No new words in Marco's file.
+- **`autocomplete="off"` is set all the same.** Other browsers honour it, and it costs nothing.
+- **Two marks for password managers.** 1Password and LastPass each read an attribute that says "leave this field alone". They fill names and addresses too.
+- **The hint lost its title.** With the button staying, "Prefer to talk?" would have been on the screen twice. The button is the title now, and the hint is one line shorter above the keyboard.
+- **No new decision record.** ADR 0027 lists the parts of the open card; it gains the two points with their date.
+
+### What nobody here could verify
+
+Whether Safari now keeps quiet. There is no iPhone and no simulator on this machine. If Safari still offers, it is reading the heading above the field, not the field's own label, and the next step is larger: it would mean changing how the question sits next to the field.
+
+Nine of the 120 questions hold a word a contact card has: street (twice), job (three times), home, company, neighbors, and "too old for the job".
+
+### Open questions
+
+- Marco's phone, for the check above.
+- A person can still turn the suggestion on or off for themselves: Settings, Safari, AutoFill, "Use Contact Info". The app cannot.
+- The reading pass that removes names before anyone reads the answers (the privacy policy, "Who sees what") is the last line of defence, and stays.
