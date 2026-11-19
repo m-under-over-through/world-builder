@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { currentCardId, replaySession } from '../src/lib/session.ts';
+import { currentCardId, replaySession, withAnswer, withShown } from '../src/lib/session.ts';
 import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
-import { freshIndexedDb, JOINED, stubRoutes, SYNCED } from './helpers.ts';
+import { answerFront, freshIndexedDb, JOINED, stubRoutes, SYNCED } from './helpers.ts';
 
 /**
  * The state on its own, without a screen: the rules that are easier to see on the functions than
@@ -51,6 +51,7 @@ async function onACard(): Promise<AppState> {
     { sessions: [], events: [] },
   );
   app.card = workshop.deck.cards.find((c) => c.id === currentCardId(app.live!));
+  app.screen = 'card';
   return app;
 }
 
@@ -58,11 +59,12 @@ describe('saving an answer', () => {
   it('a sealing failure is shown as CLIENT_SEAL_FAILED, never as the crypto code, and the draft stays', async () => {
     stubRoutes({});
     const app = await onACard();
-    app.draft = 'a lone surrogate \uD83D cannot be encoded';
-    expect(await app.save()).toBe(false);
+    expect(await answerFront(app, 'a lone surrogate \uD83D cannot be encoded')).toBe(false);
     expect(app.error).toBe('CLIENT_SEAL_FAILED');
-    expect(app.cardState).toBe('fresh');
-    expect(app.draft).toBe('a lone surrogate \uD83D cannot be encoded');
+    expect(app.saving).toBe(false);
+    // The open card stays open with its words, so nothing written is lost.
+    expect(app.cardOpen).toBe(true);
+    expect(app.openDraft).toBe('a lone surrogate \uD83D cannot be encoded');
     expect(await db(app).events.count()).toBe(0);
   });
 
@@ -71,9 +73,10 @@ describe('saving an answer', () => {
     const app = await onACard();
     app.code = '1234567890123456';
     const first = app.card!;
-    app.draft = 'An answer';
-    expect(await app.save()).toBe(true);
+    expect(await answerFront(app, 'An answer')).toBe(true);
     expect(app.draft).toBe('');
+    expect(app.openDraft).toBe('');
+    expect(app.cardOpen).toBe(false);
     expect(app.live!.answered.has(first.id)).toBe(true);
     expect(app.card!.id).not.toBe(first.id);
     expect(app.position).toEqual({ n: 2, total: 4 });
@@ -86,16 +89,40 @@ describe('saving an answer', () => {
     const app = await onACard();
     app.code = '1234567890123456';
     app.openCard();
-    expect(app.cardState).toBe('answering');
-    app.draft = 'Half';
-    app.closeCard();
-    expect(app.cardState).toBe('fresh');
+    expect(app.writing).toBe(app.card!.id);
+    app.openDraft = 'Half';
+    await app.closeCard();
+    expect(app.cardOpen).toBe(false);
     expect(app.draft).toBe('Half');
     app.openCard();
-    app.draft = 'Whole';
+    expect(app.openDraft).toBe('Half');
+    app.openDraft = 'Whole';
     expect(await app.save()).toBe(true);
     expect(app.draft).toBe('');
-    expect(app.cardState).toBe('fresh');
+    expect(app.cardOpen).toBe(false);
+  });
+
+  it('a save from the stack gives the round withAnswer gave: the same plan, the same sets, the same seq, the same deck state, a set-aside and a round end included', async () => {
+    // Before ADR 0027 the stack's save moved the round on with `withAnswer`; the one save replays
+    // the round from its events (`replaySession`). Card by card, the round after a save must be
+    // the one `withAnswer` gives, with the next card's `shown` on top.
+    stubRoutes({});
+    const app = await onACard();
+    app.code = '1234567890123456';
+    await app.setAside();
+    const round = app.live!.session.id;
+    let compared = 0;
+    while (app.live!.session.id === round) {
+      const before = app.live!;
+      const card = app.card!.id;
+      expect(await answerFront(app, `An answer to ${card}`)).toBe(true);
+      if (app.live!.session.id !== round) break;
+      expect(app.live).toEqual(withShown(withAnswer(before, card), app.card!.id));
+      compared++;
+    }
+    expect(compared).toBe(2);
+    // The round ended on its last card: the next round starts as it always did.
+    expect(app.sessionNo).toBe(2);
   });
 });
 
@@ -194,18 +221,14 @@ describe('a session on the deck engine', () => {
     await app.setAside();
     for (let i = 0; i < 3; i++) {
       expect(app.card!.id).not.toBe(first);
-      app.draft = `Answer ${i}`;
-      expect(await app.save()).toBe(true);
+      expect(await answerFront(app, `Answer ${i}`)).toBe(true);
     }
     // The card left round 1 (ADR 0020), so round 1 is over: round 2 brings it back, never first.
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(2);
     expect(app.card!.id).not.toBe(first);
     expect(app.live!.plan.queue).toContain(first);
-    while (app.card!.id !== first) {
-      app.draft = 'More';
-      await app.save();
-    }
+    while (app.card!.id !== first) await answerFront(app, 'More');
     await app.setAside();
     expect(app.live!.deferred.has(first)).toBe(true);
     const events = (await db(app).events.toArray())
@@ -240,7 +263,7 @@ describe('a session on the deck engine', () => {
     expect(await db(app).events.count()).toBe(0);
     // The card behind cannot be opened while the onboarding card is in front.
     app.openCard();
-    expect(app.cardState).toBe('fresh');
+    expect(app.cardOpen).toBe(false);
     await app.dismissDemo();
     expect(app.demoFront).toBe(false);
     expect(app.card!.id).toBe(first);
@@ -277,7 +300,9 @@ describe('a session on the deck engine', () => {
     expect(again.live!.session.id).toBe(app.live!.session.id);
     expect(again.live!.plan.queue).toEqual(app.live!.plan.queue);
     expect(again.live!.dismissed.has(first)).toBe(true);
+    again.openCard();
     expect(again.hintOpen).toBe(false);
+    await again.closeCard();
     expect(await db(again).sessions.count()).toBe(1);
     const kinds = (await db(again).events.toArray())
       .sort((a, b) => a.seq - b.seq)
@@ -292,10 +317,7 @@ describe('a session on the deck engine', () => {
     const first = app.card!.id;
     const roundOne = app.live!.session.id;
     await app.setAside();
-    for (let i = 0; i < 3; i++) {
-      app.draft = `Answer ${i}`;
-      await app.save();
-    }
+    for (let i = 0; i < 3; i++) await answerFront(app, `Answer ${i}`);
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(2);
     expect(app.live!.session.id).not.toBe(roundOne);
@@ -304,7 +326,9 @@ describe('a session on the deck engine', () => {
     expect(app.cardNo).toBe(1);
     // The onboarding card and the hint belong to the first round of the first open only.
     expect(app.demoFront).toBe(false);
+    app.openCard();
     expect(app.hintOpen).toBe(false);
+    await app.closeCard();
     expect(await db(app).sessions.count()).toBe(2);
     const roundTwo = (await db(app).events.toArray()).filter(
       (e) => e.sessionId === app.live!.session.id,
@@ -350,11 +374,9 @@ describe('a session on the deck engine', () => {
     const app = await withDeck([warmup, checkpoint], 1, 1);
     await app.enterSession();
     expect(app.card!.id).toBe(warmup.id);
-    app.draft = 'Warm-up';
-    await app.save();
+    await answerFront(app, 'Warm-up');
     expect(app.card!.id).toBe(checkpoint.id);
-    app.draft = 'Checkpoint';
-    await app.save();
+    await answerFront(app, 'Checkpoint');
     // ADR 0020: an answered card never comes round again, so round 2 is empty and says so.
     expect(app.screen).toBe('card');
     expect(app.sessionNo).toBe(2);
@@ -514,8 +536,7 @@ describe('identity by the link (ADR 0018)', () => {
     const app = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     await app.join();
     await app.dismissDemo();
-    app.draft = 'An answer';
-    expect(await app.save()).toBe(true);
+    expect(await answerFront(app, 'An answer')).toBe(true);
     await app.openAbout();
     expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true);
     for (const call of calls) {
@@ -651,8 +672,7 @@ describe('identity by the link (ADR 0018)', () => {
     const first = await opened(`/${SLUG}/join/wave-1`);
     await first.join();
     await first.dismissDemo();
-    first.draft = 'An answer';
-    expect(await first.save()).toBe(true);
+    expect(await answerFront(first, 'An answer')).toBe(true);
     const code = first.code;
     expect(code).toMatch(/^\d{16}$/);
     const again = await opened(`/${SLUG}/join/wave-1`);
@@ -887,8 +907,7 @@ describe('failure behaviour', () => {
     await app.join();
     await app.dismissDemo();
     expect(app.screen).toBe('card');
-    app.draft = 'An answer';
-    expect(await app.save()).toBe(true);
+    expect(await answerFront(app, 'An answer')).toBe(true);
     expect(app.sync.lastResult).toBe('ok');
     while (app.sessionNo === 1) await app.setAside();
     expect(app.screen).toBe('card');

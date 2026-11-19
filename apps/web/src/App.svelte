@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import Invitations from './components/Invitations.svelte';
-  import OwnCard from './components/OwnCard.svelte';
+  import OpenCard from './components/OpenCard.svelte';
   import { WORLD_PILL } from './components/Stack.svelte';
   import WorldSheet from './components/WorldSheet.svelte';
   import { fill } from './lib/copy.ts';
@@ -27,8 +27,9 @@
    * sits to its left (no numbers of a round, no strip, no toast: ADR 0019). The about page, the
    * terms and the policy have their Back and no "?". Then the screen; and on a phone's card
    * screen only, a foot with the pill that opens "Your world so far" (ADR 0015). No other screen
-   * has a foot. While a card or the place to write is open on a phone, the page behind is held
-   * still and only the card scrolls (ADR 0025; below, at `writing`).
+   * has a foot. Every card opens in the open card (ADR 0027), drawn here over the screen. While
+   * it is open on a phone, the page behind is held still and only the card scrolls (ADR 0025;
+   * below, at `writing`).
    */
   // A test may hand in its own state (with an instant `wait`); the app makes one.
   let { app = new AppState() }: { app?: AppState } = $props();
@@ -52,19 +53,19 @@
    * While the sheet is open on a phone, the page behind it is `inert`: no tap, no Tab and no
    * screen-reader swipe reaches it. `aria-modal` says the same, but not every screen reader
    * honours it, so the page says it too (design/DESIGN.md, Accessibility). The hidden line for
-   * the screen reader stays outside, so it can still speak. The same holds while the place to
-   * write a blank card is open, on a phone and on a laptop alike (ADR 0022).
+   * the screen reader stays outside, so it can still speak. The same holds while a card is
+   * open, any card, on a phone and on a laptop alike (ADR 0027).
    */
-  const ownCardShown = $derived(app.ownCardOpen && app.ownCardOffered);
-  const behindSheet = $derived((app.worldOpen && !app.wide) || ownCardShown);
+  const cardShown = $derived(app.cardOpen && app.canWrite);
+  const behindSheet = $derived((app.worldOpen && !app.wide) || cardShown);
 
   /**
    * The open card above the keyboard (ADR 0023 and ADR 0025; lib/viewport.ts, lib/page-lock.ts).
-   * While a card or the place to write is open on a phone (`writing`), and the browser reports a
-   * visual viewport (`framed`):
+   * While a card is open on a phone (`writing`), any card, and the browser reports a visual
+   * viewport (`framed`):
    *
    * - The app's root carries the visual viewport's height and top, and the stylesheet makes the
-   *   open card, or the place to write, that box: a fixed box whose text scrolls inside the
+   *   open card that box: a fixed box whose text scrolls inside the
    *   field. A strip stays free under it while the keyboard is up (`keyboard-up`), where Safari
    *   floats its address bar. `framed` is derived, so it is on the root in the same render that
    *   shows the card; the two properties follow in the effect, before the field takes the focus
@@ -82,7 +83,7 @@
   let root: HTMLDivElement | undefined = $state();
   let keyboardIsUp = $state(false);
   let low = $state(false);
-  const writing = $derived(!app.wide && ((loop && app.cardState !== 'fresh') || ownCardShown));
+  const writing = $derived(!app.wide && cardShown);
   // Read when `writing` turns true: a test that takes the visual viewport away is read then.
   const framed = $derived(writing && hasVisualViewport());
   $effect(() => {
@@ -228,7 +229,7 @@
     {#if app.wide}
       <main class="page-main" inert={behindSheet}><Card {app} /></main>
     {:else}
-      <main class="loop" class:answering={app.cardState !== 'fresh'} inert={behindSheet}>
+      <main class="loop" inert={behindSheet}>
         <Card {app} />
       </main>
     {/if}
@@ -285,7 +286,7 @@
   {#if app.worldOpen && !app.wide}
     <WorldSheet {app} returnTo={worldPill} />
   {/if}
-  {#if ownCardShown}
-    <OwnCard {app} />
+  {#if cardShown}
+    <OpenCard {app} />
   {/if}
 </div>

@@ -2,32 +2,31 @@
   /** The counter shows from here (DESIGN.md: "near 4,000"), and in bold from `COUNTER_NEAR`; the blank card's too. */
   export const COUNTER_FROM = 3000;
   export const COUNTER_NEAR = 3900;
-  /** The id of "Write your own story", so the place to write can give the focus back to it (ADR 0022). */
+  /** The id of "Write your own story", so the open card can give the focus back to it (ADR 0022). */
   export const OWN_CARD_OPENER = 'own-card-open';
-  /** The id of the world pill on a phone, where the focus goes back from a tile's place to write (ADR 0024). */
+  /** The id of the world pill on a phone, where the focus goes back from a tile's open card (ADR 0024). */
   export const WORLD_PILL = 'world-pill';
 </script>
 
 <script lang="ts">
-  import { MAX_ANSWER_CHARS } from '@wb/contracts';
   import { tick } from 'svelte';
-  import { fill } from '../lib/copy.ts';
   import { tintOf, type AppState } from '../lib/state.svelte.ts';
   import { reducedMotion, swipe, SWIPE_MS } from '../lib/swipe.ts';
-  import { codePoints, truncateCodePoints } from '../lib/text.ts';
+  import { codePoints } from '../lib/text.ts';
 
   /**
    * The stack (design/DESIGN.md, Layout and Components; ADR 0015): the front card and the two
    * behind it, each in a slot that keeps its element while the cards change places, so a card
-   * moving one slot forward moves on the screen. While the stack is `fresh` the front card is
-   * one button, labelled with its area and nothing else (no numbers, ADR 0019), with the pen
-   * and "Write an answer" at its foot: tap, click or Enter opens it (`answering`), with the
-   * question as the label of the field, the counter near the limit, "Prefer to talk?" and Save.
-   * × closes it and keeps the draft. The answered card leaves through `app.exiting`, drawn here
-   * on its way out while the next card is already the front. Under the stack: Set aside, which
-   * makes the card leave sideways before recording it, and on a phone the hint that a swipe
-   * does the same (lib/swipe.ts). Under those, "Write your own story", a quiet text button that
-   * opens the blank card (ADR 0022; components/OwnCard.svelte): there whenever a round is live,
+   * moving one slot forward moves on the screen. The stack shows closed cards only (ADR 0027).
+   * The front card is one button, labelled with its area and nothing else (no numbers, ADR
+   * 0019), with the pen and "Write an answer" at its foot: tap, click or Enter opens it in the
+   * open card (components/OpenCard.svelte), as every card opens. While it is open the front card
+   * is lifted: its slot keeps its place and the cards behind stay, but the card is not drawn and
+   * takes no tap and no focus. After a save the next card comes forward here, behind the open
+   * card as it fades. Under the stack: Set aside, which makes the card leave sideways before
+   * recording it, and on a phone the hint that a swipe does the same (lib/swipe.ts). Under
+   * those, "Write your own story", a quiet text button that opens a new blank card in the open
+   * card (ADR 0022): there whenever a round is live,
    * also under the thank-you card, and not while the onboarding card is in front. To move it, move
    * the one line that renders the snippet `ownCardButton`.
    *
@@ -35,24 +34,14 @@
    * "Try a card" as its label, the words large, "Got it" at its foot; the first real cards
    * wait behind it in their tints. "Got it", a swipe or Set aside sends it away, and the first
    * card comes forward one slot, as any card does.
-   *
-   * The dictation hint (architecture plan, section 7) sits inside the open card, where the
-   * field is: by itself on the first card of the first session, and from "Prefer to talk?".
-   *
-   * On a phone the open card is framed by what the keyboard leaves visible (ADR 0023; App.svelte
-   * and lib/viewport.ts), and it is a fixed box (ADR 0025): the head with × at its top and the
-   * row with "Save" at its foot never move, the text scrolls inside the field, and only when the
-   * question and three lines of the field do not fit does the part around them scroll
-   * (`.scrolls`). On a laptop that part is not a box of its own and nothing of that applies.
    */
   let { app }: { app: AppState } = $props();
   let leaving = $state(false);
-  let field: HTMLTextAreaElement | undefined = $state();
   let front: HTMLButtonElement | undefined = $state();
 
-  const count = $derived(codePoints(app.draft));
-  const busy = $derived(app.cardState === 'saving');
-  const open = $derived(app.cardState !== 'fresh');
+  const busy = $derived(app.saving);
+  /** The card in front is in the open card (ADR 0027): it is lifted from its slot meanwhile. */
+  const lifted = $derived(app.writing !== null && app.openedFrom === 'front');
   /** With the onboarding card in front, every real card sits one slot further back. */
   const behind = $derived(app.demoFront ? 1 : 0);
   /** The real cards on the screen, back to front, so the front one paints last. */
@@ -70,54 +59,37 @@
     return n <= 20 ? 'q-xl' : n > 64 ? 'q-s' : n > 50 ? 'q-m' : '';
   }
 
-  const counter = $derived(
-    count >= COUNTER_FROM
-      ? fill(app.copy.item('Card labels', 'counter'), {
-          n: count.toLocaleString('en-US'),
-          max: MAX_ANSWER_CHARS.toLocaleString('en-US'),
-        })
-      : '',
-  );
-
   /** The front card leaves sideways, then is recorded set aside; the onboarding card just goes. */
   async function setAside() {
-    if (busy || leaving || open) return;
+    if (busy || leaving || app.cardOpen) return;
     leaving = true;
     if (!reducedMotion()) await app.wait(SWIPE_MS);
     leaving = false;
     await app.setAside();
   }
 
-  /** Past the limit the input is refused, never cut: a cut could split an emoji (CRYPTO_BAD_TEXT). */
-  function onInput(event: Event) {
-    const el = event.currentTarget as HTMLTextAreaElement;
-    if (codePoints(el.value) > MAX_ANSWER_CHARS)
-      el.value = truncateCodePoints(el.value, MAX_ANSWER_CHARS);
-    app.draft = el.value;
-  }
-
   /** Every card answered or out (ADR 0020): the thank-you card stands where the stack was. */
   const thanks = $derived(!app.card && !app.demoFront && Boolean(app.live?.deckDone));
   let thanksCard: HTMLDivElement | undefined = $state();
 
-  // The field takes focus when the card opens; the front card takes it when the card closes
-  // or the onboarding card goes, so the keyboard and the screen reader stay on the loop. When
-  // the last card goes, the button that sent it goes too (Save, Set aside), so the thank-you
-  // card takes the focus, and a screen reader reads it.
-  // The field takes it after `tick()`: by then App.svelte has put the frame's class and its two
-  // properties on the root, so the field is already where it will stay, and the browser has no
-  // reason to scroll the page to show it (ADR 0025).
-  let wasOpen = false;
+  // The front card takes the focus when the open card it was lifted into closes, and when the
+  // onboarding card goes, so the keyboard and the screen reader stay on the loop. After a save
+  // that is the next card, already in front. When the last card goes, the button that sent it
+  // goes too (Save, Set aside), so the thank-you card takes the focus, and a screen reader reads
+  // it. While a card is open the page is `inert` and refuses the focus, so a thank-you card that
+  // came behind the open card takes it once the open card has gone (ADR 0027).
+  let wasLifted = false;
   let wasDemo = false;
   let wasThanks = false;
   $effect(() => {
-    const isOpen = app.cardState !== 'fresh';
+    const isLifted = lifted;
     const isDemo = app.demoFront;
     const isThanks = thanks;
-    if (isOpen && !wasOpen) void tick().then(() => field?.focus());
-    if ((!isOpen && wasOpen) || (!isDemo && wasDemo)) void tick().then(() => front?.focus());
-    if (isThanks && !wasThanks) void tick().then(() => thanksCard?.focus());
-    wasOpen = isOpen;
+    const open = app.cardOpen;
+    if ((!isLifted && wasLifted) || (!isDemo && wasDemo))
+      void tick().then(() => (front ?? thanksCard)?.focus());
+    else if (isThanks && !wasThanks && !open) void tick().then(() => thanksCard?.focus());
+    wasLifted = isLifted;
     wasDemo = isDemo;
     wasThanks = isThanks;
   });
@@ -128,18 +100,19 @@
     ></span>{/if}
 {/snippet}
 
-<div class="stack" class:answering={open}>
+<div class="stack">
   {#each slots as entry (entry.card.id)}
     <div class="slot slot-{entry.slot}" style:--tint={`var(--tint-${tintOf(entry.n)})`}>
-      {#if entry.slot === 0 && !open}
+      {#if entry.slot === 0}
         <button
           type="button"
           class="card front"
           class:leaving
+          class:lifted
           bind:this={front}
           use:swipe={{
             onDismiss: () => app.setAside(),
-            enabled: () => !busy && !leaving && !open,
+            enabled: () => !busy && !leaving && !app.cardOpen,
           }}
           onclick={() => app.openCard()}
         >
@@ -163,97 +136,6 @@
             {app.copy.item('Card labels', 'write an answer')}
           </span>
         </button>
-      {:else if entry.slot === 0}
-        <div class="card open">
-          <div class="head">
-            {@render label(entry.card.area)}
-            <button
-              type="button"
-              class="close"
-              aria-label={app.copy.item('Card labels', 'close without saving')}
-              disabled={busy}
-              onclick={() => app.closeCard()}
-            >
-              <svg
-                aria-hidden="true"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg
-              >
-            </button>
-          </div>
-          <!-- The part of the open card that scrolls on a phone (ADR 0025): the question, the rule,
-               the field and the dictation hint. The head above and the counter and the row with
-               Save below never move. On a laptop it is not a box of its own (display: contents). -->
-          <div class="scrolls">
-            <label for="answer">{entry.card.text}</label>
-            <div class="rule"></div>
-            <textarea
-              id="answer"
-              bind:this={field}
-              value={app.draft}
-              oninput={onInput}
-              disabled={busy}
-              aria-describedby={app.error ? 'answer-count answer-error' : 'answer-count'}
-            ></textarea>
-            {#if app.platform && app.hintOpen}
-              <aside class="hint">
-                <h2>{app.copy.item('Titles', 'dictation hint')}</h2>
-                <p>{app.copy.item('Dictation hint', app.platform)}</p>
-                <button type="button" onclick={() => (app.hintOpen = false)}
-                  >{app.copy.item('Buttons', 'got it')}</button
-                >
-              </aside>
-            {/if}
-          </div>
-          <div class="meta">
-            <span id="answer-count" class="count" class:near={count >= COUNTER_NEAR}>{counter}</span
-            >
-          </div>
-          {#if app.error}
-            <!-- Said at once when Save fails, and again as the field's description (WCAG 4.1.3). -->
-            <p class="error" id="answer-error" role="alert">
-              {app.copy.item('Card labels', 'could not save')}
-              {app.copy.error(app.error)}
-            </p>
-          {/if}
-          <div class="actions">
-            {#if app.platform && !app.hintOpen}
-              <button type="button" class="talk" onclick={() => (app.hintOpen = true)}>
-                <svg
-                  aria-hidden="true"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                >
-                  <rect x="9" y="3" width="6" height="11" rx="3" />
-                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-                </svg>
-                {app.copy.item('Buttons', 'prefer to talk')}
-              </button>
-            {:else}
-              <span></span>
-            {/if}
-            <button
-              type="button"
-              class="pill save"
-              class:busy
-              disabled={busy || !app.draft.trim()}
-              onclick={() => app.save()}
-              >{busy
-                ? app.copy.item('Card states', 'saving')
-                : app.copy.item('Buttons', 'save')}</button
-            >
-          </div>
-        </div>
       {:else}
         <div class="card back" aria-hidden="true"></div>
       {/if}
@@ -282,15 +164,6 @@
       </div>
     </div>
   {/if}
-  {#if app.exiting}
-    <div class="slot exit" aria-hidden="true" style:--tint={`var(--tint-${tintOf(app.exiting.n)})`}>
-      <div class="card done">
-        {@render label(app.exiting.card.area)}
-        <span class="question">{app.exiting.card.text}</span>
-        <span class="answer">{app.exiting.answer}</span>
-      </div>
-    </div>
-  {/if}
 </div>
 {#snippet ownCardButton()}
   <button
@@ -302,7 +175,7 @@
   >
 {/snippet}
 
-{#if !open && (app.card || app.demoFront || app.ownCardOffered)}
+{#if app.card || app.demoFront || app.ownCardOffered}
   <div class="aside-row">
     {#if app.card || app.demoFront}
       <button type="button" class="ghost" disabled={busy || leaving} onclick={setAside}>

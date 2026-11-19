@@ -13,7 +13,7 @@ import { currentCardId, replaySession } from '../src/lib/session.ts';
 import { AppState } from '../src/lib/state.svelte.ts';
 import { WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
-import { freshIndexedDb, stubRoutes } from './helpers.ts';
+import { answerFront, freshIndexedDb, stubRoutes } from './helpers.ts';
 
 /**
  * The accessibility pass of week 3 (design/DESIGN.md, Accessibility; WCAG 2.1 AA; build log,
@@ -155,36 +155,41 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     const muted = rgb(token('color-muted'));
     expect(contrast(muted, rgb(token('tint-lilac')))).toBeLessThan(4.5);
     const onACard = rules.filter((r) =>
-      r.selectors.some((s) => /(^|\s)\.card\b/.test(s) || /^\.tile(?!\.aside)/.test(s)),
+      r.selectors.some(
+        (s) =>
+          /(^|\s)\.card\b/.test(s) ||
+          /^\.tile(?!\.aside)/.test(s) ||
+          s.includes('.open-card.tinted'),
+      ),
     );
     expect(onACard.length).toBeGreaterThan(10);
     for (const r of onACard)
       expect(r.body['color'], r.selectors.join(', ')).not.toBe('var(--color-muted)');
   });
 
-  it('a card of the deck opened from its tile is on its tint: a rule under the question, no box around the field, and nothing in muted (ADR 0024)', () => {
-    expect(rule('.own-card.tinted')['background']).toBe('var(--tint)');
-    expect(rule('.own-card.tinted .rule')['background']).toBe('var(--rule-on-tint)');
-    const field = rule('.own-card.tinted textarea');
+  it('a card of the deck is open on its tint: a rule under the question, no box around the field, and nothing in muted (ADR 0024, ADR 0027)', () => {
+    expect(rule('.open-card.tinted')['background']).toBe('var(--tint)');
+    expect(rule('.open-card.tinted .rule')['background']).toBe('var(--rule-on-tint)');
+    const field = rule('.open-card.tinted textarea');
     expect(field['background']).toBe('transparent');
     expect(field['border']).toBe('0');
     expect(field['padding']).toBe('0');
-    // The words have no padding of their own, so the ring stands as far out as on the open card.
-    expect(rule('.own-card.tinted textarea:focus-visible')['outline-offset']).toBe(
-      rule('.card.open textarea:focus-visible')['outline-offset'],
-    );
+    // The words have no padding of their own, so the ring stands 6 out, past the 3 of every control.
+    expect(rule('.open-card.tinted textarea:focus-visible')['outline-offset']).toBe('6px');
     // With no padding and no border, three lines are three lines.
-    expect(rule('.app.framed .own-card.sheet.tinted textarea')['min-height']).toBe('3lh');
-    // Muted is under 4.5:1 on a tint: whatever the place to write draws in muted is in soft ink there.
+    expect(rule('.app.framed .open-card.sheet.tinted textarea')['min-height']).toBe('3lh');
+    // The dictation hint on a tint: white at 72% over it (the contrast is checked above).
+    expect(rule('.open-card.tinted .hint')['background']).toBe('rgba(255, 255, 255, 0.72)');
+    // Muted is under 4.5:1 on a tint: whatever the open card draws in muted is in soft ink there.
     const inMuted = rules.filter(
       (r) =>
-        r.selectors.some((s) => s.includes('.own-card')) &&
+        r.selectors.some((s) => s.includes('.open-card')) &&
         r.body['color'] === 'var(--color-muted)',
     );
     expect(inMuted.length).toBeGreaterThan(0);
     for (const r of inMuted)
       for (const s of r.selectors) {
-        const onATint = s.replace('.own-card', '.own-card.tinted');
+        const onATint = s.replace('.open-card', '.open-card.tinted');
         expect(rule(onATint)['color'], onATint).toBe('var(--color-ink-soft)');
       }
   });
@@ -209,22 +214,30 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     ).toBeGreaterThanOrEqual(44);
     expect(rule('ul.links a')['min-height']).toBe('var(--tap)');
     expect(px(rule('.pill.world')['min-height'])).toBeGreaterThanOrEqual(44);
-    // The × on an open card, 32 across, and on the sheet, 36 across, each with a pad around it.
+    // The × on the open card, 32 across, and on the sheet, 36 across, each with a pad around it.
     expect(
-      px(rule('.card .close')['height']) + 2 * insetTop(rule('.card .close::after')['inset']),
+      px(rule('.open-card .close')['height']) +
+        2 * insetTop(rule('.open-card .close::after')['inset']),
     ).toBeGreaterThanOrEqual(44);
     expect(
       px(rule('.sheet .close')['height']) + 2 * insetTop(rule('.sheet .close::after')['inset']),
     ).toBeGreaterThanOrEqual(44);
+    // On a phone the open card is a .sheet too: its own × rules come later, so they are the ones
+    // that hold (the two selectors weigh the same).
+    const at = (selector: string) => topLevel.findIndex((r) => r.selectors.includes(selector));
+    expect(at('.open-card .close')).toBeGreaterThan(at('.sheet .close'));
+    expect(at('.open-card .close::after')).toBeGreaterThan(at('.sheet .close::after'));
     // "Got it" in the dictation hint, a 36-pixel pill.
     expect(
-      px(rule('.card .hint button')['min-height']) +
-        2 * insetTop(rule('.card .hint button::after')['inset']),
+      px(rule('.open-card .hint button')['min-height']) +
+        2 * insetTop(rule('.open-card .hint button::after')['inset']),
     ).toBeGreaterThanOrEqual(44);
     // "Prefer to talk?": a 14px line at 1.2, 1px of padding and the 1.5px rule, then the pad.
-    const talk = rule('.card .talk');
+    const talk = rule('.open-card .talk');
     const line = px(talk['font-size']) * Number(talk['line-height']) + 1 + 1.5;
-    expect(line + 2 * insetTop(rule('.card .talk::before')['inset'])).toBeGreaterThanOrEqual(44);
+    expect(line + 2 * insetTop(rule('.open-card .talk::before')['inset'])).toBeGreaterThanOrEqual(
+      44,
+    );
     // A link in a sentence: DM Sans draws a line's box 1.302 times its size (ascent 0.992,
     // descent 0.310), and the padding above and below adds to what a finger can hit.
     const box = (size: number) => size * 1.302;
@@ -277,27 +290,35 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(rule('.aside-row')['flex-direction']).toBe('column');
   });
 
-  it('the blank card: "Write your own card", "Save" and "Not now" are at least 44 pixels to a finger, and no rule of the blank card makes a button smaller', async () => {
+  it('the open card: "Write your own story" and "Save" are at least 44 pixels to a finger, and no rule of the open card makes a button smaller but the three padded above', async () => {
     renderApp(await onACard());
     const opener = screen.getByRole('button', { name: copy.text('Own card: button') });
     expect(opener.classList.contains('link')).toBe(true);
     expect(rule('button.link')['min-height']).toBe('var(--tap)');
-    expect(rule('.own-card .own-actions .save')['height']).toBe('var(--tap)');
-    const ofTheBlankCard = (s: string) =>
-      s.includes('own-') && /button|\.save|\.not-now|own-open/.test(s);
-    for (const r of rules.filter((r) => r.selectors.some(ofTheBlankCard)))
-      for (const property of ['min-height', 'max-height', 'padding-block'])
-        expect(r.body[property], `${r.selectors.join(', ')} ${property}`).toBeUndefined();
+    expect(rule('.open-card .actions .save')['height']).toBe('var(--tap)');
+    // The ×, "Prefer to talk?" and "Got it" are drawn small with a pad around them, checked in
+    // the test of targets; no other rule of the open card may take a button below 44.
+    const padded = ['.open-card .close', '.open-card .talk', '.open-card .hint button'];
+    const ofTheOpenCard = (s: string) =>
+      (s.includes('open-') || s.includes('own-')) &&
+      /button|\.save|\.close|\.talk|own-open/.test(s);
+    for (const r of rules.filter((r) => r.selectors.some(ofTheOpenCard)))
+      for (const s of r.selectors.filter(ofTheOpenCard))
+        if (!padded.includes(s) && !s.endsWith('::after') && !s.endsWith('::before'))
+          for (const property of ['min-height', 'max-height', 'padding-block'])
+            expect(r.body[property], `${s} ${property}`).toBeUndefined();
     await userEvent.setup().click(opener);
     const dialog = await screen.findByRole('dialog');
-    const notNow = within(dialog).getByRole('button', {
-      name: copy.item('Own card: buttons', 'not now'),
-    });
-    // "Not now" is a plain button: the 44-pixel rule of every button holds for it.
-    expect(notNow.className.trim()).toBe('not-now');
+    // "Not now" is gone (ADR 0027): × in the head closes, and Save is the one of every card.
+    expect(within(dialog).queryByRole('button', { name: 'Not now' })).toBeNull();
     expect(
       within(dialog)
-        .getByRole('button', { name: copy.item('Own card: buttons', 'save') })
+        .getByRole('button', { name: copy.item('Card labels', 'close without saving') })
+        .classList.contains('close'),
+    ).toBe(true);
+    expect(
+      within(dialog)
+        .getByRole('button', { name: copy.item('Buttons', 'save') })
         .classList.contains('save'),
     ).toBe(true);
   });
@@ -309,7 +330,7 @@ describe('the stylesheet: what a test DOM cannot see', () => {
         .filter(([, , body]) => /transform/.test(body!))
         .map(([, name]) => name!),
     );
-    expect([...moving].sort()).toEqual(['card-exit', 'sheet-in', 'sheet-out', 'tile-in']);
+    expect([...moving].sort()).toEqual(['sheet-in', 'sheet-out', 'tile-in']);
     const animates = (body: Record<string, string>) =>
       (body['animation'] ?? body['animation-name'] ?? '').split(/\s+/).some((w) => moving.has(w));
     const transitions = (body: Record<string, string>) =>
@@ -332,8 +353,8 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     ).toBe('none');
   });
 
-  it('while framed on a phone the open card and the place to write do not scroll, the part around the field does, and the field is never lower than three lines (ADR 0025)', () => {
-    for (const box of ['.app.framed .card.open', '.app.framed .own-card.sheet']) {
+  it('while framed on a phone the open card does not scroll, the part around the field does, and the field is never lower than three lines (ADR 0025)', () => {
+    for (const box of ['.app.framed .open-card.sheet']) {
       expect(rule(box)['overflow'], box).toBe('hidden');
       expect(rule(box)['overflow-y'], box).toBeUndefined();
       const part = rule(`${box} > .scrolls`);
@@ -349,14 +370,17 @@ describe('the stylesheet: what a test DOM cannot see', () => {
       expect(field['overflow-y'], box).toBe('auto');
       expect(field['overscroll-behavior'], box).toBeUndefined();
     }
-    expect(rule('.app.framed .card.open textarea')['min-height']).toBe('3lh');
-    // The place to write's field has 12 + 12 of padding and 1.5 + 1.5 of border in its box.
-    expect(rule('.own-card textarea')['padding']).toBe('12px 14px');
-    expect(rule('.own-card textarea')['border']).toMatch(/^1.5px solid/);
-    expect(rule('.app.framed .own-card.sheet textarea')['min-height']).toBe('calc(3lh + 27px)');
+    // On a tint three lines are three lines; a blank card's field has 12 + 12 of padding and
+    // 1.5 + 1.5 of border in its box.
+    expect(rule('.app.framed .open-card.sheet.tinted textarea')['min-height']).toBe('3lh');
+    expect(rule('.open-card textarea')['padding']).toBe('12px 14px');
+    expect(rule('.open-card textarea')['border']).toMatch(/^1.5px solid/);
+    expect(rule('.app.framed .open-card.sheet textarea')['min-height']).toBe('calc(3lh + 27px)');
     // The strip under the last row while the keyboard is up stays.
-    expect(rule('.app.framed.keyboard-up .loop.answering')['padding-bottom']).toBe('52px');
-    expect(rule('.app.framed.keyboard-up .own-card.sheet')['padding-bottom']).toBe('52px');
+    expect(rule('.app.framed.keyboard-up .open-card.sheet')['padding-bottom']).toBe('52px');
+    // The frame starts at the top of what is visible and is as tall as it.
+    expect(rule('.app.framed .open-card.sheet')['top']).toContain('var(--vv-top, 0px)');
+    expect(rule('.app.framed .open-card.sheet')['height']).toContain('var(--vv-height, 100dvh)');
     // Off the phone's frame, and on a laptop, the part that scrolls is no box of its own.
     expect(rule('.scrolls')['display']).toBe('contents');
     for (const r of rules.filter((r) => r.selectors.some((s) => s.includes('.scrolls'))))
@@ -366,27 +390,32 @@ describe('the stylesheet: what a test DOM cannot see', () => {
     expect(css).not.toContain('--field-text');
   });
 
-  it('on a phone the place to write fades in and out where it stands, and does not slide up (ADR 0025)', () => {
-    expect(rule('.own-card.sheet')['animation']).toMatch(/^fade-in /);
-    expect(rule('.own-card.sheet.closing')['animation']).toMatch(/^fade-out /);
+  it('the open card fades in and out where it stands, on a phone and on a laptop, and does not slide up or grow (ADR 0025, ADR 0027)', () => {
+    expect(rule('.open-card.sheet')['animation']).toMatch(/^fade-in /);
+    expect(rule('.open-card.sheet.closing')['animation']).toMatch(/^fade-out /);
+    expect(rule('.open-desk')['animation']).toMatch(/^fade-in /);
+    expect(rule('.open-desk.closing')['animation']).toMatch(/^fade-out /);
+    // The open card on a phone is also a .sheet, whose rise it must not take: its own rules come
+    // later and weigh as much.
+    const at = (selector: string) => topLevel.findIndex((r) => r.selectors.includes(selector));
+    expect(at('.open-card.sheet')).toBeGreaterThan(at('.sheet'));
+    expect(at('.open-card.sheet.closing')).toBeGreaterThan(at('.sheet.closing'));
     // "Your world so far" still rises from the bottom.
     expect(rule('.sheet')['animation']).toMatch(/^sheet-in /);
   });
 
   it('a finger on the parts of an open card that never move cannot drag it; nothing that holds a field refuses a drag (ADR 0025)', () => {
     for (const selector of [
-      '.app.framed .card.open .head',
-      '.app.framed .card.open .meta',
-      '.app.framed .card.open .actions',
+      '.app.framed .open-card.sheet .head',
+      '.app.framed .open-card.sheet .meta',
+      '.app.framed .open-card.sheet .actions',
       '.app.framed .scrim',
-      '.app.framed .own-card.sheet .own-meta',
-      '.app.framed .own-card.sheet .own-actions',
     ])
       expect(rule(selector)['touch-action'], selector).toBe('pinch-zoom');
     // The boxes around a field, by the last part of a selector: a browser takes touch-action from
     // every one of them, so none may refuse a drag up and down.
     const around = new Set(
-      'html body .app main .loop .loop.answering .stack .slot .card .card.open .scrolls .sheet .own-card .own-card.sheet textarea'.split(
+      'html body .app main .loop .stack .slot .card .scrolls .sheet .open-card .open-card.sheet .open-desk textarea'.split(
         ' ',
       ),
     );
@@ -398,8 +427,7 @@ describe('the stylesheet: what a test DOM cannot see', () => {
 
   it('in a frame too low for a head and a foot that stay, the whole card scrolls and every part of it lets a finger drag (ADR 0025)', () => {
     for (const [box, fixed] of [
-      ['.app.framed.low .card.open', ['.head', '.meta', '.actions']],
-      ['.app.framed.low .own-card.sheet', ['.own-meta', '.own-actions']],
+      ['.app.framed.low .open-card.sheet', ['.head', '.meta', '.actions']],
     ] as const) {
       expect(rule(box)['overflow-y'], box).toBe('auto');
       expect(rule(box)['overscroll-behavior'], box).toBe('contain');
@@ -411,11 +439,35 @@ describe('the stylesheet: what a test DOM cannot see', () => {
   });
 
   it('the dictation hint in the framed card is one row, and the field may be two lines beside it (ADR 0025)', () => {
-    const hint = rule('.app.framed .card.open .hint');
+    const hint = rule('.app.framed .open-card.sheet .hint');
     expect(hint['display']).toBe('grid');
     expect(hint['grid-template-columns']).toBe('1fr auto');
-    expect(rule('.app.framed .card.open .hint button')['grid-column']).toBe('2');
-    expect(rule('.app.framed .card.open .scrolls:has(.hint) textarea')['min-height']).toBe('2lh');
+    expect(rule('.app.framed .open-card.sheet .hint button')['grid-column']).toBe('2');
+    expect(
+      rule('.app.framed .open-card.sheet.tinted .scrolls:has(.hint) textarea')['min-height'],
+    ).toBe('2lh');
+    // A blank card's boxed field: two lines and its padding and border.
+    expect(rule('.app.framed .open-card.sheet .scrolls:has(.hint) textarea')['min-height']).toBe(
+      'calc(2lh + 27px)',
+    );
+  });
+
+  it('one set of rules for the open card: no rule names the open card of the stack, the room the stack made, the answered card flying off, or the place to write (ADR 0027)', () => {
+    for (const gone of [
+      '.card.open',
+      '.stack.answering',
+      '.loop.answering',
+      '.slot.exit',
+      '.own-card',
+      '.own-desk',
+      '.not-now',
+    ])
+      for (const r of rules)
+        for (const s of r.selectors) expect(s.includes(gone), `${s} names ${gone}`).toBe(false);
+    expect(css).not.toMatch(/card-exit/);
+    // What was tapped is lifted: hidden, it keeps its place, and takes no tap and no focus.
+    for (const lifted of ['.card.front.lifted', '.tile.lifted'])
+      expect(rule(lifted)['visibility'], lifted).toBe('hidden');
   });
 
   it('the document says its language', () => {
@@ -520,8 +572,11 @@ describe('headings', () => {
     expectHeadingsInOrder('the sheet');
     document.body.innerHTML = '';
 
-    const hint = await onACard({ cardState: 'answering', platform: 'Android', hintOpen: true });
+    const hint = await onACard({ platform: 'Android' });
+    hint.openCard();
+    hint.hintOpen = true;
     const open = renderApp(hint);
+    await screen.findByRole('dialog', { name: hint.card!.text });
     expectHeadingsInOrder('the open card with the hint');
     open.unmount();
 
@@ -548,8 +603,7 @@ describe('headings', () => {
       expect(r.body['max-height'], r.selectors.join(', ')).toBeUndefined();
     for (const wide of [false, true]) {
       const app = await onACard({ wide });
-      app.draft = 'A first answer';
-      await app.save();
+      await answerFront(app, 'A first answer');
       const answered = app.world.tiles[0]!;
       const user = userEvent.setup();
       const { unmount } = renderApp(app);
@@ -562,7 +616,7 @@ describe('headings', () => {
       const dialog = await screen.findByRole('dialog', { name: answered.question });
       const field = within(dialog).getByRole('textbox', { name: answered.question });
       await waitFor(() => expect(document.activeElement).toBe(field));
-      expectHeadingsInOrder(`a tile's place to write ${wide ? 'on a laptop' : 'on a phone'}`);
+      expectHeadingsInOrder(`a tile's open card ${wide ? 'on a laptop' : 'on a phone'}`);
       await user.keyboard('{Escape}');
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
       if (wide)
@@ -601,15 +655,25 @@ describe('focus', () => {
     expect(document.activeElement?.tagName).toBe('H1');
   });
 
-  it('an open card brought back from the page about the app keeps the focus in its field', async () => {
-    const app = await onACard({ cardState: 'answering', draft: 'Half' });
+  it('while a card is open the "?" cannot be reached; the words begun on it are there after the page about the app', async () => {
+    const app = await onACard({ wide: true });
     stubRoutes({ [`/api/${SLUG}/me`]: [ME] });
     const user = userEvent.setup();
     renderApp(app);
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'about') }));
+    await user.click(screen.getByRole('button', { name: (n) => n.includes(app.card!.text) }));
+    await user.type(await screen.findByRole('textbox'), 'Half');
+    const about = () => screen.getByRole('button', { name: copy.item('Buttons', 'about') });
+    expect((document.querySelector('header') as HTMLElement & { inert?: boolean }).inert).toBe(
+      true,
+    );
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(about());
     await screen.findByRole('heading', { level: 1, name: copy.item('Titles', 'about') });
     await user.click(screen.getAllByRole('button', { name: copy.item('Buttons', 'back') })[0]!);
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')));
+    await waitFor(() => expect(app.screen).toBe('card'));
+    await user.click(screen.getByRole('button', { name: (n) => n.includes(app.card!.text) }));
+    expect(((await screen.findByRole('textbox')) as HTMLTextAreaElement).value).toBe('Half');
   });
 
   it('delete in two steps: the question takes the focus, and "Keep my answers" gives it back to the first button', async () => {
@@ -657,10 +721,44 @@ describe('focus', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     for (const el of behind()) expect(inert(el), el.tagName).toBe(false);
   });
+
+  it('while the card in front is open the page behind it is inert, on a laptop and on a phone; the card in front is lifted, and takes the focus back when it closes', async () => {
+    const inert = (el: Element) => (el as HTMLElement & { inert?: boolean }).inert === true;
+    for (const wide of [true, false]) {
+      const app = await onACard({ wide });
+      const user = userEvent.setup();
+      const { unmount } = renderApp(app);
+      const front = () => screen.getByRole('button', { name: (n) => n.includes(app.card!.text) });
+      const card = front();
+      await user.click(card);
+      const dialog = await screen.findByRole('dialog', { name: app.card!.text });
+      expect(dialog.getAttribute('aria-modal')).toBe('true');
+      const behind = wide ? ['header', 'main'] : ['header', 'main', 'footer'];
+      for (const tag of behind) expect(inert(document.querySelector(tag)!), tag).toBe(true);
+      // The card in front is lifted: it keeps its slot, and the stack holds no field.
+      expect(card.classList.contains('lifted')).toBe(true);
+      expect(card.closest('.slot')!.classList.contains('slot-0')).toBe(true);
+      expect(document.querySelector('.stack textarea')).toBeNull();
+      expect(document.querySelectorAll('.stack .card.back')).toHaveLength(2);
+      const live = document.querySelector('[aria-live]')!;
+      for (let el: Element | null = live; el; el = el.parentElement) expect(inert(el)).toBe(false);
+      await user.tab();
+      await user.tab();
+      await user.tab();
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+      await user.click(document.querySelector('.scrim')!);
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      for (const tag of behind) expect(inert(document.querySelector(tag)!), tag).toBe(false);
+      expect(card.classList.contains('lifted')).toBe(false);
+      await waitFor(() => expect(document.activeElement).toBe(card));
+      unmount();
+    }
+  });
 });
 
 describe('the blank card (ADR 0022)', () => {
-  it('the focus goes into the field on opening, stays inside, and back to the button on closing; Escape closes, as "Not now" does; the page behind is inert meanwhile', async () => {
+  it('the focus goes into the field on opening, stays inside, and back to the button on closing; Escape closes, as × does; the page behind is inert meanwhile', async () => {
     for (const wide of [false, true]) {
       const app = await onACard({ wide });
       const user = userEvent.setup();
@@ -687,11 +785,12 @@ describe('the blank card (ADR 0022)', () => {
       await user.click(opener());
       await screen.findByRole('dialog');
       await user.click(
-        screen.getByRole('button', { name: copy.item('Own card: buttons', 'not now') }),
+        screen.getByRole('button', { name: copy.item('Card labels', 'close without saving') }),
       );
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(opener()));
-      expect(app.ownDraft).toBe('Words');
+      await user.click(opener());
+      expect(((await screen.findByRole('textbox')) as HTMLTextAreaElement).value).toBe('Words');
       unmount();
     }
   });
@@ -700,16 +799,16 @@ describe('the blank card (ADR 0022)', () => {
     const app = await onACard();
     renderApp(app);
     app.openOwnCard();
-    app.ownDraft = 'a lone surrogate \uD83D';
+    app.openDraft = 'a lone surrogate \uD83D';
     await screen.findByRole('dialog');
     const field = screen.getByRole('textbox', { name: copy.text('Own card: field') });
-    expect(field.getAttribute('aria-describedby')).toBe('own-hint own-count');
+    expect(field.getAttribute('aria-describedby')).toBe('own-hint open-count');
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: copy.item('Own card: buttons', 'save') }));
+      .click(screen.getByRole('button', { name: copy.item('Buttons', 'save') }));
     const alert = await screen.findByRole('alert');
-    expect(alert.id).toBe('own-error');
-    expect(field.getAttribute('aria-describedby')).toContain('own-error');
+    expect(alert.id).toBe('open-error');
+    expect(field.getAttribute('aria-describedby')).toContain('open-error');
   });
 });
 
@@ -725,13 +824,14 @@ describe('what a screen reader is told', () => {
   });
 
   it('a save that fails is an alert, and the field is described by it as well as by the counter', async () => {
-    render(Card, {
-      app: await onACard({ cardState: 'answering', draft: 'x', error: 'CLIENT_SEAL_FAILED' }),
-    });
-    const alert = screen.getByRole('alert');
+    const app = await onACard({ draft: 'x' });
+    app.openCard();
+    app.error = 'CLIENT_SEAL_FAILED';
+    renderApp(app);
+    const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain(copy.error('CLIENT_SEAL_FAILED'));
     const field = screen.getByRole('textbox', { name: (n) => n.length > 0 });
-    expect(field.getAttribute('aria-describedby')?.split(' ')).toEqual(['answer-count', alert.id]);
+    expect(field.getAttribute('aria-describedby')?.split(' ')).toEqual(['open-count', alert.id]);
   });
 
   it('a delete that fails is an alert on the page about the app', () => {

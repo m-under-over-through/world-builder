@@ -8,11 +8,11 @@ import { replaySession } from '../src/lib/session.ts';
 import { AppState, tintOf } from '../src/lib/state.svelte.ts';
 import { answerKey, WorkshopStore } from '../src/lib/store.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
-import { freshIndexedDb, stubRoutes } from './helpers.ts';
+import { freshIndexedDb, saveOwnCard, stubRoutes } from './helpers.ts';
 
 /**
- * Tiles open (ADR 0024): a tap on a tile in "Your world so far" opens the place to write for that
- * card. A card set aside can be answered there, an answer changed, a blank card too. Nothing
+ * Tiles open (ADR 0024): a tap on a tile in "Your world so far" opens that card in the open card
+ * (ADR 0027). A card set aside can be answered there, an answer changed, a blank card too. Nothing
  * stored is changed: a change is one more `answered` event for the same card id, and the latest
  * one is the answer. Every test stubs the routes before anything can sync, so no request leaves.
  */
@@ -51,12 +51,19 @@ function renderApp(app: AppState) {
   return render(App, { app });
 }
 
-/** Answer the front card in the stack; returns its id. */
+/** Answer the front card through the open card; returns its id. */
 async function answerFront(app: AppState, words: string): Promise<string> {
   const id = app.card!.id;
-  app.draft = words;
+  app.openCard();
+  app.openDraft = words;
   expect(await app.save()).toBe(true);
   return id;
+}
+
+/** Write these words in the open card and Save. */
+async function saveOpen(app: AppState, words: string): Promise<boolean> {
+  app.openDraft = words;
+  return app.save();
 }
 
 /**
@@ -77,7 +84,7 @@ const answersFor = async (app: AppState, cardId: string) =>
 /** The button of the tile showing this text: its name is what it shows, then its pen's words. */
 const tileButton = (text: string, within_: HTMLElement = document.body) =>
   within(within_).getByRole('button', { name: (name) => name.includes(text) });
-const placeToWrite = (name: string) => screen.findByRole('dialog', { name });
+const openCard = (name: string) => screen.findByRole('dialog', { name });
 
 describe('a card set aside', () => {
   it('a card set aside opens empty from its tile; Save records one answered event for that card, sealed, and its white tile becomes a tile with the words', async () => {
@@ -94,7 +101,7 @@ describe('a card set aside', () => {
     const tile = tileButton(question(aside), sheet);
     expect(tile.textContent).toContain(copy.item('Your world', 'open aside'));
     await user.click(tile);
-    const dialog = await placeToWrite(question(aside));
+    const dialog = await openCard(question(aside));
     // The sheet has closed under it; the field is named by the question and empty.
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     const field = within(dialog).getByRole('textbox', { name: question(aside) });
@@ -103,9 +110,7 @@ describe('a card set aside', () => {
     await waitFor(() => expect(document.activeElement).toBe(field));
     expect(dialog.textContent).not.toContain(copy.text('Own card: hint'));
     await user.type(field, 'Answered from its tile');
-    await user.click(
-      within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'save') }),
-    );
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     const answered = await answersFor(app, aside);
@@ -126,7 +131,7 @@ describe('a card set aside', () => {
     await waitFor(() => expect(document.activeElement?.id).toBe('world-pill'));
   });
 
-  it('Not now on a card set aside records nothing, and the words are there the next time', async () => {
+  it('× on a card set aside records nothing, and the words are there the next time', async () => {
     const app = await started();
     const aside = app.card!.id;
     await app.setAside();
@@ -134,16 +139,18 @@ describe('a card set aside', () => {
     const user = userEvent.setup();
     renderApp(app);
     app.openTile(aside);
-    const dialog = await placeToWrite(question(aside));
+    const dialog = await openCard(question(aside));
     await user.type(within(dialog).getByRole('textbox'), 'Not yet');
     await user.click(
-      within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'not now') }),
+      within(dialog).getByRole('button', {
+        name: copy.item('Card labels', 'close without saving'),
+      }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await db(app).events.count()).toBe(before);
     expect(app.world.aside.map((t) => t.cardId)).toEqual([aside]);
     app.openTile(aside);
-    const again = await placeToWrite(question(aside));
+    const again = await openCard(question(aside));
     expect((within(again).getByRole('textbox') as HTMLTextAreaElement).value).toBe('Not yet');
     // Esc closes it too, and keeps the words.
     await user.keyboard('{Escape}');
@@ -163,12 +170,12 @@ describe('a card set aside', () => {
     expect(app.world.aside.map((t) => t.cardId)).toContain(id);
     app.openTile(id);
     expect(app.writing).toBe(id);
-    expect(app.ownDraft).toBe('');
+    expect(app.openDraft).toBe('');
     // Set aside for the second time in this round: it opens on the tint it had in the stack of
     // this round, and its tile takes the same one when it is answered.
     const tint = app.writingTint;
     expect(tint).toBe(inTheStack);
-    expect(await app.saveOwnCard('At last')).toBe(true);
+    expect(await saveOpen(app, 'At last')).toBe(true);
     expect(await answersFor(app, id)).toHaveLength(1);
     expect(app.world.aside.map((t) => t.cardId)).not.toContain(id);
     expect(tintOf(app.world.tiles.find((t) => t.cardId === id)!.n)).toBe(tint);
@@ -190,7 +197,7 @@ describe('a card set aside', () => {
     expect(app.world.aside.map((t) => t.cardId)).toContain(id);
     app.openTile(id);
     expect(app.writingTint).toBe(tintOf(0));
-    expect(await app.saveOwnCard('At last')).toBe(true);
+    expect(await saveOpen(app, 'At last')).toBe(true);
     expect(tintOf(app.world.tiles.find((t) => t.cardId === id)!.n)).toBe(tintOf(0));
   });
 
@@ -202,8 +209,8 @@ describe('a card set aside', () => {
     app.draft = 'Begun in the stack';
     app.openTile(id);
     // One draft per card: the front card's is the stack's own.
-    expect(app.ownDraft).toBe('Begun in the stack');
-    expect(await app.saveOwnCard('Finished from the tile')).toBe(true);
+    expect(app.openDraft).toBe('Begun in the stack');
+    expect(await saveOpen(app, 'Finished from the tile')).toBe(true);
     expect(app.card!.id).toBe(next);
     expect(app.draft).toBe('');
     expect(app.live!.shown.has(next)).toBe(true);
@@ -226,7 +233,7 @@ describe('a card set aside', () => {
     await app.setAside();
     expect(app.world.aside.map((t) => t.cardId)).toEqual([a, b, c]);
     app.openTile(a);
-    expect(await app.saveOwnCard('Answered since')).toBe(true);
+    expect(await saveOpen(app, 'Answered since')).toBe(true);
     expect(app.world.aside.map((t) => t.cardId)).toEqual([b, c]);
     const again = await reopened();
     expect(again.world.aside.map((t) => t.cardId)).toEqual([b, c]);
@@ -245,19 +252,22 @@ describe('an answer', () => {
     const tile = tileButton('First words');
     expect(tile.textContent).toContain(copy.item('Your world', 'open answer'));
     await user.click(tile);
-    const dialog = await placeToWrite(question(first));
+    const dialog = await openCard(question(first));
+    // The tile it was opened from is lifted; its place in the list stays (ADR 0027).
+    expect(tile.classList.contains('lifted')).toBe(true);
+    expect(tile.isConnected).toBe(true);
+    expect(document.querySelector('.card.front')!.classList.contains('lifted')).toBe(false);
     const field = within(dialog).getByRole('textbox') as HTMLTextAreaElement;
     expect(field.value).toBe('First words');
     await user.clear(field);
     await user.type(field, 'Better words');
-    await user.click(
-      within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'save') }),
-    );
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await answersFor(app, first)).toHaveLength(2);
     expect(app.world.tiles.map((t) => t.cardId)).toEqual([first, second]);
     expect(app.world.tiles.map((t) => t.key)).toEqual(keys);
     expect(app.world.tiles.map((t) => t.answer)).toEqual(['Better words', 'Second words']);
+    expect(tileButton('Better words').classList.contains('lifted')).toBe(false);
     // On a laptop the focus goes back to the tile.
     await waitFor(() =>
       expect((document.activeElement as HTMLElement).dataset['tile']).toBe(first),
@@ -272,7 +282,7 @@ describe('an answer', () => {
     // The tint of the card in front of the stack, before it is set aside.
     const inTheStack = `var(--tint-${tintOf(app.cardNo)})`;
     await app.setAside();
-    expect(await app.saveOwnCard('My story')).toBe(true);
+    expect(await saveOwnCard(app, 'My story')).toBe(true);
     app.wide = true;
     const user = userEvent.setup();
     renderApp(app);
@@ -283,12 +293,12 @@ describe('an answer', () => {
     ] as const) {
       const tile = tileButton(words);
       await user.click(tile);
-      const dialog = await placeToWrite(question(id));
+      const dialog = await openCard(question(id));
       const tint = dialog.style.getPropertyValue('--tint');
       expect(tint).toMatch(/^var\(--tint-(sun|mint|sky|lilac)\)$/);
       expect(tint).toBe(tile.style.getPropertyValue('--tint'));
       expect(dialog.classList.contains('tinted')).toBe(true);
-      // No box around the field on a tint: a rule under the question, as on the open card.
+      // No box around the field on a tint: a rule under the question.
       expect(dialog.querySelector('.rule')).not.toBeNull();
       tints.push(tint);
       await user.keyboard('{Escape}');
@@ -298,7 +308,7 @@ describe('an answer', () => {
     const whiteTile = tileButton(question(aside));
     expect(whiteTile.style.getPropertyValue('--tint')).toBe('');
     await user.click(whiteTile);
-    const setAside = await placeToWrite(question(aside));
+    const setAside = await openCard(question(aside));
     expect(setAside.classList.contains('tinted')).toBe(true);
     expect(setAside.style.getPropertyValue('--tint')).toBe(inTheStack);
     expect(setAside.querySelector('.rule')).not.toBeNull();
@@ -309,14 +319,14 @@ describe('an answer', () => {
     expect(new Set(tints).size).toBe(3);
     // A blank card, written or new, is white: it is in no deck and has no number.
     await user.click(tileButton(copy.text('Own card: tile')));
-    const written = await placeToWrite(copy.text('Own card: title'));
+    const written = await openCard(copy.text('Own card: title'));
     expect(written.classList.contains('tinted')).toBe(false);
     expect(written.style.getPropertyValue('--tint')).toBe('');
     expect(written.querySelector('.rule')).toBeNull();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     app.openOwnCard();
-    const blank = await placeToWrite(copy.text('Own card: title'));
+    const blank = await openCard(copy.text('Own card: title'));
     expect(blank.classList.contains('tinted')).toBe(false);
   });
 
@@ -330,7 +340,7 @@ describe('an answer', () => {
     const user = userEvent.setup();
     renderApp(app);
     await user.click(tileButton(question(aside)));
-    const dialog = await placeToWrite(question(aside));
+    const dialog = await openCard(question(aside));
     const tint = dialog.style.getPropertyValue('--tint');
     expect(tint).toBe(inTheStack);
     await user.type(within(dialog).getByRole('textbox'), 'Answered from its tile');
@@ -343,11 +353,9 @@ describe('an answer', () => {
       await held;
       return putAnswer(row);
     };
-    await user.click(
-      within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'save') }),
-    );
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
     await waitFor(() => expect(app.world.tiles.some((t) => t.cardId === aside)).toBe(true));
-    // The card is a tile already and the place to write is still open on it: the same tint.
+    // The card is a tile already and the open card still stands on it: the same tint.
     expect(app.writing).toBe(aside);
     expect(screen.getByRole('dialog')).toBe(dialog);
     expect(dialog.style.getPropertyValue('--tint')).toBe(tint);
@@ -365,10 +373,10 @@ describe('an answer', () => {
     const backs = app.backCards.map((b) => b.card.id);
     const position = app.position;
     app.openTile(answered);
-    expect(await app.saveOwnCard('Changed my mind')).toBe(true);
+    expect(await saveOpen(app, 'Changed my mind')).toBe(true);
     expect(app.card!.id).toBe(front);
     expect(app.draft).toBe('Half an answer');
-    expect(app.cardState).toBe('fresh');
+    expect(app.cardOpen).toBe(false);
     expect(app.live!.plan.queue).toEqual(queue);
     expect(app.backCards.map((b) => b.card.id)).toEqual(backs);
     expect(app.position).toEqual(position);
@@ -392,8 +400,8 @@ describe('an answer', () => {
     const first = await answerFront(app, 'Round one words');
     while (app.sessionNo === 1) await answerFront(app, 'Round one');
     app.openTile(first);
-    expect(app.ownDraft).toBe('Round one words');
-    expect(await app.saveOwnCard('Round two words')).toBe(true);
+    expect(app.openDraft).toBe('Round one words');
+    expect(await saveOpen(app, 'Round two words')).toBe(true);
     const tile = app.world.tiles.find((t) => t.cardId === first)!;
     expect(tile.sessionNo).toBe(1);
     expect(app.world.tiles[0]!.cardId).toBe(first);
@@ -406,17 +414,17 @@ describe('an answer', () => {
 
   it('a blank card opens with its words and keeps its id when changed', async () => {
     const app = await started();
-    expect(await app.saveOwnCard('My story')).toBe(true);
+    expect(await saveOwnCard(app, 'My story')).toBe(true);
     const own = app.world.tiles.find((t) => t.own)!;
     expect(own.opens).toBe(true);
     app.openTile(own.cardId);
     expect(app.writing).toBe(own.cardId);
     expect(app.writingCard).toBeNull();
-    expect(app.ownDraft).toBe('My story');
+    expect(app.openDraft).toBe('My story');
     renderApp(app);
-    const dialog = await placeToWrite(copy.text('Own card: title'));
+    const dialog = await openCard(copy.text('Own card: title'));
     expect(dialog.textContent).toContain(copy.text('Own card: hint'));
-    expect(await app.saveOwnCard('My story, told better')).toBe(true);
+    expect(await saveOpen(app, 'My story, told better')).toBe(true);
     const events = (await db(app).events.toArray()).filter((e) => isOwnCardId(e.cardId));
     expect(events.map((e) => e.cardId)).toEqual([own.cardId, own.cardId]);
     expect(app.world.tiles.filter((t) => t.own).map((t) => t.answer)).toEqual([
@@ -424,7 +432,7 @@ describe('an answer', () => {
     ]);
     // "Write your own story" still starts a new one, empty.
     app.openOwnCard();
-    expect(app.ownDraft).toBe('');
+    expect(app.openDraft).toBe('');
   });
 
   it('an empty text cannot be saved over an answer', async () => {
@@ -432,18 +440,18 @@ describe('an answer', () => {
     const answered = await answerFront(app, 'Something');
     renderApp(app);
     app.openTile(answered);
-    const dialog = await placeToWrite(question(answered));
+    const dialog = await openCard(question(answered));
     const save = within(dialog).getByRole('button', {
-      name: copy.item('Own card: buttons', 'save'),
+      name: copy.item('Buttons', 'save'),
     }) as HTMLButtonElement;
     for (const text of ['', '  \n ']) {
-      app.ownDraft = text;
+      app.openDraft = text;
       await waitFor(() => expect(save.disabled).toBe(true));
-      expect(await app.saveOwnCard()).toBe(false);
+      expect(await app.save()).toBe(false);
     }
     expect(await answersFor(app, answered)).toHaveLength(1);
     expect(app.world.tiles[0]!.answer).toBe('Something');
-    expect(app.ownCardOpen).toBe(true);
+    expect(app.cardOpen).toBe(true);
   });
 });
 
@@ -453,9 +461,9 @@ describe('one tile per card', () => {
     const first = await answerFront(app, 'One');
     await answerFront(app, 'Two');
     app.openTile(first);
-    expect(await app.saveOwnCard('One, again')).toBe(true);
+    expect(await saveOpen(app, 'One, again')).toBe(true);
     app.openTile(first);
-    expect(await app.saveOwnCard('One, a third time')).toBe(true);
+    expect(await saveOpen(app, 'One, a third time')).toBe(true);
     expect(await answersFor(app, first)).toHaveLength(3);
     const unique = (a: AppState) => {
       const tiles = a.world.tiles;
@@ -496,7 +504,7 @@ describe('one tile per card', () => {
     const aside = app.card!.id;
     await app.setAside();
     app.openTile(first);
-    expect(await app.saveOwnCard('One, changed')).toBe(true);
+    expect(await saveOpen(app, 'One, changed')).toBe(true);
     renderApp(app);
     const pill = screen.getByRole('button', {
       name: fill(copy.item('Your world', 'pill label'), { n: 2 }),
@@ -532,9 +540,9 @@ describe('on another device', () => {
       expect.objectContaining({ cardId, answer: null, opens: false }),
     ]);
     app.openTile(cardId);
-    expect(app.ownCardOpen).toBe(false);
-    expect(await app.saveOwnCard('Over words I cannot see')).toBe(true);
-    // Saved as a new blank card, never over the answer written elsewhere.
+    expect(app.cardOpen).toBe(false);
+    // With nothing open, Save saves nothing: never over the answer written elsewhere.
+    expect(await saveOpen(app, 'Over words I cannot see')).toBe(false);
     expect(await answersFor(app, cardId)).toHaveLength(0);
     app.worldOpen = true;
     renderApp(app);
@@ -582,7 +590,7 @@ describe('on another device', () => {
     expect(tile.answer).toBeNull();
     expect(tile.opens).toBe(false);
     app.openTile(cardId);
-    expect(app.ownCardOpen).toBe(false);
+    expect(app.cardOpen).toBe(false);
     // Still so after a reload: the stored copy names the answer it is the words of.
     const stored = (await app.store!.answers()).find((a) => a.key === key)!;
     expect(stored.eventId).toBeDefined();

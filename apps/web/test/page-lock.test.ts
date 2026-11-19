@@ -308,12 +308,12 @@ describe('the app holds the page', () => {
     app.openCard();
     await tick();
     expect(held()).toEqual([true, true]);
-    app.closeCard();
+    await app.closeCard();
     await tick();
     expect(held()).toEqual([false, false]);
   });
 
-  it('the page is held while the place to write is open on a phone and let go when it closes', async () => {
+  it('the page is held while a blank card is open on a phone and let go when it closes', async () => {
     vi.stubGlobal('visualViewport', new StandIn());
     const app = await onACard();
     const user = userEvent.setup();
@@ -335,7 +335,7 @@ describe('the app holds the page', () => {
     app.openCard();
     await tick();
     expect(held()).toEqual([false, false]);
-    app.closeCard();
+    await app.closeCard();
     app.openOwnCard();
     await screen.findByRole('dialog');
     expect(held()).toEqual([false, false]);
@@ -348,7 +348,7 @@ describe('the app holds the page', () => {
     app.openCard();
     await tick();
     expect(held()).toEqual([false, false]);
-    app.closeCard();
+    await app.closeCard();
     app.openOwnCard();
     await screen.findByRole('dialog');
     expect(held()).toEqual([false, false]);

@@ -227,6 +227,11 @@ describe('the open card on a phone', () => {
     expect(property(VV_TOP)).toBe('0px');
     expect(root().classList.contains('framed')).toBe(true);
     expect(root().classList.contains('keyboard-up')).toBe(false);
+    // The card in front opens in the same framed box as every other card (ADR 0027).
+    const dialog = screen.getByRole('dialog', { name: app.card!.text });
+    expect(dialog.classList.contains('open-card')).toBe(true);
+    expect(dialog.classList.contains('sheet')).toBe(true);
+    expect(document.querySelector('.stack textarea')).toBeNull();
     // The frame covers the header and the foot, so neither takes a tap or a Tab meanwhile.
     expect(inert(document.querySelector('header'))).toBe(true);
     expect(inert(document.querySelector('footer'))).toBe(true);
@@ -236,7 +241,7 @@ describe('the open card on a phone', () => {
     expect(property(VV_HEIGHT)).toBe('410px');
     expect(property(VV_TOP)).toBe('250px');
     expect(root().classList.contains('keyboard-up')).toBe(true);
-    app.closeCard();
+    await app.closeCard();
     await tick();
     expect(property(VV_HEIGHT)).toBe('');
     expect(property(VV_TOP)).toBe('');
@@ -283,7 +288,7 @@ describe('the open card on a phone', () => {
     viewport.resize(200);
     await tick();
     expect(root().classList.contains('low')).toBe(true);
-    app.closeCard();
+    await app.closeCard();
     await tick();
     expect(root().classList.contains('low')).toBe(false);
   });
@@ -306,7 +311,9 @@ describe('the open card on a phone', () => {
     expect(screen.getByRole('textbox')).toBeTruthy();
     expect(root().classList.contains('framed')).toBe(false);
     expect(property(VV_HEIGHT)).toBe('');
-    expect(inert(document.querySelector('header'))).toBe(false);
+    // The open card is a dialog all the same: the page behind it is not reachable (ADR 0027).
+    expect(screen.getByRole('dialog', { name: app.card!.text })).toBeTruthy();
+    expect(inert(document.querySelector('header'))).toBe(true);
   });
 
   it('on a laptop nothing of this applies, with a visual viewport or without', async () => {
@@ -317,7 +324,7 @@ describe('the open card on a phone', () => {
     await tick();
     expect(root().classList.contains('framed')).toBe(false);
     expect(property(VV_HEIGHT)).toBe('');
-    app.closeCard();
+    await app.closeCard();
     app.openOwnCard();
     await screen.findByRole('dialog');
     expect(root().classList.contains('framed')).toBe(false);
@@ -351,7 +358,7 @@ describe('the open card on a phone', () => {
     expect(seen).toEqual([{ framed: true, height: '768px', top: '0px' }]);
   });
 
-  it("when the field of the place to write takes the focus on a phone, the root already carries the frame's class and both properties", async () => {
+  it("when the field of a blank card takes the focus on a phone, the root already carries the frame's class and both properties", async () => {
     vi.stubGlobal('visualViewport', new StandIn());
     const app = await onACard();
     renderApp(app);

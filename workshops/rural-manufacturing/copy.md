@@ -514,13 +514,6 @@ Is there something you already want to say that no card has asked? A story, an i
 
 Your own words
 
-## Own card: buttons (one or two words each)
-
-<!-- "save" keeps the card and closes the place to write; "not now" closes it and keeps the words for the next time it is opened. -->
-
-- save: Save
-- not now: Not now
-
 ## Own card: tile (a few words)
 
 <!-- The label on a blank card's tile in "Your world so far", where a card's tile shows its area. The tile has no question. -->

@@ -18,12 +18,12 @@ import { AppState } from '../src/lib/state.svelte.ts';
 import { answerKey, WorkshopStore } from '../src/lib/store.ts';
 import { codePoints } from '../src/lib/text.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
-import { freshIndexedDb, stubRoutes, SYNCED } from './helpers.ts';
+import { answerFront, freshIndexedDb, saveOwnCard, stubRoutes, SYNCED } from './helpers.ts';
 
 /**
  * The blank card (ADR 0022): a card with no question, which the participant writes. Its id, the
- * place to write it, what saving it records and what it leaves alone, and its tile in "Your world
- * so far". Every test that renders the app or saves stubs the routes first, so no request leaves.
+ * open card it is written in (ADR 0027), what saving it records and what it leaves alone, and its
+ * tile in "Your world so far". Every test that renders the app or saves stubs the routes first, so no request leaves.
  */
 const SLUG = 'rural-manufacturing';
 const workshop = findWorkshop(SLUG)!;
@@ -69,7 +69,7 @@ const opener = () => screen.getByRole('button', { name: copy.text('Own card: but
 const field = () =>
   screen.getByRole('textbox', { name: copy.text('Own card: field') }) as HTMLTextAreaElement;
 const save = () =>
-  screen.getByRole('button', { name: copy.item('Own card: buttons', 'save') }) as HTMLButtonElement;
+  screen.getByRole('button', { name: copy.item('Buttons', 'save') }) as HTMLButtonElement;
 
 describe('the id', () => {
   it("a blank card's id is own- and eight characters of the alphabet, and is never an id of the deck", () => {
@@ -99,8 +99,8 @@ describe('the id', () => {
   });
 });
 
-describe('the place to write', () => {
-  it('Write your own card opens a place to write with no question; Not now closes it, the front card is unchanged, and the words are there the next time', async () => {
+describe('the open card of a blank card', () => {
+  it('Write your own story opens the open card with no question and the × alone in its head; × closes it, the front card is unchanged, and the words are there the next time', async () => {
     const app = await onACard();
     const user = userEvent.setup();
     renderApp(app);
@@ -109,16 +109,24 @@ describe('the place to write', () => {
     const dialog = await screen.findByRole('dialog', { name: copy.text('Own card: title') });
     expect(dialog.textContent).toContain(copy.text('Own card: hint'));
     expect(dialog.textContent).not.toContain(front.text);
+    const head = dialog.querySelector('.head')!;
+    expect(head.querySelector('.label')).toBeNull();
+    expect([...head.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual([
+      copy.item('Card labels', 'close without saving'),
+    ]);
+    // A blank card lifts nothing: the card in front stays drawn behind it.
+    expect(document.querySelector('.card.front')!.classList.contains('lifted')).toBe(false);
     expect(save().disabled).toBe(true);
     await user.type(field(), 'A story from before');
     expect(save().disabled).toBe(false);
     await user.click(
-      within(dialog).getByRole('button', { name: copy.item('Own card: buttons', 'not now') }),
+      within(dialog).getByRole('button', {
+        name: copy.item('Card labels', 'close without saving'),
+      }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(app.ownCardOpen).toBe(false);
+    expect(app.cardOpen).toBe(false);
     expect(app.card).toBe(front);
-    expect(app.cardState).toBe('fresh');
     expect(await db(app).events.count()).toBe(0);
     expect(await db(app).settings.get('ownDraft')).toBeUndefined();
     await user.click(opener());
@@ -132,13 +140,13 @@ describe('the place to write', () => {
     app.openOwnCard();
     await screen.findByRole('dialog');
     for (const text of ['', '   \n\t ']) {
-      app.ownDraft = text;
+      app.openDraft = text;
       await waitFor(() => expect(save().disabled).toBe(true));
-      expect(await app.saveOwnCard()).toBe(false);
+      expect(await app.save()).toBe(false);
     }
     expect(await db(app).events.count()).toBe(0);
     expect(await db(app).answers()).toEqual([]);
-    expect(app.ownCardOpen).toBe(true);
+    expect(app.cardOpen).toBe(true);
   });
 
   it('the blank card is not offered on the welcome or while the onboarding card is in front', async () => {
@@ -152,15 +160,15 @@ describe('the place to write', () => {
     expect(screen.queryByRole('button', { name: copy.text('Own card: button') })).toBeNull();
     expect(welcome.ownCardOffered).toBe(false);
     welcome.openOwnCard();
-    expect(welcome.ownCardOpen).toBe(false);
+    expect(welcome.cardOpen).toBe(false);
     first.unmount();
 
     const demo = await onACard({ demoFront: true });
     renderApp(demo);
     expect(screen.queryByRole('button', { name: copy.text('Own card: button') })).toBeNull();
     demo.openOwnCard();
-    expect(demo.ownCardOpen).toBe(false);
-    expect(await demo.saveOwnCard('Too early')).toBe(false);
+    expect(demo.cardOpen).toBe(false);
+    expect(await saveOwnCard(demo, 'Too early')).toBe(false);
     await demo.dismissDemo();
     await waitFor(() => expect(opener()).toBeTruthy());
   });
@@ -193,7 +201,7 @@ describe('saving a blank card', () => {
     expect((await db(app).answers()).map((a) => [a.key, a.text])).toEqual([
       [answerKey(SESSION.id, event!.cardId), 'Owning a story of my own'],
     ]);
-    expect(app.ownDraft).toBe('');
+    expect(app.openDraft).toBe('');
     // The screen reader hears the same word as for a card.
     expect(app.announcement.text).toBe(copy.item('Announcements', 'saved'));
   });
@@ -204,12 +212,11 @@ describe('saving a blank card', () => {
     const front = app.card!;
     const queue = [...app.live!.plan.queue];
     const backs = app.backCards.map((b) => b.card.id);
-    app.openOwnCard();
-    expect(await app.saveOwnCard('My own words')).toBe(true);
+    expect(await saveOwnCard(app, 'My own words')).toBe(true);
     expect(app.card).toBe(front);
     expect(app.cardNo).toBe(1);
     expect(app.draft).toBe('Half an answer');
-    expect(app.cardState).toBe('fresh');
+    expect(app.cardOpen).toBe(false);
     expect(app.live!.plan.queue).toEqual(queue);
     expect(app.backCards.map((b) => b.card.id)).toEqual(backs);
     expect(app.position).toEqual({ n: 1, total: queue.length });
@@ -224,12 +231,10 @@ describe('saving a blank card', () => {
   it("a second blank card gets another id, and both are tiles in Your world so far, after the round's cards, in the order written", async () => {
     const app = await onACard();
     stubRoutes({});
-    app.draft = 'A card answered';
-    expect(await app.save()).toBe(true);
-    expect(await app.saveOwnCard('First of my own')).toBe(true);
-    app.draft = 'Another card answered';
-    expect(await app.save()).toBe(true);
-    expect(await app.saveOwnCard('Second of my own')).toBe(true);
+    expect(await answerFront(app, 'A card answered')).toBe(true);
+    expect(await saveOwnCard(app, 'First of my own')).toBe(true);
+    expect(await answerFront(app, 'Another card answered')).toBe(true);
+    expect(await saveOwnCard(app, 'Second of my own')).toBe(true);
     const own = (await db(app).events.toArray()).filter((e) => isOwnCardId(e.cardId));
     expect(own).toHaveLength(2);
     expect(own[0]!.cardId).not.toBe(own[1]!.cardId);
@@ -261,7 +266,7 @@ describe('saving a blank card', () => {
     // Saved: a text past the limit is cut to the limit, not refused, and an emoji at the cut is
     // kept whole. Sealing counts characters as the client does (pull request 63).
     const long = 'a'.repeat(MAX_ANSWER_CHARS - 1) + '😀😀😀';
-    expect(await app.saveOwnCard(long)).toBe(true);
+    expect(await saveOwnCard(app, long)).toBe(true);
     expect(app.error).toBe('');
     const [copyOnDevice] = await db(app).answers();
     expect(copyOnDevice!.text).toBe('a'.repeat(MAX_ANSWER_CHARS - 1) + '😀');
@@ -275,16 +280,16 @@ describe('saving a blank card', () => {
     const el = field();
     el.value = 'a'.repeat(MAX_ANSWER_CHARS - 1) + '😀😀😀';
     el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-    expect(codePoints(app.ownDraft)).toBe(MAX_ANSWER_CHARS);
-    expect(app.ownDraft.endsWith('a😀')).toBe(true);
-    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(app.ownDraft)).toBe(false);
+    expect(codePoints(app.openDraft)).toBe(MAX_ANSWER_CHARS);
+    expect(app.openDraft.endsWith('a😀')).toBe(true);
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(app.openDraft)).toBe(false);
     await waitFor(() =>
       expect(
         screen.getByText(fill(copy.item('Card labels', 'counter'), { n: '4,000', max: '4,000' })),
       ).toBeTruthy(),
     );
     // A full-length text that holds an emoji saves from the field as well.
-    expect(await app.saveOwnCard()).toBe(true);
+    expect(await app.save()).toBe(true);
     expect(app.error).toBe('');
     expect((await db(app).answers()).map((a) => codePoints(a.text))).toEqual([
       MAX_ANSWER_CHARS,
@@ -295,12 +300,10 @@ describe('saving a blank card', () => {
   it('the seq goes on across cards and blank cards: card, blank, card, blank are in order and no number comes twice; two saves started together store one event', async () => {
     const app = await onACard();
     stubRoutes({});
-    app.draft = 'First card';
-    expect(await app.save()).toBe(true);
-    expect(await app.saveOwnCard('First blank')).toBe(true);
-    app.draft = 'Second card';
-    expect(await app.save()).toBe(true);
-    expect(await app.saveOwnCard('Second blank')).toBe(true);
+    expect(await answerFront(app, 'First card')).toBe(true);
+    expect(await saveOwnCard(app, 'First blank')).toBe(true);
+    expect(await answerFront(app, 'Second card')).toBe(true);
+    expect(await saveOwnCard(app, 'Second blank')).toBe(true);
     const events = (await db(app).events.toArray()).sort((a, b) => a.seq - b.seq);
     const seqs = events.map((e) => e.seq);
     expect(new Set(seqs).size).toBe(seqs.length);
@@ -310,8 +313,8 @@ describe('saving a blank card', () => {
     expect(app.live!.nextSeq).toBe(seqs.at(-1)! + 1);
     // Two presses at once: the second finds the first saving and does nothing.
     app.openOwnCard();
-    app.ownDraft = 'Pressed twice';
-    const [first, second] = await Promise.all([app.saveOwnCard(), app.saveOwnCard()]);
+    app.openDraft = 'Pressed twice';
+    const [first, second] = await Promise.all([app.save(), app.save()]);
     expect([first, second]).toEqual([true, false]);
     const after = await db(app).events.toArray();
     expect(after).toHaveLength(events.length + 1);
@@ -323,12 +326,19 @@ describe('saving a blank card', () => {
     const app = await onACard({ platform: 'Android' });
     stubRoutes({});
     await app.enterSession();
-    expect(app.hintOpen).toBe(true);
-    expect(await app.saveOwnCard('Before any card')).toBe(true);
+    // The hint does not open by itself on the blank card (ADR 0027)...
+    app.openOwnCard();
+    expect(app.hintOpen).toBe(false);
+    app.openDraft = 'Before any card';
+    expect(await app.save()).toBe(true);
     expect(app.live!.untouched).toBe(true);
+    // ...and the first card, opened afterwards, still has it.
+    app.openCard();
     expect(app.hintOpen).toBe(true);
+    await app.closeCard();
     await app.enterSession();
     expect(app.live!.untouched).toBe(true);
+    app.openCard();
     expect(app.hintOpen).toBe(true);
     expect(app.world.tiles.map((t) => t.answer)).toEqual(['Before any card']);
   });
@@ -337,14 +347,15 @@ describe('saving a blank card', () => {
     const app = await onACard();
     renderApp(app);
     app.openOwnCard();
-    app.ownDraft = 'Half a story';
+    app.openDraft = 'Half a story';
     await screen.findByRole('dialog');
     app.screen = 'closed';
-    expect(app.ownCardOpen).toBe(false);
+    expect(app.cardOpen).toBe(false);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     app.screen = 'card';
-    expect(app.ownCardOpen).toBe(false);
-    expect(app.ownDraft).toBe('Half a story');
+    expect(app.cardOpen).toBe(false);
+    app.openOwnCard();
+    expect(app.openDraft).toBe('Half a story');
   });
 
   it('a tap on the scrim closes the blank card and keeps the words', async () => {
@@ -356,7 +367,7 @@ describe('saving a blank card', () => {
     await user.type(field(), 'Words to keep');
     await user.click(document.querySelector('.scrim')!);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(app.ownDraft).toBe('Words to keep');
+    expect(app.cardOpen).toBe(false);
     expect(await db(app).events.count()).toBe(0);
     await user.click(opener());
     await screen.findByRole('dialog');
@@ -366,7 +377,7 @@ describe('saving a blank card', () => {
   it('"Delete everything" removes a blank card\'s readable copy with the rest', async () => {
     const app = await onACard();
     stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED], [`/api/${SLUG}/me`]: [] });
-    expect(await app.saveOwnCard('Gone soon')).toBe(true);
+    expect(await saveOwnCard(app, 'Gone soon')).toBe(true);
     expect(app.copies.size).toBe(1);
     app.go = () => {};
     app.askDelete();
@@ -381,7 +392,7 @@ describe('saving a blank card', () => {
     const app = await onACard();
     renderApp(app);
     app.openOwnCard();
-    app.ownDraft = 'a lone surrogate \uD83D cannot be encoded';
+    app.openDraft = 'a lone surrogate \uD83D cannot be encoded';
     await screen.findByRole('dialog');
     await userEvent.setup().click(save());
     const alert = await screen.findByRole('alert');
@@ -389,8 +400,8 @@ describe('saving a blank card', () => {
     expect(app.error).toBe('CLIENT_SEAL_FAILED');
     expect(await db(app).events.count()).toBe(0);
     expect(await db(app).answers()).toEqual([]);
-    expect(app.ownCardOpen).toBe(true);
-    expect(app.ownDraft).toBe('a lone surrogate \uD83D cannot be encoded');
+    expect(app.cardOpen).toBe(true);
+    expect(app.openDraft).toBe('a lone surrogate \uD83D cannot be encoded');
   });
 
   it('with the deck done, the blank card is still offered, and saving it does not bring a card back', async () => {
@@ -409,17 +420,15 @@ describe('saving a blank card', () => {
     app.code = '1234567890123456';
     app.wait = async () => {};
     await app.enterSession();
-    for (const words of ['Warm-up', 'Checkpoint']) {
-      app.draft = words;
-      await app.save();
-    }
+    for (const words of ['Warm-up', 'Checkpoint']) await answerFront(app, words);
     expect(app.card).toBeUndefined();
     expect(app.live!.deckDone).toBe(true);
     renderApp(app);
     expect(screen.getByRole('note').textContent).toContain(copy.text('Thank you card'));
     await userEvent.setup().click(opener());
     await screen.findByRole('dialog');
-    expect(await app.saveOwnCard('Still something to say')).toBe(true);
+    app.openDraft = 'Still something to say';
+    expect(await app.save()).toBe(true);
     expect(app.card).toBeUndefined();
     expect(app.sessionNo).toBe(2);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -464,9 +473,8 @@ describe('on another device', () => {
     // The first device: a card answered, then a blank card, both synced.
     const first = await onACard();
     stubRoutes({});
-    first.draft = 'A card answered';
-    expect(await first.save()).toBe(true);
-    expect(await first.saveOwnCard('A story of my own')).toBe(true);
+    expect(await answerFront(first, 'A card answered')).toBe(true);
+    expect(await saveOwnCard(first, 'A story of my own')).toBe(true);
     const rows = await db(first).history();
     const front = first.card!.id;
     const queue = [...first.live!.plan.queue];

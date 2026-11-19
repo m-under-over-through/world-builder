@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { MAX_ANSWER_CHARS, type Event, type Session } from '@wb/contracts';
 import App from '../src/App.svelte';
@@ -10,7 +10,7 @@ import { AppState, tintOf } from '../src/lib/state.svelte.ts';
 import { answerKey, WorkshopStore } from '../src/lib/store.ts';
 import { codePoints } from '../src/lib/text.ts';
 import { findWorkshop } from '../src/lib/workshops.ts';
-import { freshIndexedDb, stubRoutes, SYNCED } from './helpers.ts';
+import { answerFront, freshIndexedDb, stubRoutes, SYNCED } from './helpers.ts';
 
 /**
  * The card screen of the design (design/DESIGN.md; ADR 0015), rendered from a state a test
@@ -140,19 +140,20 @@ describe('the label and the tint', () => {
 });
 
 describe('the states of the card', () => {
-  it('a click opens the card with the field focused; × closes it, keeps the draft, and the card has focus again', async () => {
+  it('a click opens the card in the open card with the field focused; × closes it, keeps the draft, and the card has focus again', async () => {
     const app = await onACard();
     const user = userEvent.setup();
-    render(Card, { app });
+    renderApp(app);
     await user.click(frontCard());
     const field = (await screen.findByRole('textbox')) as HTMLTextAreaElement;
-    expect(app.cardState).toBe('answering');
+    expect(app.writing).toBe(app.card!.id);
+    expect(app.openedFrom).toBe('front');
     await waitFor(() => expect(document.activeElement).toBe(field));
     await user.type(field, 'Half an answer');
     await user.click(
       screen.getByRole('button', { name: copy.item('Card labels', 'close without saving') }),
     );
-    expect(app.cardState).toBe('fresh');
+    await waitFor(() => expect(app.cardOpen).toBe(false));
     expect(app.draft).toBe('Half an answer');
     expect(screen.queryByRole('textbox')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(frontCard()));
@@ -165,7 +166,7 @@ describe('the states of the card', () => {
   it("the open card's field is empty: no hint text in it, and its name is the card's question", async () => {
     const app = await onACard();
     const user = userEvent.setup();
-    render(Card, { app });
+    renderApp(app);
     await user.click(frontCard());
     // Marco, 18 November 2026: no hint is more elegant, and the keyboard is already open.
     const field = (await screen.findByRole('textbox', {
@@ -181,37 +182,30 @@ describe('the states of the card', () => {
     render(Card, { app });
     frontCard().focus();
     await user.keyboard('{Enter}');
-    expect(app.cardState).toBe('answering');
+    expect(app.writing).toBe(app.card!.id);
   });
 
   it('Save is off while the trimmed draft is empty', async () => {
-    const app = await onACard({ cardState: 'answering', draft: '   \n ' });
-    render(Card, { app });
+    const app = await onACard({ draft: '   \n ' });
+    app.openCard();
+    renderApp(app);
     const save = screen.getByRole('button', {
       name: copy.item('Buttons', 'save'),
     }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
   });
 
-  it('the answered card is drawn on its way out, with its words, as decoration', async () => {
+  it('Save: no toast and no status line, and nothing flies off; the open card goes, the next card is the front and the answer syncs in the background', async () => {
     const app = await onACard();
-    app.exiting = { card: app.card!, n: 1, answer: 'The words' };
-    render(Card, { app });
-    const exit = document.querySelector('.slot.exit')!;
-    expect(exit.getAttribute('aria-hidden')).toBe('true');
-    expect(exit.textContent).toContain('The words');
-    expect(exit.textContent).toContain(app.card!.text);
-  });
-
-  it('Save: no toast and no status line; the next card is the front at once and the answer syncs in the background', async () => {
-    const app = await onACard({ cardState: 'answering', draft: 'An answer' });
     const calls = stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
     renderApp(app);
     const first = app.card!;
-    expect(await app.save()).toBe(true);
+    expect(await answerFront(app, 'An answer')).toBe(true);
     expect(app.card!.id).not.toBe(first.id);
-    expect(app.cardState).toBe('fresh');
+    expect(app.cardOpen).toBe(false);
     expect(app.draft).toBe('');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.querySelector('.slot.exit, .card.done')).toBeNull();
     expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true);
     expect(app).not.toHaveProperty('toast');
     expect(document.querySelector('[role="status"], .toast, .toast-slot')).toBeNull();
@@ -220,12 +214,12 @@ describe('the states of the card', () => {
 
 describe('what a screen reader hears', () => {
   it('a hidden line announces the save and the set-aside; the same words say again the next time', async () => {
-    const app = await onACard({ cardState: 'answering', draft: 'An answer' });
+    const app = await onACard();
     stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
     renderApp(app);
     const live = () => document.querySelector('[aria-live="polite"]')!;
     expect(live().textContent).toBe('');
-    expect(await app.save()).toBe(true);
+    expect(await answerFront(app, 'An answer')).toBe(true);
     await waitFor(() => expect(live().textContent).toBe(copy.item('Announcements', 'saved')));
     const first = app.announcement.n;
     await app.setAside();
@@ -297,34 +291,41 @@ describe('the onboarding card', () => {
 describe('the counter', () => {
   const draft = (n: number) => 'a'.repeat(n);
 
+  /** The card in front, open, with these words begun on it. */
+  const openWith = async (words: string) => {
+    const app = await onACard({ draft: words });
+    app.openCard();
+    return app;
+  };
+
   it('shows nothing below 3,000 code points, the count from 3,000, in bold from 3,900', async () => {
-    const app = await onACard({ cardState: 'answering', draft: draft(2999) });
-    const { unmount } = render(Card, { app });
-    expect(document.getElementById('answer-count')!.textContent).toBe('');
+    const app = await openWith(draft(2999));
+    const { unmount } = renderApp(app);
+    expect(document.getElementById('open-count')!.textContent).toBe('');
     unmount();
-    const atThree = await onACard({ cardState: 'answering', draft: draft(3000) });
-    const second = render(Card, { app: atThree });
-    const count = document.getElementById('answer-count')!;
+    const atThree = await openWith(draft(3000));
+    const second = renderApp(atThree);
+    const count = document.getElementById('open-count')!;
     expect(count.textContent).toBe(
       fill(copy.item('Card labels', 'counter'), { n: '3,000', max: '4,000' }),
     );
     expect(count.classList.contains('near')).toBe(false);
     second.unmount();
-    const near = await onACard({ cardState: 'answering', draft: draft(3900) });
-    render(Card, { app: near });
-    expect(document.getElementById('answer-count')!.classList.contains('near')).toBe(true);
+    const near = await openWith(draft(3900));
+    renderApp(near);
+    expect(document.getElementById('open-count')!.classList.contains('near')).toBe(true);
   });
 
   it('counts code points and refuses input past 4,000 without cutting an emoji', async () => {
-    const app = await onACard({ cardState: 'answering', draft: draft(3998) });
-    render(Card, { app });
+    const app = await openWith(draft(3998));
+    renderApp(app);
     const field = screen.getByRole('textbox') as HTMLTextAreaElement;
     field.value = draft(3998) + '😀😀😀';
     await fireEvent.input(field);
-    expect(codePoints(app.draft)).toBe(MAX_ANSWER_CHARS);
-    expect(app.draft.endsWith('😀😀')).toBe(true);
-    expect(app.draft.length).toBe(3998 + 4);
-    expect(document.getElementById('answer-count')!.textContent).toBe(
+    expect(codePoints(app.openDraft)).toBe(MAX_ANSWER_CHARS);
+    expect(app.openDraft.endsWith('😀😀')).toBe(true);
+    expect(app.openDraft.length).toBe(3998 + 4);
+    expect(document.getElementById('open-count')!.textContent).toBe(
       fill(copy.item('Card labels', 'counter'), { n: '4,000', max: '4,000' }),
     );
   });
@@ -372,7 +373,7 @@ describe('set aside', () => {
     expect(app.card!.id).toBe(first.id);
     drag(frontCard(), 200, 207);
     frontCard().click();
-    expect(app.cardState).toBe('fresh');
+    expect(app.cardOpen).toBe(false);
     drag(frontCard(), 200, 99);
     await waitFor(() => expect(app.card!.id).not.toBe(first.id));
     expect(app.live!.dismissed.has(first.id)).toBe(true);
@@ -383,10 +384,7 @@ describe('set aside', () => {
     const first = app.card!;
     await app.setAside();
     expect(app.draft).toBe('');
-    while (app.card!.id !== first.id) {
-      app.draft = 'Done';
-      await app.save();
-    }
+    while (app.card!.id !== first.id) await answerFront(app, 'Done');
     expect(app.draft).toBe('Half');
   });
 });
@@ -525,10 +523,7 @@ describe('the laptop page', () => {
     const app = await onACard({ wide: true });
     renderApp(app);
     const roundOne = app.live!.session.id;
-    for (let i = 0; i < 4; i++) {
-      app.draft = `Answer ${i}`;
-      expect(await app.save()).toBe(true);
-    }
+    for (let i = 0; i < 4; i++) expect(await answerFront(app, `Answer ${i}`)).toBe(true);
     expect(app.sessionNo).toBe(2);
     expect(app.live!.session.id).not.toBe(roundOne);
     await waitFor(() => expect(frontCard().textContent).toContain(app.card!.text));
@@ -556,12 +551,224 @@ describe('the laptop page', () => {
   });
 });
 
+describe('one open card for every card (ADR 0027)', () => {
+  /** Esc goes to the open card once the focus is inside it, after `tick()`. */
+  const escape = async (user: ReturnType<typeof userEvent.setup>) => {
+    await waitFor(() =>
+      expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true),
+    );
+    await user.keyboard('{Escape}');
+  };
+  const closeButton = (dialog: HTMLElement) =>
+    within(dialog).getByRole('button', { name: copy.item('Card labels', 'close without saving') });
+
+  it('a tap on the card in front opens it in the open card: a dialog named by its question, on its tint, with its area, ×, "Prefer to talk?" and Save; the stack opens nothing in place', async () => {
+    const app = await onACard({ platform: 'Mac' });
+    const user = userEvent.setup();
+    renderApp(app);
+    const card = frontCard();
+    await user.click(card);
+    const dialog = await screen.findByRole('dialog', { name: app.card!.text });
+    expect(dialog.classList.contains('open-card')).toBe(true);
+    expect(dialog.classList.contains('tinted')).toBe(true);
+    expect(dialog.style.getPropertyValue('--tint')).toBe('var(--tint-sun)');
+    expect(dialog.querySelector('.head .label')!.textContent).toBe(app.card!.area);
+    expect(closeButton(dialog)).toBeTruthy();
+    expect(
+      within(dialog).getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    ).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') })).toBeTruthy();
+    // The stack holds no field; the card in front is lifted from its slot, the cards behind stay.
+    const stack = document.querySelector('.stack')!;
+    expect(stack.querySelector('textarea, .card.open')).toBeNull();
+    expect(stack.classList.contains('answering')).toBe(false);
+    expect(card.isConnected).toBe(true);
+    expect(card.classList.contains('lifted')).toBe(true);
+    expect(stack.querySelectorAll('.card.back')).toHaveLength(2);
+    // Set aside does nothing while a card is open: it acts on a closed card.
+    await app.setAside();
+    expect(app.live!.dismissed.size).toBe(0);
+  });
+
+  it('×, Esc and the scrim close every kind of card and keep its words: the card in front, a card set aside, an answer, a blank card', async () => {
+    const app = await onACard({ wide: true });
+    // An answer, a card set aside, and the card in front after them.
+    const answered = app.card!;
+    expect(await answerFront(app, 'An answer')).toBe(true);
+    const aside = app.card!;
+    await app.setAside();
+    const front = app.card!;
+    const user = userEvent.setup();
+    renderApp(app);
+    const tile = (text: string) =>
+      screen.getByRole('button', { name: (n) => n.includes(text) && !n.includes('Write') });
+    const kinds: [string, () => Promise<void>, string][] = [
+      ['the card in front', () => user.click(frontCard()), front.text],
+      ['a card set aside', () => user.click(tile(aside.text)), aside.text],
+      ['an answer', () => user.click(tile('An answer')), answered.text],
+      [
+        'a blank card',
+        () => user.click(screen.getByRole('button', { name: copy.text('Own card: button') })),
+        copy.text('Own card: title'),
+      ],
+    ];
+    const ways: [string, (dialog: HTMLElement) => Promise<void>][] = [
+      ['×', (dialog) => user.click(closeButton(dialog))],
+      ['Esc', () => escape(user)],
+      ['the scrim', () => user.click(document.querySelector('.scrim')!)],
+    ];
+    for (const [kind, open, name] of kinds) {
+      let words = '';
+      for (const [way, close] of ways) {
+        await open();
+        const dialog = await screen.findByRole('dialog', { name });
+        const field = within(dialog).getByRole('textbox') as HTMLTextAreaElement;
+        expect(field.value, `${kind}, before ${way}`).toBe(words || field.value);
+        words = `${field.value} ${way}`;
+        await user.clear(field);
+        await user.type(field, words);
+        await close(dialog);
+        await waitFor(() => expect(screen.queryByRole('dialog'), `${kind}, ${way}`).toBeNull());
+      }
+      await open();
+      const dialog = await screen.findByRole('dialog', { name });
+      expect((within(dialog).getByRole('textbox') as HTMLTextAreaElement).value, kind).toBe(words);
+      await ways[0]![1](dialog);
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    }
+    // Nothing was saved by closing.
+    const kindsStored = (await (app.store as WorkshopStore).events.toArray()).map((e) => e.kind);
+    expect(kindsStored.filter((k) => k === 'answered')).toHaveLength(1);
+    expect(app.card).toBe(front);
+  });
+
+  it('a save from the stack records what the stack recorded: one answered event for that card, sealed, its readable copy, the next card in front and its shown; the focus lands on the new card in front', async () => {
+    const app = await onACard();
+    const calls = stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
+    const user = userEvent.setup();
+    renderApp(app);
+    const first = app.card!;
+    const seq = app.live!.nextSeq;
+    await user.click(frontCard());
+    const dialog = await screen.findByRole('dialog', { name: first.text });
+    await user.type(within(dialog).getByRole('textbox'), 'Written in the open card');
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const store = app.store as WorkshopStore;
+    const events = (await store.events.toArray()).sort((a, b) => a.seq - b.seq);
+    const next = app.card!;
+    expect(next.id).not.toBe(first.id);
+    expect(events.map((e) => `${e.kind}:${e.cardId}:${e.seq}`)).toEqual([
+      `answered:${first.id}:${seq}`,
+      `shown:${next.id}:${seq + 1}`,
+    ]);
+    expect(events[0]!.sessionId).toBe(SESSION.id);
+    expect(events[0]!.body!.startsWith('v1.')).toBe(true);
+    expect(JSON.stringify(events)).not.toContain('Written in');
+    expect(await store.answers()).toEqual([
+      {
+        key: answerKey(SESSION.id, first.id),
+        sessionId: SESSION.id,
+        cardId: first.id,
+        text: 'Written in the open card',
+        eventId: events[0]!.id,
+      },
+    ]);
+    expect(app.live!.answered.has(first.id)).toBe(true);
+    expect(app.live!.shown.has(next.id)).toBe(true);
+    expect(app.draft).toBe('');
+    expect(app.announcement.text).toBe(copy.item('Announcements', 'saved'));
+    await waitFor(() => expect(calls.some((c) => c.path.endsWith('/sync'))).toBe(true));
+    expect(JSON.stringify(calls)).not.toContain('Written in');
+    // The focus is on the new card in front, which is not lifted.
+    await waitFor(() => expect(document.activeElement).toBe(frontCard()));
+    expect(frontCard().textContent).toContain(next.text);
+    expect(frontCard().classList.contains('lifted')).toBe(false);
+  });
+
+  it('a save of the last card from the stack gives the focus to the thank-you card', async () => {
+    const warmup = workshop.deck.cards.find((c) => c.set === 'warmup')!;
+    const checkpoint = workshop.deck.cards.find((c) => c.set === 'checkpoint')!;
+    stubRoutes({});
+    const app = new AppState();
+    app.workshop = {
+      ...workshop,
+      deck: { ...workshop.deck, cards: [warmup, checkpoint] },
+      config: { ...workshop.config, warmupsPerSession: 1, checkpointsPerSession: 1 },
+    };
+    app.copy = copy;
+    app.store = new WorkshopStore(SLUG);
+    await app.store.set('demoSeen', '2026-11-16');
+    app.code = '1234567890123456';
+    app.wait = async () => {};
+    await app.enterSession();
+    await answerFront(app, 'Warm-up');
+    const user = userEvent.setup();
+    renderApp(app);
+    await user.click(frontCard());
+    const dialog = await screen.findByRole('dialog', { name: checkpoint.text });
+    await user.type(within(dialog).getByRole('textbox'), 'The last one');
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const note = await screen.findByRole('note');
+    await waitFor(() => expect(document.activeElement).toBe(note));
+  });
+
+  it('the dictation hint opens by itself on the first card of the first round in the open card; "Prefer to talk?" opens it on a tile\'s card and on a blank card', async () => {
+    const app = await onACard({ platform: 'Android' });
+    await app.enterSession();
+    const user = userEvent.setup();
+    renderApp(app);
+    const hint = () => screen.queryByText(copy.item('Dictation hint', 'Android'));
+    const talk = () => screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') });
+    // The first card of the first round: open by itself.
+    await user.click(frontCard());
+    await screen.findByRole('dialog', { name: app.card!.text });
+    expect(hint()).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: copy.item('Buttons', 'prefer to talk') }),
+    ).toBeNull();
+    await escape(user);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // A blank card: closed, and "Prefer to talk?" opens it.
+    await user.click(screen.getByRole('button', { name: copy.text('Own card: button') }));
+    await screen.findByRole('dialog', { name: copy.text('Own card: title') });
+    expect(hint()).toBeNull();
+    await user.click(talk());
+    expect(hint()).toBeTruthy();
+    await user.click(closeButton(screen.getByRole('dialog')));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // The first card still opens with it: the blank card did not take it away.
+    await user.click(frontCard());
+    await screen.findByRole('dialog', { name: app.card!.text });
+    expect(hint()).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
+    expect(hint()).toBeNull();
+    await user.click(closeButton(screen.getByRole('dialog')));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // "Got it" holds for that card the next time it opens.
+    await user.click(frontCard());
+    await screen.findByRole('dialog', { name: app.card!.text });
+    expect(hint()).toBeNull();
+    await escape(user);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // A tile's card: a card set aside, opened from its tile.
+    const aside = app.card!;
+    await app.setAside();
+    app.openTile(aside.id);
+    await screen.findByRole('dialog', { name: aside.text });
+    expect(hint()).toBeNull();
+    await user.click(talk());
+    expect(hint()).toBeTruthy();
+  });
+});
+
 describe('the readable copy stays on the device (ADR 0014)', () => {
   it('a saved answer is sealed in the outbox and in the sync request; the words are only in the copies table', async () => {
-    const app = await onACard({ cardState: 'answering', draft: 'Owning something from before' });
+    const app = await onACard();
     const calls = stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED] });
     const first = app.card!;
-    expect(await app.save()).toBe(true);
+    expect(await answerFront(app, 'Owning something from before')).toBe(true);
     const store = app.store as WorkshopStore;
     const events = await store.events.toArray();
     const answered = events.find((e) => e.kind === 'answered')!;
@@ -579,9 +786,9 @@ describe('the readable copy stays on the device (ADR 0014)', () => {
   });
 
   it('"delete everything I sent" wipes the copies with everything else', async () => {
-    const app = await onACard({ cardState: 'answering', draft: 'Gone soon' });
+    const app = await onACard();
     stubRoutes({ [`/api/${SLUG}/sync`]: [SYNCED], [`/api/${SLUG}/me`]: [] });
-    await app.save();
+    await answerFront(app, 'Gone soon');
     expect(app.copies.size).toBe(1);
     app.go = () => {};
     app.askDelete();
