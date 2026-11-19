@@ -16,7 +16,7 @@ On a fast line the reload comes within a second. On a slow line it comes when th
 
 **2. The worker itself is unchanged.** It still installs in the background, takes over at once (`skipWaiting`, `clientsClaim`) and drops the old files. Taking over at once is what makes the next open the new version, even when that open is a reload in the same tab. A worker that waited for every tab to close could wait for weeks on a phone where a tab is never closed.
 
-**3. The page that is open keeps running the version it was loaded with**, until it is closed or loaded again. That is safe because the client is one script and one stylesheet, both loaded before the new worker can take over: after the old files are dropped, the open page asks for nothing that is gone. A test holds the client to that: no part of it is loaded later (no dynamic `import`).
+**3. The page that is open keeps running the version it was loaded with**, until it is closed or loaded again. That is safe because nothing the open page may still ask for goes away. Its script and its stylesheet are loaded before the new worker can take over. What it may ask for later is a typeface, an icon, the manifest or the calendar file, and those keep their names from build to build and are in the new copy as well. A test holds the client to having no part that is loaded later (no dynamic `import`).
 
 **4. Between a deploy and a device's next open, the old page talks to the new server.** So a deploy made while a collection is open must not refuse what the previous client sends. That was already true for the seconds before the reload and for a tab left open; it now holds until the next open.
 

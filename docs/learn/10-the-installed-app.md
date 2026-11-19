@@ -36,4 +36,5 @@ It is not only for installed apps. Every browser that opens the app gets the wor
 
 - An app installed before a change to its manifest keeps the old start address. Remove it and add it again.
 - After a deploy, a device runs the new version from its second open. A private tab gets it at once.
+- An installed app that is only brought back to the front does not load its page again, so it stays on the version it has until it is opened afresh. That was so before ADR 0029 as well.
 - Nothing identifying ever goes into the manifest or the address: only the workshop's slug, which is public.

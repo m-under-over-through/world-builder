@@ -112,6 +112,10 @@ describe('main.ts and the rest of the client', () => {
       const code = withoutComments(text);
       expect(code, path).not.toContain('location.reload');
       expect(code, path).not.toMatch(/\.reload\(/);
+      // The other ways a page can load itself again (the review of pull request 81).
+      expect(code, path).not.toMatch(/history\.go\(/);
+      expect(code, path).not.toMatch(/location\.assign\(/);
+      expect(code, path).not.toMatch(/location\.href\s*=[^=]/);
     }
     const boot = withoutComments(readFileSync(join(web, 'public/boot.js'), 'utf8'));
     expect(boot.match(/location\.reload\(\)/g)).toHaveLength(1);

@@ -3344,7 +3344,7 @@ The rebuilt page, the same throwaway server and Chrome without a window.
 - **Marco, on staging, 19 November.** His first report: "it loads, but it still does the second jump. both on laptop and phone". Then, opening again: iPhone Safari, private and not, no jump; laptop Chrome, no jump; laptop Safari private, no jump; laptop Safari not private, a jump. That is the service worker's update: a device that has opened the app before reloads the page once on its first open after a deploy (ADR 0028, "What this does not do"), and every test of his came minutes after a deploy. The devices that had already taken the update did not jump again; the one that had not, did. No open without an earlier copy jumped, so the page's own reload did not fire on a page whose app started.
 - **Open, and asked of Marco the same day:** make that update quiet, so that the new version waits for the next open and no page is reloaded under someone who is writing. A draft is kept in memory only, so on a slow line the reload can take a half-written answer with it.
 
-## 2026-11-19, Thursday, evening. An update waits for the next open (pull request PR_NUMBER)
+## 2026-11-19, Thursday, evening. An update waits for the next open (pull request 81)
 
 ### What and why
 
@@ -3395,3 +3395,11 @@ And from here:
 
 - Between a deploy and a device's next open, the old client talks to the new server. Every deploy during the collection has to accept what the previous client sends.
 - `workbox-window` is still a dependency of the package and nothing imports it. Removing it is a separate change, as the brief says.
+
+### The review, and the integrator's own look
+
+- **The independent review** found nothing to fix before the merge. It read the plugin's registration code that the page no longer uses: in this mode it registers, reloads on an update, and does nothing else, so nothing but the reload is lost. It built the client and read the worker: `skipWaiting` and `clientsClaim` run inside the worker, whatever the page does. It looked for a way to leave a device on an old version and found none: an install that fails half-way on a weak line leaves the old worker in control, and the browser asks again on the next open.
+- **What an open page may still ask for after an update**: only a typeface, which the browser fetches when it first needs one. The four typefaces keep their names from build to build and are in the new copy. The decision record's point 3 now gives that reason; it said "one script and one stylesheet", which was not the whole of it.
+- **Two loose spots in the tests, named by the review.** "Reloads nowhere" looked for `.reload(` only; it now also refuses `history.go(`, `location.assign(` and an assignment to `location.href`. "Adds no listener" looks at the worker container and would not see a listener put on the registration that `register` returns; today's code has none, and the test is left as it is.
+- **The integrator's look**, in the desktop app's browser, with two of the builder's builds and a server that swaps them. With the first build's copy on the device, the server was switched to the second build and the workshop's address opened: the page ran the first build's script; ten seconds later the same page was still there, not reloaded (a mark set on `window` right after the open was still set), while the copy on the device held the second build's script. The open after that ran the second build's script. Chrome's engine again, so not a second kind of browser.
+- **On staging**, after the first deploy: the served script contains no `location.reload` at all, the worker still starts with `self.skipWaiting(), e.clientsClaim()`, and `workbox-window` is gone from the copy's list.

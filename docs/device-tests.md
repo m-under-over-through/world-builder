@@ -229,7 +229,7 @@ On the laptop, in Chrome:
 
 ## 10. An update waits for the next open (ADR 0029)
 
-After a deploy, the page must not show itself twice. On staging this needs two deploys in a row, on a phone and on the laptop that have each opened staging before.
+After a deploy, the page must not show itself twice. On staging this needs two deploys in a row, on a phone and on the laptop that have each opened staging before. Before the first run of this part, on 19 November 2026, the behaviour had been seen in Chrome only; Safari and an iPhone are what this part is for.
 
 **After the first deploy (this change).** Open staging as usual, not in a private tab. The page may jump once more: it shows, then shows again a moment later. That is the last time. The copy on the device still has the old code, which reloaded.
 
