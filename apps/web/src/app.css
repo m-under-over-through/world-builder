@@ -600,10 +600,6 @@ textarea::placeholder {
   margin: 0 0 24px;
   box-shadow: var(--shadow-code);
 }
-.hint h2 {
-  margin: 0 0 8px;
-  font-size: 19px;
-}
 .hint p {
   margin-bottom: 12px;
   font-size: 15px;
@@ -1185,10 +1181,6 @@ button.tile .pen {
   padding: 12px 14px;
   flex: none;
 }
-.open-card .hint h2 {
-  margin: 0 0 8px;
-  font-size: 17px;
-}
 .open-card .hint p {
   font-size: 14px;
   margin-bottom: 10px;
@@ -1394,17 +1386,12 @@ button.tile .pen {
   column-gap: 12px;
   padding: 10px 12px 10px 14px;
 }
-.app.framed .open-card.sheet .hint h2 {
-  grid-column: 1;
-  margin: 0 0 2px;
-}
 .app.framed .open-card.sheet .hint p {
   grid-column: 1;
   margin: 0;
 }
 .app.framed .open-card.sheet .hint button {
   grid-column: 2;
-  grid-row: 1 / span 2;
 }
 /* while the hint is open the field may be two lines: with a question of two lines, both and the
    hint are then in sight on the first card */

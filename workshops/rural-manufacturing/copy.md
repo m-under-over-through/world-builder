@@ -108,7 +108,7 @@ Open a card to answer. Swipe it away to set it aside.
 
 ## Dictation hint (under 25 words, per platform)
 
-<!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
+<!-- Shown above the button "Prefer to talk?" (Buttons, prefer to talk), which is its title on the screen, so the lines do not repeat it. "Titles, dictation hint" is the hint's name for a screen reader only. -->
 
 - iPhone and iPad: Tap the microphone on your keyboard.
 - Android: Tap the microphone on your keyboard.

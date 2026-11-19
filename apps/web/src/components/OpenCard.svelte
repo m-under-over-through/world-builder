@@ -147,7 +147,7 @@
   }
 
   /**
-   * "Prefer to talk?" and "Got it" each take themselves off the card when pressed. The focus
+   * "Prefer to talk?" opens and closes the dictation hint, and "Got it" closes it. The focus
    * goes to the field in the same press: it is where the person dictates, and on a phone a
    * focus anywhere else lowers the keyboard, which has the microphone.
    */
@@ -218,15 +218,34 @@
       <h2 id="open-title">{app.copy.text('Own card: title')}</h2>
       <p class="own-hint" id="own-hint">{app.copy.text('Own card: hint')}</p>
     {/if}
+    <!-- The field is named "Write an answer", not by the question. Safari on an iPhone reads
+         the words that label a field to guess what belongs in it, and offers to fill it from
+         the person's own contact card: under "What does the street smell like?" it offered a
+         home address. An answer must never be a name or an address by accident (CLAUDE.md, no
+         personal data). Safari ignores `autocomplete="off"`, Apple's documentation says so; it
+         is set for the browsers that honour it. The two `data-` attributes ask the two most
+         used password managers to leave the field alone. A screen reader hears the question
+         as the name of the dialog. -->
     <textarea
       bind:this={field}
       value={app.openDraft}
       oninput={onInput}
-      aria-label={card ? card.text : app.copy.text('Own card: field')}
+      autocomplete="off"
+      data-1p-ignore
+      data-lpignore="true"
+      aria-label={card
+        ? app.copy.item('Card labels', 'write an answer')
+        : app.copy.text('Own card: field')}
       aria-describedby={described}></textarea>
     {#if app.platform && app.hintOpen}
-      <aside class="hint">
-        <h2>{app.copy.item('Titles', 'dictation hint')}</h2>
+      <!-- The hint has no title of its own on the screen: "Prefer to talk?" is the button
+           under it, which stays in its place, so the words are there once. The title is the
+           hint's name for a screen reader. -->
+      <aside
+        class="hint"
+        id="dictation-hint"
+        aria-label={app.copy.item('Titles', 'dictation hint')}
+      >
         <p>{app.copy.item('Dictation hint', app.platform)}</p>
         <button type="button" onclick={() => showHint(false)}
           >{app.copy.item('Buttons', 'got it')}</button
@@ -245,8 +264,17 @@
     </p>
   {/if}
   <div class="actions">
-    {#if app.platform && !app.hintOpen}
-      <button type="button" class="talk" onclick={() => showHint(true)}>
+    <!-- "Prefer to talk?" stays in its place while its hint is open, and a second press closes
+         the hint: a button that goes away when pressed leaves a gap, and nothing to press
+         to change one's mind. "Got it" in the hint closes it too. -->
+    {#if app.platform}
+      <button
+        type="button"
+        class="talk"
+        aria-expanded={app.hintOpen}
+        aria-controls="dictation-hint"
+        onclick={() => showHint(!app.hintOpen)}
+      >
         <svg
           aria-hidden="true"
           width="16"

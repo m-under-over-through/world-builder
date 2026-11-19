@@ -521,15 +521,19 @@ describe('the first session', () => {
     expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
     await openTheCard(user);
     expect(await screen.findByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
-    // The open hint says "Prefer to talk?" once, as its title; the line under it does not repeat it.
-    expect(screen.getAllByText(copy.item('Titles', 'dictation hint'))).toHaveLength(1);
-    expect(
-      screen.getByRole('heading', { name: copy.item('Titles', 'dictation hint') }),
-    ).toBeTruthy();
+    // "Prefer to talk?" is on the screen once, as the button under the hint, which stays in its
+    // place while the hint is open; the hint's line does not repeat it.
+    const talk = () => screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') });
+    expect(screen.getAllByText(copy.item('Buttons', 'prefer to talk'))).toHaveLength(1);
+    expect(talk().getAttribute('aria-expanded')).toBe('true');
     await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'got it') }));
     expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
-    await user.click(screen.getByRole('button', { name: copy.item('Buttons', 'prefer to talk') }));
+    expect(talk().getAttribute('aria-expanded')).toBe('false');
+    await user.click(talk());
     expect(screen.getByText(copy.item('Dictation hint', 'Windows'))).toBeTruthy();
+    // A second press on the same button closes the hint again.
+    await user.click(talk());
+    expect(screen.queryByText(copy.item('Dictation hint', 'Windows'))).toBeNull();
   });
 
   it('a browser the app does not know gets no hint and no "Prefer to talk?" (the pretended platform of the last test is gone)', async () => {
