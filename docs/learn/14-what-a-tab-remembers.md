@@ -16,7 +16,7 @@ None of the four ever travels to a server by itself. A page has to read a value 
 ## What the app keeps where
 
 - **IndexedDB** is the device's store (`apps/web/src/lib/store.ts`): the code, the answers waiting to be sent, the readable copies of what this phone wrote, the link's arrival. "Delete everything" wipes all of it.
-- **Local storage** holds one word: the name of the workshop this device last opened, so the installed app knows where to go (learning note 10). "Delete everything" removes it.
+- **Local storage** holds one word: the name of the workshop this device last opened, so the installed app knows where to go (learning note 10). "Delete everything" removes it, and the page that loads next, being that workshop's home, writes it again. It is the workshop's name, not the person's.
 - **Session storage** was not used until ADR 0026. It now holds one note, for the length of one page load.
 - **Memory** holds everything on the screen.
 
@@ -32,11 +32,11 @@ The note cannot be in memory, since the reload empties it. It should not be in t
 
 1. The server deletes the participant. If it refuses, nothing more happens and no note is written.
 2. The device's store is wiped.
-3. The page writes the note into session storage: the workshop, the code, the wave.
+3. The page writes the note into session storage: the workshop, the code, and the wave the server recorded for the participant.
 4. The page loads the workshop's home afresh.
 5. The first thing the new page does with the note is take it and erase it. From here on session storage is empty again.
 6. The new page checks the note: is it for this workshop, is the code 16 digits, is the wave a name? If not, there is no note.
-7. If the device holds no code and no link was just opened, the page keeps the code and the wave in memory and shows the welcome with "I understand".
+7. If the device holds no code, and the address names no wave and no invite, the page keeps the code and the wave in memory and shows the welcome with "I understand". A link opened in that tab instead is a new arrival, and the note is not used.
 8. "I understand" joins with that code. The server has never seen it, since the participant was deleted, so this is a new participant under the same link: what opening the email's link again would have done (ADR 0018).
 
 The code is in `apps/web/src/lib/start-over.ts` and in `open` and `deleteMe` in `apps/web/src/lib/state.svelte.ts`.
@@ -45,7 +45,8 @@ The code is in `apps/web/src/lib/start-over.ts` and in `open` and `deleteMe` in 
 
 - **Reload the welcome**, and "I understand" is gone: the note was erased at step 5, and memory does not survive a reload. The welcome says to open the link you were sent.
 - **Open another tab**, and it knows nothing: session storage is per tab.
-- **Close the tab**, and nothing is left on the device. A browser that brings a closed tab back can bring its session storage back with it. That is why the note is erased as soon as it is read, and not when the join succeeds.
+- **Close the tab** once the welcome has loaded, and nothing of the participant is left on the device: the note was erased at step 5. In the instant between steps 3 and 5 the note exists; a tab closed just then takes it along, and a browser that brings a closed tab back can bring its session storage back with it. That is why the note is erased as soon as it is read, and not when the join succeeds.
+- **Tap "I understand"**, and the code is the device's again, in the store, as after any join.
 
 ## What to check by hand
 

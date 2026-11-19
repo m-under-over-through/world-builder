@@ -20,15 +20,19 @@ const CODE = '1234567890123456';
 const LINK_VALUE = 'test-link-value-0001';
 const LINK_CODE = '9173841926745943';
 
-const ME = (): Answer => ({
+/** GET /me for a participant who joined through this wave; null is one who came through an invite. */
+const meOf = (wave: string | null) => (): Answer => ({
   status: 200,
   body: {
     workshop: { slug: SLUG, name: 'x', closesDay: '2026-12-06', deleteDay: '2027-02-05' },
-    participant: { createdDay: '2026-11-16', invitesLeft: 3, wave: 'wave-1', sessionsCount: 0 },
+    participant: { createdDay: '2026-11-16', invitesLeft: 3, wave, sessionsCount: 0 },
     sessions: [],
     events: [],
   },
 });
+const ME = meOf('wave-1');
+const OFFLINE = () => 'offline' as const;
+const TAKEN = (): Answer => ({ status: 409, body: { error: 'JOIN_CODE_TAKEN' } });
 const DELETED = (): Answer => ({ status: 200, body: { ok: true } });
 const UNKNOWN = (): Answer => ({ status: 401, body: { error: 'AUTH_CODE_UNKNOWN' } });
 const REFUSED = (): Answer => ({
@@ -139,10 +143,11 @@ describe('after "Delete everything", in the same tab', () => {
     expect(screen.getByText(copy.text('Welcome: no link'))).toBeTruthy();
   });
 
-  it('another tab has no note: session storage belongs to the tab that deleted', async () => {
+  it('with no note there is no starting over, as in another tab', async () => {
     stubRoutes({ [me]: [ME, DELETED] });
     await deleteEverything(await joined());
-    // A new tab starts with its own, empty session storage.
+    // A browser gives each tab a session storage of its own. The test DOM has no tabs, so the
+    // other tab is stood in for by emptying the one there is.
     sessionStorage.clear();
     const other = await opened(`/${SLUG}/`);
     expect(other.linkCode).toBe('');
@@ -156,6 +161,51 @@ describe('after "Delete everything", in the same tab', () => {
     const again = await opened(`/${SLUG}/join/wave-1`, `#p=${LINK_VALUE}`);
     expect(again.linkCode).toBe(LINK_CODE);
     expect(sessionStorage.getItem(START_OVER)).toBeNull();
+  });
+
+  it('the wave is the one the participant joined through, as the server says, not the last one this device opened', async () => {
+    const calls = stubRoutes({ [me]: [ME, DELETED], [join]: [JOINED] });
+    // Joined through wave-1, and has opened another wave's link since.
+    const app = await joined({ wave: 'wave-2' });
+    expect(app.arrival).toEqual({ wave: 'wave-2' });
+    const again = await opened(await deleteEverything(app));
+    expect(again.arrival).toEqual({ wave: 'wave-1' });
+    await again.join();
+    expect(calls.filter((c) => c.path === join).map((c) => c.body)).toEqual([
+      { code: CODE, wave: 'wave-1' },
+    ]);
+  });
+
+  it('a wave link without a value, or an invite, opened in that tab is a new arrival: the note is erased and not used', async () => {
+    for (const address of [`/${SLUG}/join/wave-2`, `/${SLUG}/join/i/abcDEF123_-abcDEF123_-`]) {
+      freshIndexedDb();
+      const calls = stubRoutes({ [me]: [ME, DELETED], [join]: [JOINED] });
+      await deleteEverything(await joined());
+      const other = await opened(address);
+      expect(other.linkCode, address).toBe('');
+      expect(sessionStorage.getItem(START_OVER), address).toBeNull();
+      await other.join();
+      const [sent] = calls.filter((c) => c.path === join).map((c) => c.body as { code: string });
+      expect(sent!.code, address).not.toBe(CODE);
+    }
+  });
+
+  it('offline at "I understand": the code is stored and the join waits in the queue, as for any link', async () => {
+    stubRoutes({ [me]: [ME, DELETED], [join]: [OFFLINE] });
+    const again = await opened(await deleteEverything(await joined()));
+    await again.join();
+    expect(again.code).toBe(CODE);
+    expect(await again.store!.get('code')).toBe(CODE);
+    expect(again.screen).toBe('card');
+  });
+
+  it('the same link joined again from another phone in between: "I understand" continues as that participant', async () => {
+    stubRoutes({ [me]: [ME, DELETED, ME], [join]: [TAKEN] });
+    const again = await opened(await deleteEverything(await joined()));
+    await again.join();
+    expect(again.code).toBe(CODE);
+    expect(again.linkCode).toBe('');
+    expect(again.screen).toBe('card');
   });
 });
 
@@ -171,7 +221,7 @@ describe('when no note is left', () => {
   });
 
   it('a device that came through an invite leaves none: its token works once, and the welcome asks for the link', async () => {
-    stubRoutes({ [me]: [ME, DELETED] });
+    stubRoutes({ [me]: [meOf(null), DELETED] });
     await deleteEverything(await joined({ invite: 'abcDEF123_-abcDEF123_-' }));
     expect(sessionStorage.getItem(START_OVER)).toBeNull();
     const again = await opened(`/${SLUG}/`);

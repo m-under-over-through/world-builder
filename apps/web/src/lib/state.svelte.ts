@@ -617,11 +617,13 @@ export class AppState {
         this.linkCode = fromLink;
         await this.store.set(LINK_CODE, fromLink);
       }
-    } else if (startOver && !fromLink) {
+    } else if (startOver && !fromLink && !route.wave && !route.invite) {
       // Everything was deleted a moment ago, in this tab, and the person is still here (ADR
       // 0026): the welcome offers "I understand" again, and the join starts the same link over,
       // as opening the email's link again would. In memory only: nothing goes back into the
       // store, so a reload or a closed tab forgets it. A link opened just now wins over the note.
+      // Only at an address that names no wave and no invite, as the home the delete loads does:
+      // a wave link or an invite opened in this tab instead is a new arrival, and joins as one.
       this.linkCode = startOver.code;
       if (!this.arrival.wave && !this.arrival.invite) this.arrival = { wave: startOver.wave };
     }
@@ -1344,7 +1346,10 @@ export class AppState {
   async deleteMe(): Promise<void> {
     if (!this.store || !this.workshop || !this.confirmingDelete) return;
     const code = this.code;
-    const wave = this.arrival.wave;
+    // The wave the server recorded for this participant, when it has said (GET /me): none for
+    // one who came through an invite. Only when it has not said, the wave this device last
+    // arrived through, which is the same unless it opened another wave's link since it joined.
+    const wave = this.me ? (this.me.participant.wave ?? undefined) : this.arrival.wave;
     const res = await api(`/${this.workshop.config.slug}/me`, {
       method: 'DELETE',
       code,
