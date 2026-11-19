@@ -1,6 +1,6 @@
 # Texts shown to participants: consent, terms, privacy policy, trust page
 
-Drafts of 2 November 2026 for review by Marco and Mechanism's legal team. Written to be read on a phone: short sentences, plain words, nothing a participant has to scroll past to understand. The client lays these out from `workshops/<slug>/copy.md`; the words here go there once the review lands. Square brackets mark the places where the reviewers decide.
+Drafts of 2 November 2026 for review by Marco and Mechanism's legal team. The terms and the privacy policy below are final since 18 November 2026: Marco read and edited them in `copy.md`, and the places in square brackets are decided (see the notes at the end). They are the same words as in `copy.md`; change both together. Written to be read on a phone: short sentences, plain words, nothing a participant has to scroll past to understand. The client lays these out from `workshops/<slug>/copy.md`; the words here go there once the review lands. Square brackets mark the places where the reviewers decide.
 
 The facts behind every sentence are in `docs/architecture-and-risk-plan.md`, sections 6.4 (what is never collected), 9 (what is stored), 13 (the trust page) and 14 (the end of the project). Dates for the rural-manufacturing workshop: collection closes 6 December 2026; everything is deleted on 5 February 2027.
 
@@ -20,7 +20,7 @@ We do not ask who you are: no name, no email, no account. Your answers are locke
 
 **What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research.
 
-**Who can take part.** Anyone who received the link [and is 18 or older]. One person may use more than one phone; to us, each phone that did not open the same link is a separate participant.
+**Who can take part.** Anyone who received the link. One person may use more than one phone; to us, each phone that did not open the same link is a separate participant.
 
 **What you agree to.** Your answers belong to the research. Under Over Through and Mechanism own them jointly and may quote them, without any way to tell who wrote them, in reports, presentations and publications. Please do not name real people, including yourself, in an answer; if you do, we remove the name before anyone reads the answer.
 
@@ -30,11 +30,11 @@ We do not ask who you are: no name, no email, no account. Your answers are locke
 
 **No promises beyond these.** The app is provided as it is. If it fails, nothing you wrote is sent anywhere else, and your phone keeps unsent answers for fourteen days and sends them when it can.
 
-**Questions.** [contact address]. [Governing law, if the reviewers want one.]
+**Questions.** info@under-over-through.co
 
 ## Privacy policy (one page)
 
-Under Over Through runs this app; Mechanism is the research partner. This policy says what the app does with information, and it is as short as the list is.
+Under Over Through runs this app; Mechanism is the research partner.
 
 **What we store.** For each participant: a 16-digit code that your phone makes from the link in your email (or at random when the link has none), kept as a scrambled version that cannot be turned back into the code; Mechanism, which sends the emails, knows which link went to which address and we never see that list, so neither of us alone can connect an answer to a person; the day the participant joined; which round of emails they came through; how many invitations they have left. For each session: its number and the day. For each card: whether it was shown, answered, set aside or put off, in what order, and the version of the question. Each answer is stored as a locked block of text that our servers cannot read.
 
@@ -50,9 +50,9 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 
-**Changes.** If this policy changes while the project runs, the app shows the new text and the date it changed. [Dated commitment: this version, 2 November 2026.]
+**Changes.** If this policy changes while the project runs, the app shows the new text and the date it changed. 18 November 2026.
 
-**Contact.** [contact address].
+**Contact.** info@under-over-through.co
 
 ## Trust page (seven sections)
 
@@ -76,7 +76,7 @@ Answers are locked on each phone with the research team's key and sent to a data
 
 ## Notes for the reviewers
 
-- The consent text replaces the placeholder in `copy.md` under "Intro 3, consent"; the three bracketed items (age, contact address, governing law) are decisions.
+- The consent text replaces the placeholder in `copy.md` under "Intro 3, consent". The three bracketed items were decided by Marco on 18 November 2026: no age line; the contact address is info@under-over-through.co; no governing law is named. The policy's date is 18 November 2026.
 - "Locked" is used for "encrypted" and "scrambled" for "hashed" throughout, on purpose; the trust page's section 3 and the learning notes explain the real terms for readers who want them.
 - The trust page's `{fingerprint}` and `{source}` are filled by the app from the workshop file and the running commit, so the page cannot drift from the key it describes.
 - Nothing here promises that the hosting companies keep no logs; the honest limit says why.

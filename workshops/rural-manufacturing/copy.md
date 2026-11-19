@@ -75,18 +75,13 @@ This link is yours. It opens your cards on any phone. To bring someone in, use t
 
 <!-- Shown under the welcome's paragraph in place of the "I understand" button when this device has no link from an email or invite to join through. -->
 
-[placeholder]
-To start, open the link you were sent. This page cannot start you on its own.
+To start, open the link you were sent.
 
 ## App labels
-
-[placeholder]
 
 - retrying: Busy at the moment. Trying again in a moment.
 
 ## Buttons (one or two words each)
-
-[placeholder]
 
 - i understand: I understand
 
@@ -96,12 +91,9 @@ To start, open the link you were sent. This page cannot start you on its own.
 
 <!-- The words on the onboarding card, the front of the stack on the first open, shown large (ADR 0019). Its small label is "demo label" in Card labels; its button is "Got it". -->
 
-[placeholder]
 Open a card to answer. Swipe it away to set it aside.
 
 ## Card labels
-
-[placeholder]
 
 - demo label: Try a card
 
@@ -111,8 +103,6 @@ Open a card to answer. Swipe it away to set it aside.
 
 <!-- The words on a card. The label at the top of a card is its area from the deck, and nothing for a card without one: no numbers (ADR 0019). "demo label" is the label of the onboarding card. "write an answer" is the line with the pen at the foot of the front card, on every device. "counter" shows near the limit: [n] is how many characters were written, [max] the limit. "close without saving" is the spoken name of the × on an open card. -->
 
-[placeholder]
-
 - write an answer: Write an answer
 - close without saving: Close without saving
 - counter: [n] / [max]
@@ -120,13 +110,9 @@ Open a card to answer. Swipe it away to set it aside.
 
 ## Titles (one line each)
 
-[placeholder]
-
 - dictation hint: Prefer to talk?
 
 ## Dictation hint (under 25 words, per platform)
-
-[placeholder]
 
 <!-- Shown under the title "Prefer to talk?" (Titles, dictation hint), so the lines do not repeat it. -->
 
@@ -138,8 +124,6 @@ Open a card to answer. Swipe it away to set it aside.
 
 ## Buttons (one or two words each)
 
-[placeholder]
-
 - prefer to talk: Prefer to talk?
 - save: Save
 
@@ -147,15 +131,11 @@ Open a card to answer. Swipe it away to set it aside.
 
 <!-- "saving" is the Save button's label while the answer is sealed. Nothing else is said after Save or Set aside: the card leaving and the next one coming to the front is the feedback (ADR 0019). -->
 
-[placeholder]
-
 - saving: Saving…
 
 ## Announcements (under 6 words each)
 
 <!-- Said to a screen reader only, each time a card is saved or set aside: the card leaving the stack is drawn as decoration, so these words are the feedback a screen reader gets (ADR 0019). -->
-
-[placeholder]
 
 - saved: Saved
 - set aside: Set aside
@@ -165,7 +145,6 @@ Open a card to answer. Swipe it away to set it aside.
 
 <!-- Shown as the last card in the stack, not a screen, once every card of the deck is answered or set aside twice (ADR 0020). Nothing comes after it. -->
 
-[placeholder]
 Thank you for your answers! You can always revisit previous answers.
 
 # Your world so far
@@ -173,8 +152,6 @@ Thank you for your answers! You can always revisit previous answers.
 ## Your world (under 40 words each)
 
 <!-- "Your world so far": the answers given on this phone, one tile per answer (ADR 0014), and the cards set aside, as white tiles. On a phone, the pill at the foot of the card screen opens it as a sheet; on a laptop it is the right column. "pill label" is the spoken name of the pill, [n] the number of answers. "summary" is the line under the title: [answered] answers so far, [aside] cards set aside now. "answered so far" is the count in the top bar on a laptop, [n] shown large and the words after it small. A tile's label is its card's area, with no number (ADR 0019). "written elsewhere" stands in for the words on a tile when the answer was written on another phone, which keeps them. "close" is the spoken name of the × on the sheet. A tile opens to answer the card or change the answer (ADR 0024): "open answer" and "open aside" are said after what a tile shows and stand for the small pen on it, on an answer and on a card set aside. -->
-
-[placeholder]
 
 - title: Your world so far
 - pill label: Your world so far, [n] answered
@@ -195,29 +172,23 @@ Thank you for your answers! You can always revisit previous answers.
 
 <!-- The heading of each screen. Each title sits under the screen that shows it; the app reads all the parts as one block. -->
 
-[placeholder]
-
 - about: About this app
 
 ## About: what this is (under 50 words)
 
 <!-- The two sentences at the top of the "About this app" page, with the "Remind me" line under them. -->
 
-[placeholder]
-Mechanism and Under Over Through are asking a few questions about the future of local production in America, one card at a time. You answer in your own words, and nobody asks who you are. The link in your email is yours.
+Mechanism and Under Over Through are asking a few questions about the future of local production in America, one card at a time. You answer in your own words, and nobody asks who you are.
 
 ## About: in short (under 60 words)
 
 <!-- A few plain sentences on the "About this app" page, under "Remind me" and above "The technical details", which fold the trust page, the facts and the diagnostics away (ADR 0019). -->
 
-[placeholder]
 Your answers are locked on this phone before they are sent, and only the research team can unlock them. We never ask for your name or your email. This phone keeps your own answers readable for you. You can delete everything you sent, below, until 6 December 2026.
 
 # The technical details
 
 ## Titles (one line each)
-
-[placeholder]
 
 - technical details: The technical details
 - trust page: How your answers are protected
@@ -226,39 +197,31 @@ Your answers are locked on this phone before they are sent, and only the researc
 
 <!-- The six "Trust page" blocks are the paragraphs under "How your answers are protected" on the "About this app" page, in this order, without headings of their own. Shortened on 3 November 2026 from the drafts of 2 November in docs/participant-texts.md, which the legal review reads; the words in square brackets are the reviewers' decisions. -->
 
-[placeholder]
 For each participant we keep a random code in scrambled form, the day they joined, which link they came through, and how many invites they have left. For each card, whether it was shown, answered or set aside, in what order, on which day. Each answer is a locked block of text our server cannot read.
 
 ## Trust page: what we never collect (under 60 words)
 
-[placeholder]
 We never collect your name, email, phone, address, location, IP address, the make of your phone or browser, the exact time of anything, cookies, analytics identifiers, the page you came from, or audio. The link in your email is yours: anyone who opens it continues your cards.
 
 ## Trust page: how it is protected (under 80 words)
 
-[placeholder]
 Before an answer leaves your phone it is locked with the research team's key. Our server stores the locked text and cannot open it. The phone you write on keeps your answers readable locally, for you alone. The key's fingerprint is [key fingerprint]. You can compare it with the one in the source code.
 
 ## Trust page: check it yourself (under 100 words)
 
-[placeholder]
 You can verify our claims in three ways. The security headers of this site, readable with any header scanner, forbid every outside script, image, font and connection. The network tab of your browser shows every request going to one address, this one. The source code is public at [source], where the database has no column for a name or an email.
 
 ## Trust page: who, where, until when (under 100 words)
 
-[placeholder]
 Mechanism and Under Over Through own the answers jointly; Under Over Through runs the system. Everything is stored in the United States. Collection closes 6 December 2026. The week after, the team unlocks the answers on one computer and produces the research spreadsheet. On 5 February 2027 everything on the server is deleted, backups included.
 
 ## Trust page: the honest limit (under 60 words)
 
-[placeholder]
 Nobody can prove that a server keeps no record of a connection. That is why this one is built to hold nothing worth taking: no names, no readable answers, no way back from a code to a person.
 
 ## Trust page links
 
 <!-- The names of the links under "How your answers are protected" and at the end of "About this app"; the addresses are in "Trust page variables". -->
-
-[placeholder]
 
 - source: The source code
 - webbkoll: Webbkoll's report on this site
@@ -282,15 +245,11 @@ Nobody can prove that a server keeps no record of a connection. That is why this
 
 ## Titles (one line each)
 
-[placeholder]
-
 - privacy panel: Right now, from this phone
 
 ## Privacy panel
 
 <!-- The labels of the rows under "Right now, from this phone" on the "About this app" page. A row shows a live value read from the running app. "What we hold" lists the server's rows as they are: [day], [n], [kind], [card], [seq], [version] and [chars] are filled by the app. -->
-
-[placeholder]
 
 - cookies: Cookies set by this app
 - hosts: Hosts this app has talked to since it opened
@@ -325,8 +284,6 @@ Nobody can prove that a server keeps no record of a connection. That is why this
 
 <!-- What the server records for a card, in plain words. -->
 
-[placeholder]
-
 - shown: shown
 - answered: answered
 - dismissed: set aside
@@ -336,8 +293,6 @@ Nobody can prove that a server keeps no record of a connection. That is why this
 ## Diagnostics
 
 <!-- Inside the privacy panel: the last sync result, the outbox size and the last error code with its meaning. -->
-
-[placeholder]
 
 - last sync: Last sync
 - outbox: Waiting to sync
@@ -353,12 +308,9 @@ Nobody can prove that a server keeps no record of a connection. That is why this
 
 <!-- The line above the "Delete everything and start over" button, at the end of "About this app", only once the phone has started. The last sentence is there because a link makes the same participant again (ADR 0018). -->
 
-[placeholder]
 Changed your mind? Everything you sent can be deleted, from this phone and from our server, any time until 6 December 2026. Opening your link again starts you over from nothing.
 
 ## Buttons (one or two words each)
-
-[placeholder]
 
 - delete: Delete everything and start over
 
@@ -366,12 +318,9 @@ Changed your mind? Everything you sent can be deleted, from this phone and from 
 
 <!-- The second step, with "Yes, delete everything" and "Keep my answers". -->
 
-[placeholder]
 Delete everything you sent, from this phone and from our server? It cannot be brought back.
 
 ## Buttons (one or two words each)
-
-[placeholder]
 
 - yes delete: Yes, delete everything
 - keep: Keep my answers
@@ -380,18 +329,15 @@ Delete everything you sent, from this phone and from our server? It cannot be br
 
 ## Titles (one line each)
 
-[placeholder]
-
 - terms: Terms
 
 ## Terms (under 300 words)
 
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+<!-- Final on 18 November 2026, Marco's words. The same text is in docs/participant-texts.md; change both together. -->
 
-[placeholder]
 **What this is.** A set of questions about an imagined future, run by Under Over Through and Mechanism for research.
 
-**Who can take part.** Anyone who received the link [and is 18 or older]. One person may use more than one phone; to us, each phone that did not open the same link is a separate participant.
+**Who can take part.** Anyone who received the link. One person may use more than one phone; to us, each phone that did not open the same link is a separate participant.
 
 **What you agree to.** Your answers belong to the research. Under Over Through and Mechanism own them jointly and may quote them, without any way to tell who wrote them, in reports, presentations and publications. Please do not name real people, including yourself, in an answer; if you do, we remove the name before anyone reads the answer.
 
@@ -401,22 +347,19 @@ Delete everything you sent, from this phone and from our server? It cannot be br
 
 **No promises beyond these.** The app is provided as it is. If it fails, nothing you wrote is sent anywhere else, and your phone keeps unsent answers for fourteen days and sends them when it can.
 
-**Questions.** [contact address]. [Governing law, if the reviewers want one.]
+**Questions.** info@under-over-through.co
 
 # Privacy policy
 
 ## Titles (one line each)
 
-[placeholder]
-
 - privacy policy: Privacy policy
 
 ## Privacy policy (under 400 words)
 
-<!-- Draft of 2 November 2026 from docs/participant-texts.md, awaiting the legal review; the words in square brackets are the reviewers' decisions. -->
+<!-- Final on 18 November 2026, Marco's words. The same text is in docs/participant-texts.md; change both together. -->
 
-[placeholder]
-Under Over Through runs this app; Mechanism is the research partner. This policy says what the app does with information, and it is as short as the list is.
+Under Over Through runs this app; Mechanism is the research partner.
 
 **What we store.** For each participant: a 16-digit code that your phone makes from the link in your email (or at random when the link has none), kept as a scrambled version that cannot be turned back into the code; Mechanism, which sends the emails, knows which link went to which address and we never see that list, so neither of us alone can connect an answer to a person; the day the participant joined; which round of emails they came through; how many invitations they have left. For each session: its number and the day. For each card: whether it was shown, answered, set aside or put off, in what order, and the version of the question. Each answer is stored as a locked block of text that our servers cannot read.
 
@@ -432,149 +375,121 @@ Under Over Through runs this app; Mechanism is the research partner. This policy
 
 **Until when.** Collection closes on 6 December 2026. In the week after, the research team unlocks the answers, removes any names, and produces the research spreadsheet. Everything on the server is deleted on 5 February 2027, backup copies included; the last copies expire within two weeks after that. The spreadsheet, which holds no code and no name, is kept by Under Over Through and Mechanism.
 
-**Changes.** If this policy changes while the project runs, the app shows the new text and the date it changed. [Dated commitment: this version, 2 November 2026.]
+**Changes.** If this policy changes while the project runs, the app shows the new text and the date it changed. 18 November 2026.
 
-**Contact.** [contact address].
+**Contact.** info@under-over-through.co
 
 # Closed and not yet open
 
 ## Titles (one line each)
-
-[placeholder]
 
 - not open yet: Not open yet.
 - closed: This workshop has closed.
 
 ## Not open yet (under 40 words)
 
-[placeholder]
 This opens on [day]. Keep the link and come back then.
 
 ## Closed (under 40 words)
 
-[placeholder]
 Thank you. The answers are being read now.
 
 # An address that is not a workshop
 
 ## Titles (one line each)
 
-[placeholder]
-
 - not a workshop: World Builder
 
 ## Not a workshop (under 30 words)
 
-[placeholder]
-This address is not a workshop. Use the link you were sent.
+This address is not valid. Use the link you were sent.
 
 # Error lines
 
 ## Error: REQUEST_INVALID (one line)
 
-[placeholder]
 Something in that request was not right. Try again; if it keeps happening, tell us.
 
 ## Error: REQUEST_TOO_LARGE (one line)
 
-[placeholder]
 That was too much to send at once. The app will send it in smaller pieces.
 
 ## Error: WORKSHOP_UNKNOWN (one line)
 
-[placeholder]
-This address is not a workshop we know. Use the link you were sent.
+This address is not valid. Use the link you were sent.
 
 ## Error: WORKSHOP_CLOSED (one line)
 
-[placeholder]
 This workshop has closed and no longer takes answers.
 
 ## Error: JOIN_WAVE_UNKNOWN (one line)
 
-[placeholder]
 This link is not one we sent. Check the address in the email.
 
 ## Error: JOIN_WAVE_FULL (one line)
 
-[placeholder]
 This link has reached the number of people it can admit. Thank you for your interest.
 
 ## Error: JOIN_INVITE_INVALID (one line)
 
-[placeholder]
 This invite link is not one we know. Ask the person who sent it for a fresh one.
 
 ## Error: JOIN_INVITE_USED (one line)
 
-[placeholder]
 This invite link has already been used. Each one works once.
 
 ## Error: JOIN_CODE_TAKEN (one line)
 
-[placeholder]
 The code we made for you was already taken. Tap again to get a new one.
 
 ## Error: AUTH_CODE_MISSING (one line)
 
-[placeholder]
 Auth code missing. Open the link from your email again.
 
 ## Error: AUTH_CODE_UNKNOWN (one line)
 
-[placeholder]
 The link this phone remembered is not in use any more. Open the link from your email again.
 
 ## Error: SYNC_PAYLOAD_INVALID (one line)
 
-[placeholder]
 The server did not accept what this app sent. Your answers stay on this device; please tell us.
 
 ## Error: SYNC_BATCH_TOO_LARGE (one line)
 
-[placeholder]
 Too much to send at once. The app will try smaller pieces.
 
 ## Error: INVITES_EXHAUSTED (one line)
 
-[placeholder]
 You have used all your invites.
 
 ## Error: RATE_LIMITED (one line)
 
-[placeholder]
 Too many requests at once. Wait a moment and try again.
 
 ## Error: SERVER_ERROR (one line)
 
-[placeholder]
 Something went wrong on our side. Your answers stay on this device; try again in a moment.
 
 ## Error: SERVER_NOT_CONFIGURED (one line)
 
-[placeholder]
 The server is not ready. Your answers stay on this device; try again later.
 
 ## Error: CLIENT_STORAGE_UNAVAILABLE (one line)
 
-[placeholder]
 This browser will not keep anything between visits. You can still answer while this page is open; to continue later, open the link from your email again.
 
 ## Error: CLIENT_SEAL_FAILED (one line)
 
-[placeholder]
 Your answer could not be encrypted, so nothing was saved or sent. Try again.
 
 ## Error: CLIENT_SYNC_FAILED (one line)
 
-[placeholder]
 Could not reach the server. Your answers are saved on this device and will sync when you are online.
 
 ## Error: CLIENT_COPY_FAILED (one line)
 
 <!-- Shown on the invitation page only, to the person at Mechanism, when the browser refuses the clipboard (ADR 0021). -->
 
-[placeholder]
 The text could not be copied. Select it and copy it by hand.
 
 # Your own card
@@ -597,7 +512,6 @@ Your own card
 
 <!-- The line under the title. -->
 
-[placeholder]
 Is there something you already want to say that no card has asked? A story, an idea, a worry. Write it here, in your own words and at your own length.
 
 ## Own card: field (a few words)
@@ -633,14 +547,12 @@ Invitation links
 
 <!-- The line under the title. -->
 
-[placeholder]
 This page makes the links for one invitation. Press "New set", copy the text, and paste it into the email for one person. Then press "New set" again for the next person.
 
 ## Invitation page: rules
 
 <!-- The three rules of ADR 0021, shown as a list under the intro, one paragraph each. -->
 
-[placeholder]
 One set for one person. Never send the same set twice.
 
 Keep no list of who got which link. Nothing here is saved: a set is gone once you copy it or make a new one.
@@ -662,14 +574,12 @@ Text of the invitation
 
 <!-- Shown in place of the text once it is copied; the text is then gone from the page. -->
 
-[placeholder]
 Copied. Paste it into the email, then press "New set" for the next person.
 
 ## Invitation: text
 
 <!-- The text the person at Mechanism copies and pastes into the email, with a personal note around it. Plain text: no bold. The app fills [your link] with the recipient's own link and [spare link 1] and [spare link 2] with the two links to forward; keep each slot on a line of its own, and keep all three. -->
 
-[placeholder]
 This is your link, you can reopen it until December 6th:
 
 [your link]
@@ -684,14 +594,10 @@ To bring someone in, give them one of these two links instead. Each one starts c
 
 ## App labels
 
-[placeholder]
-
 - loading: Loading…
 - app name: World Builder
 
 ## Buttons (one or two words each)
-
-[placeholder]
 
 - about: About this app
 - back: Back
@@ -700,28 +606,21 @@ To bring someone in, give them one of these two links instead. Each one starts c
 
 ## Card labels
 
-[placeholder]
-
 - swipe hint: or swipe the card away
 
 ## Remind me (under 20 words)
 
 <!-- One quiet line with the "Remind me" link (Buttons, remind me) after it, which adds the "Reminder" below to the phone's own calendar. Shown in two places: at the foot of "Your world so far", in the sheet on a phone and in the column on a laptop, under the tiles and the set-aside cards; and on the "About this app" page, under "what this is". -->
 
-[placeholder]
 Come back whenever you like. Your calendar can nudge you twice a week.
 
 ## Buttons (one or two words each)
-
-[placeholder]
 
 - remind me: Remind me
 
 ## Reminder
 
 <!-- The calendar reminder behind "Remind me" (the block above): a repeating event the phone's own calendar shows twice a week until the close day. Nothing about the person is in it. [link] is the workshop's home address, filled in when the app is built. -->
-
-[placeholder]
 
 - summary: World Builder: a few more cards
 - description: A few quiet minutes with the next cards, whenever it suits you. [link]
