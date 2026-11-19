@@ -177,9 +177,9 @@ interface Animation {
  * What a browser has and the test DOM has not, given by hand: `element.animate`, which records
  * what it is asked and finishes only when the test says so, and a layout, where the card in
  * front, a tile (by the item that holds it), the pill and the open card each have a rectangle.
- * Everything else measures zeros, as before.
+ * Everything else measures zeros, as before. A test may put the tile somewhere else.
  */
-function withMotion() {
+function withMotion(tile: Rect = TILE) {
   const animations: Animation[] = [];
   Object.defineProperty(Element.prototype, 'animate', {
     configurable: true,
@@ -202,7 +202,7 @@ function withMotion() {
     const rect = this.matches('.stack button.card.front')
       ? FRONT
       : this.matches('.tile-item')
-        ? TILE
+        ? tile
         : this.matches('#world-pill')
           ? PILL
           : this.matches('.open-card')
@@ -330,6 +330,29 @@ describe('the travelling card in the page (ADR 0027)', () => {
     release();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(tile.classList.contains('lifted')).toBe(false);
+  });
+
+  it('a card saved whose tile is under the fold of the window sends nothing travelling: the save goes as before, and the tile is there after it', async () => {
+    // The test DOM's window is 1024 by 768; the tile is far down a long list.
+    const { animations } = withMotion(R(700, window.innerHeight + 400, 240, 150));
+    const app = await onACard({ wide: true });
+    const user = userEvent.setup();
+    renderApp(app);
+    const answered = app.card!.id;
+    await user.click(frontCard());
+    const dialog = await screen.findByRole('dialog', { name: app.card!.text });
+    await user.type(within(dialog).getByRole('textbox'), 'Far down the list');
+    const opened = animations.length;
+    const { asked, release } = heldWait(app);
+    await user.click(within(dialog).getByRole('button', { name: copy.item('Buttons', 'save') }));
+    await waitFor(() => expect(app.closing).toBe(true));
+    // Nothing was asked to move for the save, and no box is in the page.
+    expect(animations.length).toBe(opened);
+    expect(layer()).toBeNull();
+    expect(asked).toEqual([CLOSE_MS]);
+    release();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.querySelector(`[data-tile="${answered}"]`)).not.toBeNull();
   });
 
   it('a new blank card opens and closes with no travel; saved, it goes to its new tile, white with its line, and that tile is lifted until the open card has gone', async () => {

@@ -3183,7 +3183,9 @@ The integrator looked at it in a browser against a local server, stopping the an
 - **A scrollbar that takes room** (reviewer; Windows and Linux). The page stops scrolling under an open card, the scrollbar goes, and the page grows 15 pixels wider, so a card landed beside its place. The room for the scrollbar is now kept (`scrollbar-gutter: stable`). Not seen on Windows; a Mac's scrollbars take no room.
 - **"To the first tile on the right"** in the device script was true of a first answer only. It says "its tile".
 - Left as they are: pressing Esc within a quarter of a second of opening replaces one travelling card with the next, and may show a pop for a frame; and whether the last frame of a landing ever shows the card twice or not at all can only be seen at real speed.
-- Tests: the fade's test rewritten for the new rule (whole from the first frame, never dimmer then brighter), one added for a place off the screen, the stylesheet test of the open card's two keyframes (opacity only, and when). 687 tests in all.
+- Tests: the fade's test rewritten for the new rule (whole from the first frame, never dimmer then brighter), one added for a place off the screen, the stylesheet test of the open card's two keyframes (opacity only, and when).
+- **A second read by the reviewer** of the retiming: merge, no defect. It traced that the card is never nowhere: what was tapped is lifted and the travelling card is drawn before the next frame, and on a closing the travelling card covers the time between the open card's words going and the card showing again. It asked for one more test, that a tile under the fold really sends nothing travelling in the page, which is in. 688 tests in all.
+- Named by the second read, and left: where a scrollbar takes room, the strip kept for it is not dimmed while a card is open. And a new blank card, which nothing travels to, now shows the dimmed page alone for the first eighth of a second before it fades in.
 
 ### Closed here
 
